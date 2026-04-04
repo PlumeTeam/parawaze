@@ -72,4 +72,5 @@ export default function BottomNav({ onCreateReport }: BottomNavProps) {
         })}
       </div>
     </nav>
- 
+  );
+}
