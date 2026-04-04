@@ -137,14 +137,14 @@ export default function ShuttleListPage() {
       {/* Action buttons */}
       <div className="px-4 pt-4 flex gap-3">
         <button
-          onClick={() => router.push('/shuttle/new?type=offer')}
+          onClick={() => router.push('/shuttle/pick-locations?type=offer')}
           className="flex-1 flex items-center justify-center gap-2 bg-sky-500 text-white rounded-xl py-3 font-semibold text-sm shadow-sm active:bg-sky-600 transition-colors"
         >
           <Plus className="h-4 w-4" />
           Proposer une navette
         </button>
         <button
-          onClick={() => router.push('/shuttle/new?type=request')}
+          onClick={() => router.push('/shuttle/pick-locations?type=request')}
           className="flex-1 flex items-center justify-center gap-2 bg-amber-500 text-white rounded-xl py-3 font-semibold text-sm shadow-sm active:bg-amber-600 transition-colors"
         >
           <Search className="h-4 w-4" />

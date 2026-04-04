@@ -72,9 +72,19 @@ export function useShuttles() {
         expires_at: expiresAt.toISOString(),
       };
 
-      if (input.latitude && input.longitude) {
+      // Two-pin location picker (preferred)
+      if (input.meeting_lat != null && input.meeting_lng != null) {
+        shuttleData.meeting_point = `POINT(${input.meeting_lng} ${input.meeting_lat})`;
+        shuttleData.meeting_point_alt = input.meeting_alt || null;
+      } else if (input.latitude && input.longitude) {
+        // Legacy single-pin fallback
         shuttleData.meeting_point = `POINT(${input.longitude} ${input.latitude})`;
         shuttleData.meeting_point_alt = input.altitude_m || null;
+      }
+
+      if (input.dest_lat != null && input.dest_lng != null) {
+        shuttleData.destination = `POINT(${input.dest_lng} ${input.dest_lat})`;
+        shuttleData.destination_alt = input.dest_alt || null;
       }
 
       const { data, error } = await supabase

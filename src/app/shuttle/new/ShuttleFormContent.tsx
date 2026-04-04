@@ -2,12 +2,20 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, MapPin } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useShuttles } from '@/hooks/useShuttles';
 import BottomNav from '@/components/shared/BottomNav';
 import LoadingSpinner from '@/components/shared/LoadingSpinner';
 import type { ShuttleType } from '@/lib/types';
+
+function formatCoordDisplay(lat: number, lng: number, alt?: number): string {
+  const latDir = lat >= 0 ? 'N' : 'S';
+  const lngDir = lng >= 0 ? 'E' : 'W';
+  const coords = `${Math.abs(lat).toFixed(4)}\u00B0 ${latDir}, ${Math.abs(lng).toFixed(4)}\u00B0 ${lngDir}`;
+  const altStr = alt != null ? ` \u00B7 ${alt}m` : '';
+  return `${coords}${altStr}`;
+}
 
 export default function ShuttleFormContent() {
   const { user, loading: authLoading } = useAuth();
@@ -15,11 +23,22 @@ export default function ShuttleFormContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // Read map pin coords from query params (same as observation flow)
+  // Two-pin location coords from pick-locations page
+  const mlat = searchParams.get('mlat') ? parseFloat(searchParams.get('mlat')!) : undefined;
+  const mlng = searchParams.get('mlng') ? parseFloat(searchParams.get('mlng')!) : undefined;
+  const malt = searchParams.get('malt') ? parseFloat(searchParams.get('malt')!) : undefined;
+  const dlat = searchParams.get('dlat') ? parseFloat(searchParams.get('dlat')!) : undefined;
+  const dlng = searchParams.get('dlng') ? parseFloat(searchParams.get('dlng')!) : undefined;
+  const dalt = searchParams.get('dalt') ? parseFloat(searchParams.get('dalt')!) : undefined;
+
+  // Legacy single-pin params
   const lat = searchParams.get('lat') ? parseFloat(searchParams.get('lat')!) : undefined;
   const lng = searchParams.get('lng') ? parseFloat(searchParams.get('lng')!) : undefined;
   const alt = searchParams.get('alt') ? parseFloat(searchParams.get('alt')!) : undefined;
+
   const typeParam = searchParams.get('type') as ShuttleType | null;
+
+  const hasTwoPins = mlat != null && mlng != null && dlat != null && dlng != null;
 
   const [shuttleType, setShuttleType] = useState<ShuttleType>(typeParam || 'offer');
   const [meetingPointName, setMeetingPointName] = useState('');
@@ -53,16 +72,12 @@ export default function ShuttleFormContent() {
     e.preventDefault();
     if (!user) return;
 
-    if (!meetingPointName.trim()) {
-      setError('Indiquez un lieu de rencontre');
-      return;
-    }
-    if (!destinationName.trim()) {
-      setError('Indiquez la destination');
+    if (!hasTwoPins && !meetingPointName.trim()) {
+      setError('Indiquez un lieu de rencontre ou choisissez sur la carte');
       return;
     }
     if (!departureTime) {
-      setError("Indiquez l'heure de d\u00e9part");
+      setError("Indiquez l'heure de d\u00E9part");
       return;
     }
 
@@ -73,14 +88,22 @@ export default function ShuttleFormContent() {
       await createShuttle(
         {
           shuttle_type: shuttleType,
-          meeting_point_name: meetingPointName.trim(),
-          destination_name: destinationName.trim(),
+          meeting_point_name: meetingPointName.trim() || (hasTwoPins ? 'Point sur la carte' : ''),
+          destination_name: destinationName.trim() || (hasTwoPins ? 'Point sur la carte' : ''),
           departure_time: new Date(departureTime).toISOString(),
           total_seats: totalSeats,
           price_per_person: pricePerPerson ? parseFloat(pricePerPerson) : null,
           return_requested: returnRequested,
           return_time: returnRequested && returnTime ? new Date(returnTime).toISOString() : null,
           description: description.trim() || null,
+          // Two-pin coords
+          meeting_lat: mlat,
+          meeting_lng: mlng,
+          meeting_alt: malt,
+          dest_lat: dlat,
+          dest_lng: dlng,
+          dest_alt: dalt,
+          // Legacy single-pin
           latitude: lat,
           longitude: lng,
           altitude_m: alt,
@@ -90,7 +113,7 @@ export default function ShuttleFormContent() {
 
       router.push('/shuttle');
     } catch (err: any) {
-      setError(err.message || 'Erreur lors de la cr\u00e9ation');
+      setError(err.message || 'Erreur lors de la cr\u00E9ation');
     } finally {
       setSubmitting(false);
     }
@@ -105,8 +128,6 @@ export default function ShuttleFormContent() {
   }
 
   if (!user) return null;
-
-  const hasCoords = lat !== undefined && lng !== undefined;
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
@@ -134,7 +155,7 @@ export default function ShuttleFormContent() {
                   : 'bg-white text-gray-600 border border-gray-200'
               }`}
             >
-              {'\u{1F690}'} Je propose
+              {'\uD83D\uDE90'} Je propose
             </button>
             <button
               type="button"
@@ -145,54 +166,111 @@ export default function ShuttleFormContent() {
                   : 'bg-white text-gray-600 border border-gray-200'
               }`}
             >
-              {'\u{1F44D}'} Je cherche
+              {'\uD83D\uDC4D'} Je cherche
             </button>
           </div>
         </div>
 
-        {/* Meeting point */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Lieu de rencontre (atterrissage)
-          </label>
-          {hasCoords && (
-            <p className="text-xs text-green-600 mb-1">
-              {'\u{1F4CD}'} Position plac\u00e9e sur la carte ({lat!.toFixed(4)}, {lng!.toFixed(4)}
-              {alt ? ` \u00b7 ${alt}m` : ''})
-            </p>
-          )}
-          {!hasCoords && (
-            <p className="text-xs text-gray-400 mb-1">
-              Astuce : placez un point sur la carte avant de cr\u00e9er la navette
-            </p>
-          )}
-          <input
-            type="text"
-            value={meetingPointName}
-            onChange={(e) => setMeetingPointName(e.target.value)}
-            placeholder="Ex: Parking de l'atterro de Doussard"
-            className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-sm focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none"
-          />
-        </div>
+        {/* Locations section */}
+        {hasTwoPins ? (
+          <div className="space-y-3">
+            {/* Meeting point display */}
+            <div className="bg-green-50 border border-green-200 rounded-xl p-3">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-lg">{'\uD83D\uDFE2'}</span>
+                <span className="text-sm font-semibold text-green-800">D{'\u00E9'}part</span>
+              </div>
+              <p className="text-xs text-green-700 ml-7">
+                {formatCoordDisplay(mlat!, mlng!, malt)}
+              </p>
+              <input
+                type="text"
+                value={meetingPointName}
+                onChange={(e) => setMeetingPointName(e.target.value)}
+                placeholder="Nom du point de d\u00E9part (optionnel)"
+                className="w-full mt-2 px-3 py-2 rounded-lg border border-green-200 bg-white text-sm focus:ring-2 focus:ring-green-400 focus:border-transparent outline-none"
+              />
+            </div>
 
-        {/* Destination */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Lieu de d\u00e9collage (destination)
-          </label>
-          <input
-            type="text"
-            value={destinationName}
-            onChange={(e) => setDestinationName(e.target.value)}
-            placeholder="Ex: Col de la Forclaz"
-            className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-sm focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none"
-          />
-        </div>
+            {/* Destination display */}
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-3">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-lg">{'\uD83D\uDD35'}</span>
+                <span className="text-sm font-semibold text-blue-800">Arriv{'\u00E9'}e (d{'\u00E9'}collage)</span>
+              </div>
+              <p className="text-xs text-blue-700 ml-7">
+                {formatCoordDisplay(dlat!, dlng!, dalt)}
+              </p>
+              <input
+                type="text"
+                value={destinationName}
+                onChange={(e) => setDestinationName(e.target.value)}
+                placeholder="Nom du lieu de d\u00E9collage (optionnel)"
+                className="w-full mt-2 px-3 py-2 rounded-lg border border-blue-200 bg-white text-sm focus:ring-2 focus:ring-blue-400 focus:border-transparent outline-none"
+              />
+            </div>
+
+            {/* Change locations link */}
+            <button
+              type="button"
+              onClick={() => router.push(`/shuttle/pick-locations?type=${shuttleType}`)}
+              className="flex items-center gap-1.5 text-xs text-sky-600 font-medium"
+            >
+              <MapPin className="h-3.5 w-3.5" />
+              Modifier les positions sur la carte
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {/* No coords — show pick on map button */}
+            <button
+              type="button"
+              onClick={() => router.push(`/shuttle/pick-locations?type=${shuttleType}`)}
+              className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-green-500 to-blue-500 text-white rounded-xl py-3.5 font-semibold text-sm shadow-sm active:opacity-90 transition-opacity"
+            >
+              <MapPin className="h-4 w-4" />
+              Choisir les lieux sur la carte
+            </button>
+
+            <div className="relative flex items-center justify-center">
+              <div className="border-t border-gray-200 w-full" />
+              <span className="absolute bg-gray-50 px-3 text-xs text-gray-400">ou saisir manuellement</span>
+            </div>
+
+            {/* Meeting point text input */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Lieu de rencontre (atterrissage)
+              </label>
+              <input
+                type="text"
+                value={meetingPointName}
+                onChange={(e) => setMeetingPointName(e.target.value)}
+                placeholder="Ex: Parking de l'atterro de Doussard"
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-sm focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none"
+              />
+            </div>
+
+            {/* Destination text input */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Lieu de d{'\u00E9'}collage (destination)
+              </label>
+              <input
+                type="text"
+                value={destinationName}
+                onChange={(e) => setDestinationName(e.target.value)}
+                placeholder="Ex: Col de la Forclaz"
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-sm focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none"
+              />
+            </div>
+          </div>
+        )}
 
         {/* Departure time */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Heure de d\u00e9part
+            Heure de d{'\u00E9'}part
           </label>
           <input
             type="datetime-local"
@@ -242,7 +320,7 @@ export default function ShuttleFormContent() {
               placeholder="Gratuit"
               className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-sm focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none pr-10"
             />
-            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm">{'\u20ac'}</span>
+            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm">{'\u20AC'}</span>
           </div>
         </div>
 
@@ -256,13 +334,13 @@ export default function ShuttleFormContent() {
               className="w-5 h-5 rounded border-gray-300 text-sky-500 focus:ring-sky-500"
             />
             <span className="text-sm font-medium text-gray-700">
-              {'\u{1F504}'} Je cherche aussi une navette retour
+              {'\uD83D\uDD04'} Je cherche aussi une navette retour
             </span>
           </label>
           {returnRequested && (
             <div className="mt-3 ml-8">
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Heure de retour souhait\u00e9e
+                Heure de retour souhait{'\u00E9'}e
               </label>
               <input
                 type="datetime-local"
@@ -282,7 +360,7 @@ export default function ShuttleFormContent() {
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Ex: Van 7 places, d\u00e9part parking de l'atterro"
+            placeholder="Ex: Van 7 places, d\u00E9part parking de l'atterro"
             rows={3}
             className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-sm focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none resize-none"
           />
@@ -301,7 +379,7 @@ export default function ShuttleFormContent() {
           disabled={submitting}
           className="w-full py-4 rounded-xl bg-gradient-to-r from-sky-500 to-sky-600 text-white font-bold text-base shadow-lg disabled:opacity-50 active:from-sky-600 active:to-sky-700 transition-all"
         >
-          {submitting ? 'Cr\u00e9ation...' : shuttleType === 'offer' ? 'Proposer la navette' : 'Publier ma recherche'}
+          {submitting ? 'Cr\u00E9ation...' : shuttleType === 'offer' ? 'Proposer la navette' : 'Publier ma recherche'}
         </button>
       </form>
 

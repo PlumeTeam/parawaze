@@ -142,6 +142,13 @@ export interface CreateShuttleInput {
   latitude?: number;
   longitude?: number;
   altitude_m?: number;
+  // Two-pin location picker fields
+  meeting_lat?: number;
+  meeting_lng?: number;
+  meeting_alt?: number;
+  dest_lat?: number;
+  dest_lng?: number;
+  dest_alt?: number;
 }
 
 // Database type for supabase-js generics
