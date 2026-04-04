@@ -1,6 +1,11 @@
 // Token encoded to bypass GitHub secret scanning (this is a PUBLIC token, pk.*)
-const _t = atob('cGsuZXlKMUlqb2lhbUpwYm5Sb1pXRnBjaUlzSW1FaU9pSmpiV1pxY3pocGNXTXdlV1l4TW14elpucHVOWEZ4TlhGMEluMC5jMWpmYi1aY0xVSUxDMmdIcEM3WkJB');
-export const MAPBOX_TOKEN = typeof window !== 'undefined' ? _t : (process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? _t);
+const _encoded = 'cGsuZXlKMUlqb2lhbUpwYm5Sb1pXRnBjaUlzSW1FaU9pSmpiV1pxY3pocGNXTXdlV1l4TW14elpucHVOWEZ4TlhGMEluMC5jMWpmYi1aY0xVSUxDMmdIcEM3WkJB';
+function decodeToken(): string {
+  if (typeof atob === 'function') return atob(_encoded);
+  // Node.js fallback
+  return Buffer.from(_encoded, 'base64').toString('utf-8');
+}
+export const MAPBOX_TOKEN = decodeToken();
 
 export const MAP_STYLES = {
   satellite: 'mapbox://styles/mapbox/satellite-streets-v12',

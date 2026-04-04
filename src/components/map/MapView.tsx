@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useEffect, useState, useCallback } from 'react';
+import 'mapbox-gl/dist/mapbox-gl.css';
 import {
   MAPBOX_TOKEN,
   MAP_STYLES,
@@ -27,6 +28,7 @@ export default function MapView({ reports, onReportClick, onMapMove }: MapViewPr
   const mbRef = useRef<typeof mapboxgl | null>(null);
   const [mapStyle, setMapStyle] = useState<MapStyleKey>('outdoors');
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Initialize map — dynamically import mapbox-gl to avoid SSR issues
   useEffect(() => {
@@ -38,14 +40,6 @@ export default function MapView({ reports, onReportClick, onMapMove }: MapViewPr
       try {
         // Dynamic import ensures mapbox-gl is only loaded in the browser
         const mb = (await import('mapbox-gl')).default;
-
-        // Load CSS if not already present
-        if (!document.querySelector('link[href*="mapbox-gl"]')) {
-          const link = document.createElement('link');
-          link.rel = 'stylesheet';
-          link.href = 'https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.css';
-          document.head.appendChild(link);
-        }
 
         if (cancelled) return;
 
@@ -74,6 +68,7 @@ export default function MapView({ reports, onReportClick, onMapMove }: MapViewPr
         mapRef.current = map;
       } catch (err) {
         console.error('[ParaWaze] Failed to load mapbox-gl:', err);
+        setError(err instanceof Error ? err.message : String(err));
       }
     })();
 
@@ -179,7 +174,12 @@ export default function MapView({ reports, onReportClick, onMapMove }: MapViewPr
 
   return (
     <div className="relative w-full h-full">
-      <div ref={mapContainer} className="absolute inset-0" />
+      {error && (
+        <div className="absolute top-0 left-0 right-0 bg-red-600 text-white text-sm px-4 py-2 z-50">
+          Map error: {error}
+        </div>
+      )}
+      <div ref={mapContainer} className="absolute inset-0" style={{ height: '100%', width: '100%' }} />
 
       {/* Map controls */}
       <div className="absolute top-4 right-4 flex flex-col gap-2 z-10">

@@ -88,7 +88,7 @@ export default function MapPage() {
       </header>
 
       {/* Map */}
-      <main className="flex-1 relative">
+      <main className="flex-1 relative" style={{ minHeight: 0 }}>
         <MapView
           reports={reports}
           onReportClick={handleReportClick}
