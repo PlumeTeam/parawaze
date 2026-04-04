@@ -5,11 +5,12 @@ import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { useAuth } from '@/hooks/useAuth';
 import { useReports } from '@/hooks/useReports';
+import { useShuttles } from '@/hooks/useShuttles';
 import type { DayFilter } from '@/hooks/useReports';
 import ReportBottomSheet from '@/components/map/ReportBottomSheet';
 import BottomNav from '@/components/shared/BottomNav';
 import LoadingSpinner from '@/components/shared/LoadingSpinner';
-import type { WeatherReport } from '@/lib/types';
+import type { WeatherReport, Shuttle } from '@/lib/types';
 import type { MapViewHandle } from '@/components/map/MapView';
 
 // Dynamic import MapView to avoid SSR issues with mapbox-gl
@@ -31,6 +32,7 @@ const DAY_LABELS: Record<DayFilter, string> = {
 export default function MapPage() {
   const { user, profile, loading: authLoading } = useAuth();
   const { reports, loading: reportsLoading, fetchReportsByDay } = useReports();
+  const { shuttles, fetchShuttles } = useShuttles();
   const [selectedReport, setSelectedReport] = useState<WeatherReport | null>(null);
   const [selectedDay, setSelectedDay] = useState<DayFilter>('today');
   const [toast, setToast] = useState<string | null>(null);
@@ -49,6 +51,11 @@ export default function MapPage() {
     fetchReportsByDay(selectedDay);
   }, [selectedDay, fetchReportsByDay]);
 
+  // Fetch shuttles once
+  useEffect(() => {
+    fetchShuttles();
+  }, [fetchShuttles]);
+
   // Auto-hide toast after 3 seconds
   useEffect(() => {
     if (!toast) return;
@@ -58,6 +65,10 @@ export default function MapPage() {
 
   const handleReportClick = (report: WeatherReport) => {
     setSelectedReport(report);
+  };
+
+  const handleShuttleClick = (shuttle: Shuttle) => {
+    router.push(`/shuttle/${shuttle.id}`);
   };
 
   const handleViewDetail = (report: WeatherReport) => {
@@ -151,7 +162,9 @@ export default function MapPage() {
         <MapView
           ref={mapRef}
           reports={reports}
+          shuttles={shuttles}
           onReportClick={handleReportClick}
+          onShuttleClick={handleShuttleClick}
           onMapMove={handleMapMove}
           onMarkerPlaced={handleMarkerPlaced}
         />

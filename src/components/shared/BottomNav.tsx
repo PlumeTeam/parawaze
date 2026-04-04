@@ -1,11 +1,12 @@
 'use client';
 
 import { usePathname, useRouter } from 'next/navigation';
-import { Map, PlusCircle, User } from 'lucide-react';
+import { Map, PlusCircle, Truck, User } from 'lucide-react';
 
 const navItems = [
   { href: '/map', label: 'Carte', icon: Map },
   { href: '/report/new', label: 'Observation', icon: PlusCircle },
+  { href: '/shuttle', label: 'Navette', icon: Truck },
   { href: '/profile', label: 'Profil', icon: User },
 ];
 
@@ -71,5 +72,4 @@ export default function BottomNav({ onCreateReport }: BottomNavProps) {
         })}
       </div>
     </nav>
-  );
-}
+ 

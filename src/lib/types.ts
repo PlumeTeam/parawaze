@@ -95,6 +95,55 @@ export interface CreateReportInput {
   tags?: string[];
 }
 
+// Shuttle types
+export type ShuttleType = 'offer' | 'request';
+
+export interface Shuttle {
+  id: string;
+  author_id: string;
+  shuttle_type: ShuttleType;
+  meeting_point: { type: 'Point'; coordinates: [number, number] } | null;
+  meeting_point_name: string | null;
+  meeting_point_alt: number | null;
+  destination: { type: 'Point'; coordinates: [number, number] } | null;
+  destination_name: string | null;
+  destination_alt: number | null;
+  departure_time: string;
+  total_seats: number;
+  taken_seats: number;
+  price_per_person: number | null;
+  return_requested: boolean;
+  return_time: string | null;
+  description: string | null;
+  is_active: boolean;
+  expires_at: string;
+  created_at: string;
+  profiles?: Profile;
+}
+
+export interface ShuttlePassenger {
+  id: string;
+  shuttle_id: string;
+  user_id: string;
+  seats_taken: number;
+  profiles?: Profile;
+}
+
+export interface CreateShuttleInput {
+  shuttle_type: ShuttleType;
+  meeting_point_name: string;
+  destination_name: string;
+  departure_time: string;
+  total_seats: number;
+  price_per_person?: number | null;
+  return_requested: boolean;
+  return_time?: string | null;
+  description?: string | null;
+  latitude?: number;
+  longitude?: number;
+  altitude_m?: number;
+}
+
 // Database type for supabase-js generics
 export interface Database {
   public: {
@@ -123,8 +172,4 @@ export interface Database {
     Functions: {
       get_reports_in_radius: {
         Args: { lat: number; lng: number; radius_km: number };
-        Returns: WeatherReport[];
-      };
-    };
-  };
-}
+        Returns: WeatherRe

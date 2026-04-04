@@ -10,7 +10,7 @@ import {
   flyabilityColor,
   type MapStyleKey,
 } from '@/lib/mapbox';
-import type { WeatherReport } from '@/lib/types';
+import type { WeatherReport, Shuttle } from '@/lib/types';
 
 // mapbox-gl types only — the actual library is loaded dynamically below
 import type mapboxgl from 'mapbox-gl';
@@ -28,15 +28,18 @@ export interface MapViewHandle {
 
 interface MapViewProps {
   reports: WeatherReport[];
+  shuttles?: Shuttle[];
   onReportClick: (report: WeatherReport) => void;
+  onShuttleClick?: (shuttle: Shuttle) => void;
   onMapMove?: (center: { lat: number; lng: number }) => void;
   onMarkerPlaced?: (pos: MarkerPosition) => void;
 }
 
-const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView({ reports, onReportClick, onMapMove, onMarkerPlaced }, ref) {
+const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView({ reports, shuttles = [], onReportClick, onShuttleClick, onMapMove, onMarkerPlaced }, ref) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
+  const shuttleMarkersRef = useRef<mapboxgl.Marker[]>([]);
   const mbRef = useRef<typeof mapboxgl | null>(null);
   const [mapStyle, setMapStyle] = useState<MapStyleKey>('outdoors');
   const [mapLoaded, setMapLoaded] = useState(false);
@@ -248,6 +251,57 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView({ repor
     });
   }, [reports, onReportClick]);
 
+  // Update shuttle markers
+  useEffect(() => {
+    if (!mapRef.current || !mbRef.current) return;
+    const mb = mbRef.current;
+
+    // Clear existing shuttle markers
+    shuttleMarkersRef.current.forEach((m) => m.remove());
+    shuttleMarkersRef.current = [];
+
+    shuttles.forEach((shuttle) => {
+      if (!shuttle.meeting_point) return;
+      const coords = shuttle.meeting_point.coordinates;
+      if (!coords || coords.length < 2) return;
+
+      const isFull = shuttle.taken_seats >= shuttle.total_seats;
+      const borderColor = isFull ? '#ef4444' : '#22c55e';
+
+      const el = document.createElement('div');
+      el.className = 'parawaze-shuttle-marker';
+      el.style.cssText = `
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: white;
+        border: 3px solid ${borderColor};
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        transition: transform 0.2s;
+      `;
+      el.textContent = '\u{1F690}';
+
+      el.addEventListener('mouseenter', () => { el.style.transform = 'scale(1.2)'; });
+      el.addEventListener('mouseleave', () => { el.style.transform = 'scale(1)'; });
+
+      const marker = new mb.Marker({ element: el })
+        .setLngLat([coords[0], coords[1]])
+        .addTo(mapRef.current!);
+
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        onShuttleClick?.(shuttle);
+      });
+
+      shuttleMarkersRef.current.push(marker);
+    });
+  }, [shuttles, onShuttleClick]);
+
   const flyToLocation = useCallback((lng: number, lat: number, zoom = 13) => {
     mapRef.current?.flyTo({ center: [lng, lat], zoom, duration: 1500 });
   }, []);
@@ -340,3 +394,4 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView({ repor
 });
 
 export default MapView;
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
