@@ -46,9 +46,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView({ repor
   const markerPositionRef = useRef<MarkerPosition | null>(null);
   const [markerInfo, setMarkerInfo] = useState<MarkerPosition | null>(null);
 
-  // Tap vs drag detection refs
-  const pointerDownPos = useRef<{ x: number; y: number } | null>(null);
-  const pointerDownTime = useRef<number>(0);
+  // (tap detection handled by Mapbox GL's built-in click event)
 
   // Expose getCenter and getMarkerPosition to parent via ref
   useImperativeHandle(ref, () => ({
@@ -184,39 +182,12 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView({ repor
           onMapMove?.({ lat: center.lat, lng: center.lng });
         });
 
-        // --- Tap-to-place: distinguish tap from drag ---
-        const onPointerDown = (e: MouseEvent | TouchEvent) => {
-          const pt = 'touches' in e ? e.touches[0] : e;
-          pointerDownPos.current = { x: pt.clientX, y: pt.clientY };
-          pointerDownTime.current = Date.now();
-        };
-
-        const onPointerUp = (e: MouseEvent | TouchEvent) => {
-          if (!pointerDownPos.current) return;
-          const pt = 'changedTouches' in e ? e.changedTouches[0] : e;
-          const dx = pt.clientX - pointerDownPos.current.x;
-          const dy = pt.clientY - pointerDownPos.current.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          const elapsed = Date.now() - pointerDownTime.current;
-
-          pointerDownPos.current = null;
-
-          // It's a tap if pointer moved < 10px AND held < 500ms
-          if (dist < 10 && elapsed < 500) {
-            // Convert screen point to map lngLat
-            const rect = map.getCanvas().getBoundingClientRect();
-            const x = pt.clientX - rect.left;
-            const y = pt.clientY - rect.top;
-            const lngLat = map.unproject([x, y]);
-            placeMarker({ lng: lngLat.lng, lat: lngLat.lat });
-          }
-        };
-
-        const canvas = map.getCanvas();
-        canvas.addEventListener('mousedown', onPointerDown);
-        canvas.addEventListener('mouseup', onPointerUp);
-        canvas.addEventListener('touchstart', onPointerDown, { passive: true });
-        canvas.addEventListener('touchend', onPointerUp);
+        // --- Tap-to-place: use Mapbox GL's built-in click event ---
+        // This automatically distinguishes clicks from drags and provides
+        // geographic coordinates directly (no manual pixel→lngLat conversion).
+        map.on('click', (e) => {
+          placeMarker({ lng: e.lngLat.lng, lat: e.lngLat.lat });
+        });
 
         mapRef.current = map;
       } catch (err) {
