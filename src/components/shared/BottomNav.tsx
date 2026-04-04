@@ -5,12 +5,12 @@ import { Map, PlusCircle, User } from 'lucide-react';
 
 const navItems = [
   { href: '/map', label: 'Carte', icon: Map },
-  { href: '/report/new', label: 'Signaler', icon: PlusCircle },
+  { href: '/report/new', label: 'Observation', icon: PlusCircle },
   { href: '/profile', label: 'Profil', icon: User },
 ];
 
 interface BottomNavProps {
-  /** When provided, the "Signaler" button calls this instead of navigating directly */
+  /** When provided, the "Observation" button calls this instead of navigating directly */
   onCreateReport?: () => void;
 }
 
