@@ -173,8 +173,9 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView({ repor
         // This automatically distinguishes clicks from drags and provides
         // geographic coordinates directly (no manual pixel→lngLat conversion).
         map.on('click', (e) => {
-          // Skip if a report/shuttle marker was clicked in the last 300ms
-          if (Date.now() - lastMarkerClickTime.current < 300) {
+          // Check if the click landed on a marker element — if so, skip pin placement
+          const target = e.originalEvent.target as HTMLElement;
+          if (target && target.closest('.parawaze-marker, .parawaze-shuttle-marker, .mapboxgl-marker')) {
             return;
           }
           placeMarker({ lng: e.lngLat.lng, lat: e.lngLat.lat });
