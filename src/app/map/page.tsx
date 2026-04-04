@@ -25,6 +25,7 @@ export default function MapPage() {
   const { user, profile, loading: authLoading } = useAuth();
   const { reports, loading: reportsLoading, fetchReportsInRadius } = useReports();
   const [selectedReport, setSelectedReport] = useState<WeatherReport | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
   const router = useRouter();
   const mapRef = useRef<MapViewHandle>(null);
 
@@ -33,6 +34,13 @@ export default function MapPage() {
       router.replace('/auth');
     }
   }, [user, authLoading, router]);
+
+  // Auto-hide toast after 3 seconds
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 3000);
+    return () => clearTimeout(t);
+  }, [toast]);
 
   const handleReportClick = (report: WeatherReport) => {
     setSelectedReport(report);
@@ -47,13 +55,14 @@ export default function MapPage() {
     // fetchReportsInRadius(center.lat, center.lng, 50);
   };
 
-  // Called by BottomNav when "Signaler" is tapped — grabs map center and navigates
+  // Called by BottomNav when "Signaler" is tapped — uses marker position
   const handleCreateReport = useCallback(() => {
-    const center = mapRef.current?.getCenter();
-    if (center) {
-      router.push(`/report/new?lat=${center.lat.toFixed(6)}&lng=${center.lng.toFixed(6)}`);
+    const marker = mapRef.current?.getMarkerPosition();
+    if (marker) {
+      const altParam = marker.alt !== null ? `&alt=${marker.alt}` : '';
+      router.push(`/report/new?lat=${marker.lat.toFixed(6)}&lng=${marker.lng.toFixed(6)}${altParam}`);
     } else {
-      router.push('/report/new');
+      setToast('Touchez la carte pour placer votre observation');
     }
   }, [router]);
 
@@ -114,9 +123,16 @@ export default function MapPage() {
           onSelectReport={setSelectedReport}
           onViewDetail={handleViewDetail}
         />
+
+        {/* Toast message */}
+        {toast && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-gray-900/90 backdrop-blur-sm text-white text-sm px-5 py-3 rounded-2xl shadow-lg animate-fade-in font-medium">
+            {toast}
+          </div>
+        )}
       </main>
 
-      {/* Bottom nav — pass handler so "Signaler" captures map center */}
+      {/* Bottom nav — pass handler so "Signaler" uses marker position */}
       <BottomNav onCreateReport={handleCreateReport} />
     </div>
   );

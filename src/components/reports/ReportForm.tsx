@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Camera, MapPin, Send, X, Crosshair } from 'lucide-react';
+import { Camera, MapPin, Send, X } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useReports } from '@/hooks/useReports';
 import StarRating from '@/components/shared/StarRating';
@@ -17,12 +17,14 @@ export default function ReportForm() {
   const searchParams = useSearchParams();
   const fileRef = useRef<HTMLInputElement>(null);
 
-  // Read lat/lng from query params (passed from map center)
+  // Read lat/lng/alt from query params (passed from map marker)
   const paramLat = searchParams.get('lat');
   const paramLng = searchParams.get('lng');
+  const paramAlt = searchParams.get('alt');
   const hasMapCoords = paramLat !== null && paramLng !== null;
   const mapLat = hasMapCoords ? parseFloat(paramLat) : null;
   const mapLng = hasMapCoords ? parseFloat(paramLng) : null;
+  const mapAlt = paramAlt !== null ? parseInt(paramAlt) : null;
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -30,7 +32,7 @@ export default function ReportForm() {
   // Form state
   const [reportType, setReportType] = useState<ReportType>('observation');
   const [locationName, setLocationName] = useState('');
-  const [altitudeM, setAltitudeM] = useState('');
+  const [altitudeM, setAltitudeM] = useState(mapAlt !== null ? String(mapAlt) : '');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [windSpeed, setWindSpeed] = useState('');
@@ -153,10 +155,10 @@ export default function ReportForm() {
         <label className="block text-sm font-semibold text-gray-700 mb-2">Position</label>
         {hasMapCoords ? (
           <div className="bg-sky-50 border border-sky-200 rounded-xl px-4 py-3 flex items-center gap-3">
-            <Crosshair className="h-5 w-5 text-sky-500 flex-shrink-0" />
+            <MapPin className="h-5 w-5 text-sky-500 flex-shrink-0" />
             <div>
               <p className="text-sm font-medium text-gray-800">
-                {formatCoord(mapLat!, mapLng!)}
+                {formatCoord(mapLat!, mapLng!)}{mapAlt !== null ? ` \u00B7 Alt. ${mapAlt}m` : ''}
               </p>
               <p className="text-xs text-gray-500 mt-0.5">Position choisie sur la carte</p>
             </div>

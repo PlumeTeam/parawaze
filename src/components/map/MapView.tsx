@@ -15,8 +15,15 @@ import type { WeatherReport } from '@/lib/types';
 // mapbox-gl types only — the actual library is loaded dynamically below
 import type mapboxgl from 'mapbox-gl';
 
+export interface MarkerPosition {
+  lat: number;
+  lng: number;
+  alt: number | null;
+}
+
 export interface MapViewHandle {
   getCenter: () => { lat: number; lng: number } | null;
+  getMarkerPosition: () => MarkerPosition | null;
 }
 
 interface MapViewProps {
@@ -34,14 +41,87 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView({ repor
   const [mapLoaded, setMapLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Expose getCenter to parent via ref
+  // Tap-to-place marker state
+  const placedMarkerRef = useRef<mapboxgl.Marker | null>(null);
+  const markerPositionRef = useRef<MarkerPosition | null>(null);
+  const [markerInfo, setMarkerInfo] = useState<MarkerPosition | null>(null);
+
+  // Tap vs drag detection refs
+  const pointerDownPos = useRef<{ x: number; y: number } | null>(null);
+  const pointerDownTime = useRef<number>(0);
+
+  // Expose getCenter and getMarkerPosition to parent via ref
   useImperativeHandle(ref, () => ({
     getCenter: () => {
       if (!mapRef.current) return null;
       const c = mapRef.current.getCenter();
       return { lat: c.lat, lng: c.lng };
     },
+    getMarkerPosition: () => {
+      return markerPositionRef.current;
+    },
   }));
+
+  /** Create a custom drop-pin marker element */
+  const createPinElement = useCallback(() => {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'parawaze-placed-pin';
+    wrapper.style.cssText = `
+      width: 40px;
+      height: 52px;
+      position: relative;
+      cursor: pointer;
+      filter: drop-shadow(0 3px 6px rgba(0,0,0,0.35));
+      animation: parawaze-pin-drop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+      pointer-events: none;
+    `;
+
+    // SVG drop-pin shape
+    wrapper.innerHTML = `
+      <svg width="40" height="52" viewBox="0 0 40 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M20 0C9 0 0 9 0 20c0 15 20 32 20 32s20-17 20-32C40 9 31 0 20 0z" fill="#EF4444"/>
+        <circle cx="20" cy="19" r="9" fill="white"/>
+        <circle cx="20" cy="19" r="5" fill="#EF4444"/>
+      </svg>
+    `;
+    return wrapper;
+  }, []);
+
+  /** Place (or move) the marker at given coordinates */
+  const placeMarker = useCallback((lngLat: { lng: number; lat: number }) => {
+    if (!mapRef.current || !mbRef.current) return;
+    const map = mapRef.current;
+    const mb = mbRef.current;
+
+    // Query terrain elevation (free, uses loaded DEM tiles)
+    let alt: number | null = null;
+    try {
+      const elev = map.queryTerrainElevation([lngLat.lng, lngLat.lat]);
+      if (elev !== null && elev !== undefined) {
+        alt = Math.round(elev);
+      }
+    } catch {
+      // Terrain not available — keep alt as null
+    }
+
+    const pos: MarkerPosition = { lat: lngLat.lat, lng: lngLat.lng, alt };
+    markerPositionRef.current = pos;
+    setMarkerInfo(pos);
+
+    // Remove existing placed marker
+    if (placedMarkerRef.current) {
+      placedMarkerRef.current.remove();
+      placedMarkerRef.current = null;
+    }
+
+    // Create new marker
+    const el = createPinElement();
+    const marker = new mb.Marker({ element: el, anchor: 'bottom' })
+      .setLngLat([lngLat.lng, lngLat.lat])
+      .addTo(map);
+
+    placedMarkerRef.current = marker;
+  }, [createPinElement]);
 
   // Initialize map — dynamically import mapbox-gl to avoid SSR issues
   useEffect(() => {
@@ -70,13 +150,73 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView({ repor
         map.addControl(new mb.AttributionControl({ compact: true }), 'bottom-left');
 
         map.on('load', () => {
-          if (!cancelled) setMapLoaded(true);
+          if (cancelled) return;
+          setMapLoaded(true);
+
+          // Add terrain DEM source for elevation queries
+          // exaggeration: 0 means no visual 3D but elevation data is available
+          if (!map.getSource('mapbox-dem')) {
+            map.addSource('mapbox-dem', {
+              type: 'raster-dem',
+              url: 'mapbox://mapbox.mapbox-terrain-dem-v1',
+              tileSize: 512,
+              maxzoom: 14,
+            });
+            map.setTerrain({ source: 'mapbox-dem', exaggeration: 0 });
+          }
+        });
+
+        // Re-add terrain after style change
+        map.on('style.load', () => {
+          if (!map.getSource('mapbox-dem')) {
+            map.addSource('mapbox-dem', {
+              type: 'raster-dem',
+              url: 'mapbox://mapbox.mapbox-terrain-dem-v1',
+              tileSize: 512,
+              maxzoom: 14,
+            });
+            map.setTerrain({ source: 'mapbox-dem', exaggeration: 0 });
+          }
         });
 
         map.on('moveend', () => {
           const center = map.getCenter();
           onMapMove?.({ lat: center.lat, lng: center.lng });
         });
+
+        // --- Tap-to-place: distinguish tap from drag ---
+        const onPointerDown = (e: MouseEvent | TouchEvent) => {
+          const pt = 'touches' in e ? e.touches[0] : e;
+          pointerDownPos.current = { x: pt.clientX, y: pt.clientY };
+          pointerDownTime.current = Date.now();
+        };
+
+        const onPointerUp = (e: MouseEvent | TouchEvent) => {
+          if (!pointerDownPos.current) return;
+          const pt = 'changedTouches' in e ? e.changedTouches[0] : e;
+          const dx = pt.clientX - pointerDownPos.current.x;
+          const dy = pt.clientY - pointerDownPos.current.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          const elapsed = Date.now() - pointerDownTime.current;
+
+          pointerDownPos.current = null;
+
+          // It's a tap if pointer moved < 10px AND held < 500ms
+          if (dist < 10 && elapsed < 500) {
+            // Convert screen point to map lngLat
+            const rect = map.getCanvas().getBoundingClientRect();
+            const x = pt.clientX - rect.left;
+            const y = pt.clientY - rect.top;
+            const lngLat = map.unproject([x, y]);
+            placeMarker({ lng: lngLat.lng, lat: lngLat.lat });
+          }
+        };
+
+        const canvas = map.getCanvas();
+        canvas.addEventListener('mousedown', onPointerDown);
+        canvas.addEventListener('mouseup', onPointerUp);
+        canvas.addEventListener('touchstart', onPointerDown, { passive: true });
+        canvas.addEventListener('touchend', onPointerUp);
 
         mapRef.current = map;
       } catch (err) {
@@ -100,12 +240,12 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView({ repor
     mapRef.current.setStyle(MAP_STYLES[mapStyle]);
   }, [mapStyle]);
 
-  // Update markers
+  // Update report markers
   useEffect(() => {
     if (!mapRef.current || !mbRef.current) return;
     const mb = mbRef.current;
 
-    // Clear existing markers
+    // Clear existing report markers
     markersRef.current.forEach((m) => m.remove());
     markersRef.current = [];
 
@@ -185,6 +325,15 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView({ repor
     standard: 'Plan',
   };
 
+  /** Format coordinates for the floating label */
+  const formatLabel = (pos: MarkerPosition) => {
+    const latDir = pos.lat >= 0 ? 'N' : 'S';
+    const lngDir = pos.lng >= 0 ? 'E' : 'W';
+    const coords = `${Math.abs(pos.lat).toFixed(4)}\u00B0 ${latDir}, ${Math.abs(pos.lng).toFixed(4)}\u00B0 ${lngDir}`;
+    const alt = pos.alt !== null ? ` \u00B7 ${pos.alt}m` : '';
+    return `\u{1F4CD} ${coords}${alt}`;
+  };
+
   return (
     <div className="relative w-full h-full">
       {error && (
@@ -194,16 +343,12 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView({ repor
       )}
       <div ref={mapContainer} className="absolute inset-0" style={{ height: '100%', width: '100%' }} />
 
-      {/* Center crosshair — shows user where their report will be placed */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-[5]">
-        <svg width="30" height="30" viewBox="0 0 30 30" fill="none" className="opacity-40">
-          <line x1="15" y1="4" x2="15" y2="12" stroke="#374151" strokeWidth="2" strokeLinecap="round" />
-          <line x1="15" y1="18" x2="15" y2="26" stroke="#374151" strokeWidth="2" strokeLinecap="round" />
-          <line x1="4" y1="15" x2="12" y2="15" stroke="#374151" strokeWidth="2" strokeLinecap="round" />
-          <line x1="18" y1="15" x2="26" y2="15" stroke="#374151" strokeWidth="2" strokeLinecap="round" />
-          <circle cx="15" cy="15" r="3" stroke="#374151" strokeWidth="1.5" fill="none" />
-        </svg>
-      </div>
+      {/* Marker info label — shown when a marker is placed */}
+      {markerInfo && (
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 bg-gray-900/85 backdrop-blur-sm text-white text-sm px-4 py-2.5 rounded-2xl shadow-lg pointer-events-none whitespace-nowrap font-medium">
+          {formatLabel(markerInfo)}
+        </div>
+      )}
 
       {/* Map controls */}
       <div className="absolute top-4 right-4 flex flex-col gap-2 z-10">
@@ -237,6 +382,27 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView({ repor
           </svg>
         </button>
       </div>
+
+      {/* CSS keyframes for pin drop animation */}
+      <style>{`
+        @keyframes parawaze-pin-drop {
+          0% {
+            transform: translateY(-40px) scale(0.6);
+            opacity: 0;
+          }
+          60% {
+            transform: translateY(4px) scale(1.05);
+            opacity: 1;
+          }
+          80% {
+            transform: translateY(-2px) scale(0.98);
+          }
+          100% {
+            transform: translateY(0) scale(1);
+            opacity: 1;
+          }
+        }
+      `}</style>
     </div>
   );
 });
