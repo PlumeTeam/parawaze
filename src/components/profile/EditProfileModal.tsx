@@ -224,13 +224,16 @@ export default function EditProfileModal({ profile, onSave, onClose }: EditProfi
           <div className="bg-red-50 text-red-600 text-sm px-4 py-2 rounded-lg">{error}</div>
         )}
 
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="w-full py-3 rounded-xl bg-sky-500 text-white font-semibold hover:bg-sky-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-        >
-          {saving ? <LoadingSpinner size="sm" /> : 'Enregistrer'}
-        </button>
+        {/* Extra padding so the save button is not hidden behind BottomNav */}
+        <div className="pb-24">
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="w-full py-3 rounded-xl bg-sky-500 text-white font-semibold hover:bg-sky-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {saving ? <LoadingSpinner size="sm" /> : 'Enregistrer'}
+          </button>
+        </div>
       </div>
     </div>
   );
