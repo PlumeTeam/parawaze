@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { X, ChevronUp, ChevronDown } from 'lucide-react';
 import type { WeatherReport } from '@/lib/types';
+import type { DayFilter } from '@/hooks/useReports';
 import ReportCard from '@/components/reports/ReportCard';
 
 interface ReportBottomSheetProps {
@@ -10,6 +11,18 @@ interface ReportBottomSheetProps {
   selectedReport: WeatherReport | null;
   onSelectReport: (report: WeatherReport | null) => void;
   onViewDetail: (report: WeatherReport) => void;
+  selectedDay?: DayFilter;
+}
+
+function getDayTitle(reports: WeatherReport[], day: DayFilter = 'today'): string {
+  const count = reports.length;
+  if (day === 'yesterday') {
+    return `${count} rapport${count !== 1 ? 's' : ''} hier`;
+  }
+  if (day === 'tomorrow') {
+    return `${count} prévision${count !== 1 ? 's' : ''} pour demain`;
+  }
+  return `${count} rapport${count !== 1 ? 's' : ''} actif${count !== 1 ? 's' : ''}`;
 }
 
 export default function ReportBottomSheet({
@@ -17,6 +30,7 @@ export default function ReportBottomSheet({
   selectedReport,
   onSelectReport,
   onViewDetail,
+  selectedDay = 'today',
 }: ReportBottomSheetProps) {
   const [expanded, setExpanded] = useState(false);
   const sheetRef = useRef<HTMLDivElement>(null);
@@ -24,8 +38,6 @@ export default function ReportBottomSheet({
   useEffect(() => {
     if (selectedReport) setExpanded(true);
   }, [selectedReport]);
-
-  const activeReports = reports.filter((r) => r.is_active);
 
   return (
     <div
@@ -54,7 +66,7 @@ export default function ReportBottomSheet({
         <h3 className="text-sm font-semibold text-gray-700">
           {selectedReport
             ? selectedReport.location_name || 'Rapport'
-            : `${activeReports.length} rapport${activeReports.length !== 1 ? 's' : ''} actif${activeReports.length !== 1 ? 's' : ''}`}
+            : getDayTitle(reports, selectedDay)}
         </h3>
         <div className="flex items-center gap-2">
           {selectedReport && (
@@ -91,12 +103,16 @@ export default function ReportBottomSheet({
           />
         ) : (
           <div className="space-y-3">
-            {activeReports.length === 0 ? (
+            {reports.length === 0 ? (
               <p className="text-center text-gray-400 py-8 text-sm">
-                Aucun rapport dans cette zone. Soyez le premier !
+                {selectedDay === 'yesterday'
+                  ? 'Aucun rapport hier.'
+                  : selectedDay === 'tomorrow'
+                  ? 'Aucune prévision pour demain. Soyez le premier !'
+                  : 'Aucun rapport dans cette zone. Soyez le premier !'}
               </p>
             ) : (
-              activeReports.slice(0, 10).map((report) => (
+              reports.slice(0, 10).map((report) => (
                 <ReportCard
                   key={report.id}
                   report={report}

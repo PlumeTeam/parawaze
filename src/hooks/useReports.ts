@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { WeatherReport, CreateReportInput } from '@/lib/types';
 
+export type DayFilter = 'yesterday' | 'today' | 'tomorrow';
+
 export function useReports() {
   const [reports, setReports] = useState<WeatherReport[]>([]);
   const [loading, setLoading] = useState(false);
@@ -21,6 +23,52 @@ export function useReports() {
         .order('created_at', { ascending: false })
         .limit(100);
 
+      if (err) throw err;
+      setReports(data || []);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const fetchReportsByDay = useCallback(async (day: DayFilter) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const now = new Date();
+      // Build local-time day boundaries
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const tomorrowStart = new Date(todayStart);
+      tomorrowStart.setDate(tomorrowStart.getDate() + 1);
+      const yesterdayStart = new Date(todayStart);
+      yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+
+      let query = supabase
+        .from('weather_reports')
+        .select('*, profiles(*), report_images(*)')
+        .order('created_at', { ascending: false })
+        .limit(100);
+
+      if (day === 'yesterday') {
+        // All reports created yesterday, regardless of active/expired
+        query = query
+          .gte('created_at', yesterdayStart.toISOString())
+          .lt('created_at', todayStart.toISOString());
+      } else if (day === 'today') {
+        // Today's active, non-expired reports
+        query = query
+          .gte('created_at', todayStart.toISOString())
+          .eq('is_active', true)
+          .gt('expires_at', now.toISOString());
+      } else {
+        // Tomorrow: only forecasts created today (about tomorrow)
+        query = query
+          .gte('created_at', todayStart.toISOString())
+          .eq('report_type', 'forecast');
+      }
+
+      const { data, error: err } = await query;
       if (err) throw err;
       setReports(data || []);
     } catch (e: any) {
@@ -180,6 +228,7 @@ export function useReports() {
     loading,
     error,
     fetchReports,
+    fetchReportsByDay,
     fetchReportsInRadius,
     createReport,
     uploadImage,
