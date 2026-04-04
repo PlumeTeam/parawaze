@@ -172,4 +172,8 @@ export interface Database {
     Functions: {
       get_reports_in_radius: {
         Args: { lat: number; lng: number; radius_km: number };
-        Returns: WeatherRe
+        Returns: WeatherReport[]; 
+      }; 
+    }; 
+  }; 
+} 
