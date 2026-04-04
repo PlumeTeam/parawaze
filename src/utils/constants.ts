@@ -1,4 +1,4 @@
-import type { WindDirection, BadgeLevel } from '@/lib/types';
+import type { WindDirection, BadgeLevel, PilotLevel, Gender, WingCategory } from '@/lib/types';
 
 export const WIND_DIRECTIONS: WindDirection[] = [
   'N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW', 'variable',
@@ -79,3 +79,49 @@ export const TURBULENCE_LABELS: Record<number, string> = {
 };
 
 export const REPORT_EXPIRY_HOURS = 48;
+
+export const PILOT_LEVEL_LABELS: Record<PilotLevel, string> = {
+  debutant: 'Débutant',
+  progression: 'En progression',
+  autonome: 'Autonome',
+  confirme: 'Confirmé',
+  expert: 'Expert',
+  competition: 'Compétition',
+};
+
+export const PILOT_LEVEL_COLORS: Record<PilotLevel, string> = {
+  debutant: '#94a3b8',
+  progression: '#3b82f6',
+  autonome: '#22c55e',
+  confirme: '#f97316',
+  expert: '#ef4444',
+  competition: '#a855f7',
+};
+
+export const GENDER_LABELS: Record<Gender, string> = {
+  homme: 'Homme',
+  femme: 'Femme',
+  autre: 'Autre',
+  non_precise: 'Ne souhaite pas préciser',
+};
+
+export const WING_CATEGORY_LABELS: Record<WingCategory, string> = {
+  A: 'A',
+  B: 'B',
+  'B+': 'B+',
+  C: 'C',
+  D: 'D',
+  CCC: 'CCC',
+  biplace: 'Biplace',
+};
+
+export const COMMON_CERTIFICATIONS = [
+  'Brevet Initial',
+  'Brevet de Pilote',
+  'Brevet de Pilote Confirmé',
+  'Biqualification',
+  'Moniteur',
+  'IPPI 3',
+  'IPPI 4',
+  'IPPI 5',
+];

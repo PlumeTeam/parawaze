@@ -2,6 +2,9 @@ export type WindDirection = 'N' | 'NE' | 'E' | 'SE' | 'S' | 'SW' | 'W' | 'NW' | 
 export type ReportType = 'observation' | 'forecast' | 'image_share';
 export type ReactionType = 'like' | 'genius' | 'doubt';
 export type BadgeLevel = 'beginner' | 'observer' | 'expert' | 'legend';
+export type Gender = 'homme' | 'femme' | 'autre' | 'non_precise';
+export type WingCategory = 'A' | 'B' | 'B+' | 'C' | 'D' | 'CCC' | 'biplace';
+export type PilotLevel = 'debutant' | 'progression' | 'autonome' | 'confirme' | 'expert' | 'competition';
 
 export interface Profile {
   id: string;
@@ -14,6 +17,13 @@ export interface Profile {
   total_reactions_received: number;
   badge_level: BadgeLevel;
   preferred_sites: string[] | null;
+  date_of_birth: string | null;
+  gender: Gender | null;
+  current_wing: string | null;
+  current_wing_category: WingCategory | null;
+  past_wings: string[];
+  pilot_level: PilotLevel | null;
+  certifications: string[];
 }
 
 export interface WeatherReport {
