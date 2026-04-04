@@ -30,9 +30,10 @@ interface MapViewProps {
   reports: WeatherReport[];
   onReportClick: (report: WeatherReport) => void;
   onMapMove?: (center: { lat: number; lng: number }) => void;
+  onMarkerPlaced?: (pos: MarkerPosition) => void;
 }
 
-const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView({ reports, onReportClick, onMapMove }, ref) {
+const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView({ reports, onReportClick, onMapMove, onMarkerPlaced }, ref) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
@@ -95,7 +96,10 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView({ repor
       .addTo(map);
 
     placedMarkerRef.current = marker;
-  }, []);
+
+    // Notify parent so it can store the position
+    onMarkerPlaced?.(pos);
+  }, [onMarkerPlaced]);
 
   // Initialize map — dynamically import mapbox-gl to avoid SSR issues
   useEffect(() => {

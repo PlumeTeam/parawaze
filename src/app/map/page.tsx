@@ -26,6 +26,7 @@ export default function MapPage() {
   const { reports, loading: reportsLoading, fetchReportsInRadius } = useReports();
   const [selectedReport, setSelectedReport] = useState<WeatherReport | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [lastMarker, setLastMarker] = useState<{lat: number; lng: number; alt: number | null} | null>(null);
   const router = useRouter();
   const mapRef = useRef<MapViewHandle>(null);
 
@@ -55,16 +56,22 @@ export default function MapPage() {
     // fetchReportsInRadius(center.lat, center.lng, 50);
   };
 
-  // Called by BottomNav when "Signaler" is tapped — uses marker position
+  // Called when user taps on the map to place a marker
+  const handleMarkerPlaced = useCallback((pos: {lat: number; lng: number; alt: number | null}) => {
+    setLastMarker(pos);
+  }, []);
+
+  // Called by BottomNav when "Observation" is tapped — uses stored marker position
   const handleCreateReport = useCallback(() => {
-    const marker = mapRef.current?.getMarkerPosition();
+    // Try ref first, then fall back to state
+    const marker = mapRef.current?.getMarkerPosition() || lastMarker;
     if (marker) {
       const altParam = marker.alt !== null ? `&alt=${marker.alt}` : '';
       router.push(`/report/new?lat=${marker.lat.toFixed(6)}&lng=${marker.lng.toFixed(6)}${altParam}`);
     } else {
       setToast('Touchez la carte pour placer votre observation');
     }
-  }, [router]);
+  }, [router, lastMarker]);
 
   if (authLoading) {
     return (
@@ -115,6 +122,7 @@ export default function MapPage() {
           reports={reports}
           onReportClick={handleReportClick}
           onMapMove={handleMapMove}
+          onMarkerPlaced={handleMarkerPlaced}
         />
 
         <ReportBottomSheet
