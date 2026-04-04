@@ -50,8 +50,9 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView({ repor
   const markerPositionRef = useRef<MarkerPosition | null>(null);
   const [markerInfo, setMarkerInfo] = useState<MarkerPosition | null>(null);
 
-  // Flag to prevent map click when a report/shuttle marker is clicked
-  const ignoreNextMapClick = useRef(false);
+  // Timestamp to prevent map click when a report/shuttle marker is clicked
+  // We use a time-based approach because DOM events and Mapbox events are separate systems
+  const lastMarkerClickTime = useRef(0);
 
   // (tap detection handled by Mapbox GL's built-in click event)
 
@@ -172,9 +173,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView({ repor
         // This automatically distinguishes clicks from drags and provides
         // geographic coordinates directly (no manual pixel→lngLat conversion).
         map.on('click', (e) => {
-          // Skip if a report/shuttle marker was just clicked
-          if (ignoreNextMapClick.current) {
-            ignoreNextMapClick.current = false;
+          // Skip if a report/shuttle marker was clicked in the last 300ms
+          if (Date.now() - lastMarkerClickTime.current < 300) {
             return;
           }
           placeMarker({ lng: e.lngLat.lng, lat: e.lngLat.lat });
@@ -253,7 +253,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView({ repor
 
       el.addEventListener('click', (e) => {
         e.stopPropagation();
-        ignoreNextMapClick.current = true;
+        lastMarkerClickTime.current = Date.now();
         onReportClick(report);
       });
 
@@ -305,7 +305,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView({ repor
 
       el.addEventListener('click', (e) => {
         e.stopPropagation();
-        ignoreNextMapClick.current = true;
+        lastMarkerClickTime.current = Date.now();
         onShuttleClick?.(shuttle);
       });
 
