@@ -1,8 +1,6 @@
 'use client';
 
 import { useRef, useEffect, useState, useCallback } from 'react';
-import mapboxgl from 'mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
 import {
   MAPBOX_TOKEN,
   MAP_STYLES,
@@ -13,7 +11,8 @@ import {
 } from '@/lib/mapbox';
 import type { WeatherReport } from '@/lib/types';
 
-mapboxgl.accessToken = MAPBOX_TOKEN;
+// mapbox-gl types only — the actual library is loaded dynamically below
+import type mapboxgl from 'mapbox-gl';
 
 interface MapViewProps {
   reports: WeatherReport[];
@@ -25,37 +24,65 @@ export default function MapView({ reports, onReportClick, onMapMove }: MapViewPr
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
+  const mbRef = useRef<typeof mapboxgl | null>(null);
   const [mapStyle, setMapStyle] = useState<MapStyleKey>('outdoors');
   const [mapLoaded, setMapLoaded] = useState(false);
 
-  // Initialize map
+  // Initialize map — dynamically import mapbox-gl to avoid SSR issues
   useEffect(() => {
     if (!mapContainer.current || mapRef.current) return;
 
-    const map = new mapboxgl.Map({
-      container: mapContainer.current,
-      style: MAP_STYLES[mapStyle],
-      center: DEFAULT_CENTER,
-      zoom: DEFAULT_ZOOM,
-      attributionControl: false,
-    });
+    let cancelled = false;
 
-    map.addControl(new mapboxgl.AttributionControl({ compact: true }), 'bottom-left');
+    (async () => {
+      try {
+        // Dynamic import ensures mapbox-gl is only loaded in the browser
+        const mb = (await import('mapbox-gl')).default;
 
-    map.on('load', () => {
-      setMapLoaded(true);
-    });
+        // Load CSS if not already present
+        if (!document.querySelector('link[href*="mapbox-gl"]')) {
+          const link = document.createElement('link');
+          link.rel = 'stylesheet';
+          link.href = 'https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.css';
+          document.head.appendChild(link);
+        }
 
-    map.on('moveend', () => {
-      const center = map.getCenter();
-      onMapMove?.({ lat: center.lat, lng: center.lng });
-    });
+        if (cancelled) return;
 
-    mapRef.current = map;
+        mb.accessToken = MAPBOX_TOKEN;
+        mbRef.current = mb;
+
+        const map = new mb.Map({
+          container: mapContainer.current!,
+          style: MAP_STYLES[mapStyle],
+          center: DEFAULT_CENTER,
+          zoom: DEFAULT_ZOOM,
+          attributionControl: false,
+        });
+
+        map.addControl(new mb.AttributionControl({ compact: true }), 'bottom-left');
+
+        map.on('load', () => {
+          if (!cancelled) setMapLoaded(true);
+        });
+
+        map.on('moveend', () => {
+          const center = map.getCenter();
+          onMapMove?.({ lat: center.lat, lng: center.lng });
+        });
+
+        mapRef.current = map;
+      } catch (err) {
+        console.error('[ParaWaze] Failed to load mapbox-gl:', err);
+      }
+    })();
 
     return () => {
-      map.remove();
-      mapRef.current = null;
+      cancelled = true;
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -67,7 +94,8 @@ export default function MapView({ reports, onReportClick, onMapMove }: MapViewPr
 
   // Update markers
   useEffect(() => {
-    if (!mapRef.current) return;
+    if (!mapRef.current || !mbRef.current) return;
+    const mb = mbRef.current;
 
     // Clear existing markers
     markersRef.current.forEach((m) => m.remove());
@@ -99,7 +127,7 @@ export default function MapView({ reports, onReportClick, onMapMove }: MapViewPr
         transition: transform 0.2s;
       `;
 
-      const icon = report.report_type === 'observation' ? '👁️' : report.report_type === 'forecast' ? '🔮' : '📷';
+      const icon = report.report_type === 'observation' ? '\u{1F441}\uFE0F' : report.report_type === 'forecast' ? '\u{1F52E}' : '\u{1F4F7}';
       el.innerHTML = icon;
 
       el.addEventListener('mouseenter', () => {
@@ -109,7 +137,7 @@ export default function MapView({ reports, onReportClick, onMapMove }: MapViewPr
         el.style.transform = 'scale(1)';
       });
 
-      const marker = new mapboxgl.Marker({ element: el })
+      const marker = new mb.Marker({ element: el })
         .setLngLat([coords[0], coords[1]])
         .addTo(mapRef.current!);
 
