@@ -245,7 +245,7 @@ function PickLocationsContent() {
   return (
     <div className="relative w-screen h-screen overflow-hidden">
       {/* Map container */}
-      <div ref={mapContainer} className="absolute inset-0" />
+      <div ref={mapContainer} className="absolute inset-0" style={{ height: '100%', width: '100%' }} />
 
       {/* Back button */}
       <button
