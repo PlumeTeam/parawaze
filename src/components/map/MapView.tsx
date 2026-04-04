@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect, useState, useCallback } from 'react';
+import { useRef, useEffect, useState, useCallback, useImperativeHandle, forwardRef } from 'react';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import {
   MAPBOX_TOKEN,
@@ -15,13 +15,17 @@ import type { WeatherReport } from '@/lib/types';
 // mapbox-gl types only — the actual library is loaded dynamically below
 import type mapboxgl from 'mapbox-gl';
 
+export interface MapViewHandle {
+  getCenter: () => { lat: number; lng: number } | null;
+}
+
 interface MapViewProps {
   reports: WeatherReport[];
   onReportClick: (report: WeatherReport) => void;
   onMapMove?: (center: { lat: number; lng: number }) => void;
 }
 
-export default function MapView({ reports, onReportClick, onMapMove }: MapViewProps) {
+const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView({ reports, onReportClick, onMapMove }, ref) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
@@ -29,6 +33,15 @@ export default function MapView({ reports, onReportClick, onMapMove }: MapViewPr
   const [mapStyle, setMapStyle] = useState<MapStyleKey>('outdoors');
   const [mapLoaded, setMapLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Expose getCenter to parent via ref
+  useImperativeHandle(ref, () => ({
+    getCenter: () => {
+      if (!mapRef.current) return null;
+      const c = mapRef.current.getCenter();
+      return { lat: c.lat, lng: c.lng };
+    },
+  }));
 
   // Initialize map — dynamically import mapbox-gl to avoid SSR issues
   useEffect(() => {
@@ -181,6 +194,17 @@ export default function MapView({ reports, onReportClick, onMapMove }: MapViewPr
       )}
       <div ref={mapContainer} className="absolute inset-0" style={{ height: '100%', width: '100%' }} />
 
+      {/* Center crosshair — shows user where their report will be placed */}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-[5]">
+        <svg width="30" height="30" viewBox="0 0 30 30" fill="none" className="opacity-40">
+          <line x1="15" y1="4" x2="15" y2="12" stroke="#374151" strokeWidth="2" strokeLinecap="round" />
+          <line x1="15" y1="18" x2="15" y2="26" stroke="#374151" strokeWidth="2" strokeLinecap="round" />
+          <line x1="4" y1="15" x2="12" y2="15" stroke="#374151" strokeWidth="2" strokeLinecap="round" />
+          <line x1="18" y1="15" x2="26" y2="15" stroke="#374151" strokeWidth="2" strokeLinecap="round" />
+          <circle cx="15" cy="15" r="3" stroke="#374151" strokeWidth="1.5" fill="none" />
+        </svg>
+      </div>
+
       {/* Map controls */}
       <div className="absolute top-4 right-4 flex flex-col gap-2 z-10">
         {/* Style toggle */}
@@ -215,4 +239,6 @@ export default function MapView({ reports, onReportClick, onMapMove }: MapViewPr
       </div>
     </div>
   );
-}
+});
+
+export default MapView;

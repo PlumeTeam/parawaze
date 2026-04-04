@@ -1,11 +1,10 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { useRouter } from 'next/navigation';
-import { Camera, MapPin, Send, X } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Camera, MapPin, Send, X, Crosshair } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useReports } from '@/hooks/useReports';
-import { useLocation } from '@/hooks/useLocation';
 import StarRating from '@/components/shared/StarRating';
 import LoadingSpinner from '@/components/shared/LoadingSpinner';
 import { WIND_DIRECTIONS, WIND_DIRECTION_LABELS, REPORT_TYPE_LABELS } from '@/utils/constants';
@@ -14,9 +13,16 @@ import type { ReportType, WindDirection, CreateReportInput } from '@/lib/types';
 export default function ReportForm() {
   const { user } = useAuth();
   const { createReport, uploadImage } = useReports();
-  const { location, requestLocation, loading: locLoading } = useLocation();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Read lat/lng from query params (passed from map center)
+  const paramLat = searchParams.get('lat');
+  const paramLng = searchParams.get('lng');
+  const hasMapCoords = paramLat !== null && paramLng !== null;
+  const mapLat = hasMapCoords ? parseFloat(paramLat) : null;
+  const mapLng = hasMapCoords ? parseFloat(paramLng) : null;
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -24,7 +30,6 @@ export default function ReportForm() {
   // Form state
   const [reportType, setReportType] = useState<ReportType>('observation');
   const [locationName, setLocationName] = useState('');
-  const [shareLocation, setShareLocation] = useState(true);
   const [altitudeM, setAltitudeM] = useState('');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -41,10 +46,6 @@ export default function ReportForm() {
   const [images, setImages] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
 
-  const handleLocationRequest = async () => {
-    await requestLocation();
-  };
-
   const handleImageAdd = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     const newImages = [...images, ...files].slice(0, 5);
@@ -60,12 +61,20 @@ export default function ReportForm() {
     setPreviews(newImages.map((f) => URL.createObjectURL(f)));
   };
 
+  /** Format coordinates nicely for display: 45.9123° N, 6.1345° E */
+  const formatCoord = (lat: number, lng: number) => {
+    const latDir = lat >= 0 ? 'N' : 'S';
+    const lngDir = lng >= 0 ? 'E' : 'W';
+    return `${Math.abs(lat).toFixed(4)}° ${latDir}, ${Math.abs(lng).toFixed(4)}° ${lngDir}`;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
 
-    if (!locationName.trim()) {
-      setError('Veuillez indiquer un nom de lieu');
+    // Location comes from map coords — no required location_name
+    if (!hasMapCoords) {
+      setError('Position manquante. Retournez sur la carte et utilisez le bouton Signaler.');
       return;
     }
 
@@ -75,10 +84,10 @@ export default function ReportForm() {
     try {
       const input: CreateReportInput = {
         report_type: reportType,
-        location_name: locationName.trim(),
-        share_location: shareLocation,
-        latitude: location?.latitude,
-        longitude: location?.longitude,
+        location_name: locationName.trim() || '',
+        share_location: true,
+        latitude: mapLat!,
+        longitude: mapLng!,
         altitude_m: altitudeM ? parseInt(altitudeM) : undefined,
         title: title.trim() || undefined,
         description: description.trim() || undefined,
@@ -139,37 +148,37 @@ export default function ReportForm() {
         </div>
       </div>
 
-      {/* Location */}
+      {/* Location preview from map */}
       <div>
-        <label className="block text-sm font-semibold text-gray-700 mb-2">Lieu</label>
+        <label className="block text-sm font-semibold text-gray-700 mb-2">Position</label>
+        {hasMapCoords ? (
+          <div className="bg-sky-50 border border-sky-200 rounded-xl px-4 py-3 flex items-center gap-3">
+            <Crosshair className="h-5 w-5 text-sky-500 flex-shrink-0" />
+            <div>
+              <p className="text-sm font-medium text-gray-800">
+                {formatCoord(mapLat!, mapLng!)}
+              </p>
+              <p className="text-xs text-gray-500 mt-0.5">Position choisie sur la carte</p>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-700">
+            <MapPin className="h-4 w-4 inline mr-1" />
+            Retournez sur la carte et appuyez sur Signaler pour choisir une position.
+          </div>
+        )}
+      </div>
+
+      {/* Optional location name */}
+      <div>
+        <label className="block text-sm font-semibold text-gray-700 mb-2">Nom du lieu (optionnel)</label>
         <input
           type="text"
           value={locationName}
           onChange={(e) => setLocationName(e.target.value)}
-          placeholder="Ex: Col de la Forclaz, Annecy"
+          placeholder="Ex: Col de la Forclaz"
           className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-sky-500 focus:ring-2 focus:ring-sky-200 outline-none text-sm"
         />
-
-        <div className="flex items-center justify-between mt-3">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={shareLocation}
-              onChange={(e) => setShareLocation(e.target.checked)}
-              className="w-4 h-4 rounded border-gray-300 text-sky-500 focus:ring-sky-500"
-            />
-            <span className="text-sm text-gray-600">Partager ma position GPS</span>
-          </label>
-          <button
-            type="button"
-            onClick={handleLocationRequest}
-            disabled={locLoading}
-            className="flex items-center gap-1 text-sm text-sky-500 font-medium"
-          >
-            <MapPin className="h-4 w-4" />
-            {locLoading ? 'Localisation...' : location ? 'Localise' : 'Localiser'}
-          </button>
-        </div>
       </div>
 
       {/* Altitude */}
@@ -387,7 +396,7 @@ export default function ReportForm() {
       {/* Submit */}
       <button
         type="submit"
-        disabled={submitting}
+        disabled={submitting || !hasMapCoords}
         className="w-full py-3.5 rounded-xl bg-gradient-to-r from-sky-500 to-mountain-500 text-white font-bold shadow-lg hover:shadow-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2 text-base"
       >
         {submitting ? (

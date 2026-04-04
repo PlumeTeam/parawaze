@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
@@ -41,7 +41,9 @@ export default function NewReportPage() {
       </header>
 
       <div className="px-4 pt-4">
-        <ReportForm />
+        <Suspense fallback={<LoadingSpinner size="lg" />}>
+          <ReportForm />
+        </Suspense>
       </div>
 
       <BottomNav />

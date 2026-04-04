@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { useAuth } from '@/hooks/useAuth';
@@ -9,6 +9,7 @@ import ReportBottomSheet from '@/components/map/ReportBottomSheet';
 import BottomNav from '@/components/shared/BottomNav';
 import LoadingSpinner from '@/components/shared/LoadingSpinner';
 import type { WeatherReport } from '@/lib/types';
+import type { MapViewHandle } from '@/components/map/MapView';
 
 // Dynamic import MapView to avoid SSR issues with mapbox-gl
 const MapView = dynamic(() => import('@/components/map/MapView'), {
@@ -25,6 +26,7 @@ export default function MapPage() {
   const { reports, loading: reportsLoading, fetchReportsInRadius } = useReports();
   const [selectedReport, setSelectedReport] = useState<WeatherReport | null>(null);
   const router = useRouter();
+  const mapRef = useRef<MapViewHandle>(null);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -44,6 +46,16 @@ export default function MapPage() {
     // Optionally fetch reports near new center
     // fetchReportsInRadius(center.lat, center.lng, 50);
   };
+
+  // Called by BottomNav when "Signaler" is tapped — grabs map center and navigates
+  const handleCreateReport = useCallback(() => {
+    const center = mapRef.current?.getCenter();
+    if (center) {
+      router.push(`/report/new?lat=${center.lat.toFixed(6)}&lng=${center.lng.toFixed(6)}`);
+    } else {
+      router.push('/report/new');
+    }
+  }, [router]);
 
   if (authLoading) {
     return (
@@ -90,6 +102,7 @@ export default function MapPage() {
       {/* Map */}
       <main className="flex-1 relative" style={{ minHeight: 0 }}>
         <MapView
+          ref={mapRef}
           reports={reports}
           onReportClick={handleReportClick}
           onMapMove={handleMapMove}
@@ -103,8 +116,8 @@ export default function MapPage() {
         />
       </main>
 
-      {/* Bottom nav */}
-      <BottomNav />
+      {/* Bottom nav — pass handler so "Signaler" captures map center */}
+      <BottomNav onCreateReport={handleCreateReport} />
     </div>
   );
 }

@@ -9,9 +9,22 @@ const navItems = [
   { href: '/profile', label: 'Profil', icon: User },
 ];
 
-export default function BottomNav() {
+interface BottomNavProps {
+  /** When provided, the "Signaler" button calls this instead of navigating directly */
+  onCreateReport?: () => void;
+}
+
+export default function BottomNav({ onCreateReport }: BottomNavProps) {
   const pathname = usePathname();
   const router = useRouter();
+
+  const handleClick = (href: string, isAdd: boolean) => {
+    if (isAdd && onCreateReport) {
+      onCreateReport();
+    } else {
+      router.push(href);
+    }
+  };
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 safe-area-bottom">
@@ -23,7 +36,7 @@ export default function BottomNav() {
           return (
             <button
               key={href}
-              onClick={() => router.push(href)}
+              onClick={() => handleClick(href, isAdd)}
               className={`flex flex-col items-center justify-center flex-1 h-full transition-colors ${
                 isAdd
                   ? ''
