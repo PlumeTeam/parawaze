@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import LoadingSpinner from '@/components/shared/LoadingSpinner';
+import { translateAuthError } from '@/utils/authErrors';
 
 export default function LoginForm({ onToggle }: { onToggle: () => void }) {
   const [email, setEmail] = useState('');
@@ -22,7 +23,7 @@ export default function LoginForm({ onToggle }: { onToggle: () => void }) {
       await signIn(email, password);
       router.push('/map');
     } catch (err: any) {
-      setError(err.message || 'Erreur de connexion');
+      setError(translateAuthError(err.message || 'Erreur de connexion'));
     } finally {
       setLoading(false);
     }
@@ -32,7 +33,7 @@ export default function LoginForm({ onToggle }: { onToggle: () => void }) {
     try {
       await signInWithGoogle();
     } catch (err: any) {
-      setError(err.message || 'Erreur Google');
+      setError('La connexion Google n\'est pas encore disponible. Utilisez email/mot de passe.');
     }
   };
 

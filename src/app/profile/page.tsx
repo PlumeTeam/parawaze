@@ -90,7 +90,7 @@ export default function ProfilePage() {
                 onClick={() => router.push('/report/new')}
                 className="mt-3 text-sky-500 font-semibold text-sm hover:underline"
               >
-                Creer mon premier rapport
+                Créer mon premier rapport
               </button>
             </div>
           ) : (

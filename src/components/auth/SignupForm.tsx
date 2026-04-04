@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import LoadingSpinner from '@/components/shared/LoadingSpinner';
+import { translateAuthError } from '@/utils/authErrors';
 
 export default function SignupForm({ onToggle }: { onToggle: () => void }) {
   const [displayName, setDisplayName] = useState('');
@@ -26,7 +27,7 @@ export default function SignupForm({ onToggle }: { onToggle: () => void }) {
     }
 
     if (password.length < 6) {
-      setError('Le mot de passe doit contenir au moins 6 caracteres');
+      setError('Le mot de passe doit contenir au moins 6 caractères');
       return;
     }
 
@@ -36,7 +37,7 @@ export default function SignupForm({ onToggle }: { onToggle: () => void }) {
       await signUp(email, password, displayName);
       setSuccess(true);
     } catch (err: any) {
-      setError(err.message || 'Erreur lors de l\'inscription');
+      setError(translateAuthError(err.message || 'Erreur lors de l\'inscription'));
     } finally {
       setLoading(false);
     }
@@ -47,9 +48,9 @@ export default function SignupForm({ onToggle }: { onToggle: () => void }) {
       <div className="w-full max-w-sm mx-auto text-center">
         <div className="bg-green-50 rounded-2xl p-6">
           <div className="text-4xl mb-3">✅</div>
-          <h3 className="text-lg font-semibold text-green-800 mb-2">Inscription reussie !</h3>
+          <h3 className="text-lg font-semibold text-green-800 mb-2">Inscription réussie !</h3>
           <p className="text-green-600 text-sm">
-            Verifiez votre email pour confirmer votre compte, puis connectez-vous.
+            Vérifiez votre email pour confirmer votre compte, puis connectez-vous.
           </p>
         </div>
         <button
@@ -97,7 +98,7 @@ export default function SignupForm({ onToggle }: { onToggle: () => void }) {
             onChange={(e) => setPassword(e.target.value)}
             required
             className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-sky-500 focus:ring-2 focus:ring-sky-200 outline-none transition-all bg-white"
-            placeholder="6 caracteres minimum"
+            placeholder="6 caractères minimum"
           />
         </div>
 
@@ -122,12 +123,12 @@ export default function SignupForm({ onToggle }: { onToggle: () => void }) {
           disabled={loading}
           className="w-full py-3 rounded-xl bg-gradient-to-r from-mountain-500 to-sky-500 text-white font-semibold shadow-lg hover:shadow-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2"
         >
-          {loading ? <LoadingSpinner size="sm" /> : 'Creer mon compte'}
+          {loading ? <LoadingSpinner size="sm" /> : 'Créer mon compte'}
         </button>
       </form>
 
       <p className="text-center mt-6 text-sm text-gray-500">
-        Deja un compte ?{' '}
+        Déjà un compte ?{' '}
         <button onClick={onToggle} className="text-sky-500 font-semibold hover:underline">
           Se connecter
         </button>

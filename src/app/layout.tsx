@@ -2,13 +2,22 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'ParaWaze - Meteo collaborative parapente',
-  description: 'La meteo collaborative des pilotes de parapente. Partagez et consultez les conditions en temps reel.',
+  title: 'ParaWaze - Météo collaborative parapente',
+  description: 'La météo collaborative des pilotes de parapente. Partagez et consultez les conditions en temps réel.',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
     title: 'ParaWaze',
+  },
+  icons: {
+    icon: '/icons/icon-192.png',
+  },
+  openGraph: {
+    title: 'ParaWaze - Météo collaborative parapente',
+    description: 'La météo collaborative des pilotes de parapente',
+    type: 'website',
+    url: 'https://parawaze.vercel.app',
   },
 };
 
@@ -16,7 +25,7 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
-  userScalable: false,
+  userScalable: true,
   viewportFit: 'cover',
   themeColor: '#111827',
 };
