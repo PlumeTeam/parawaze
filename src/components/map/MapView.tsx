@@ -60,30 +60,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView({ repor
     },
   }));
 
-  /** Create a custom drop-pin marker element */
-  const createPinElement = useCallback(() => {
-    const wrapper = document.createElement('div');
-    wrapper.className = 'parawaze-placed-pin';
-    wrapper.style.cssText = `
-      width: 40px;
-      height: 52px;
-      position: relative;
-      cursor: pointer;
-      filter: drop-shadow(0 3px 6px rgba(0,0,0,0.35));
-      animation: parawaze-pin-drop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-      pointer-events: none;
-    `;
-
-    // SVG drop-pin shape
-    wrapper.innerHTML = `
-      <svg width="40" height="52" viewBox="0 0 40 52" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M20 0C9 0 0 9 0 20c0 15 20 32 20 32s20-17 20-32C40 9 31 0 20 0z" fill="#EF4444"/>
-        <circle cx="20" cy="19" r="9" fill="white"/>
-        <circle cx="20" cy="19" r="5" fill="#EF4444"/>
-      </svg>
-    `;
-    return wrapper;
-  }, []);
+  // No custom pin element needed — we use Mapbox's default red marker
 
   /** Place (or move) the marker at given coordinates */
   const placeMarker = useCallback((lngLat: { lng: number; lat: number }) => {
@@ -112,14 +89,13 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView({ repor
       placedMarkerRef.current = null;
     }
 
-    // Create new marker
-    const el = createPinElement();
-    const marker = new mb.Marker({ element: el, anchor: 'bottom' })
+    // Create new marker using Mapbox default red pin (simple & reliable)
+    const marker = new mb.Marker({ color: '#EF4444' })
       .setLngLat([lngLat.lng, lngLat.lat])
       .addTo(map);
 
     placedMarkerRef.current = marker;
-  }, [createPinElement]);
+  }, []);
 
   // Initialize map — dynamically import mapbox-gl to avoid SSR issues
   useEffect(() => {
@@ -354,26 +330,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView({ repor
         </button>
       </div>
 
-      {/* CSS keyframes for pin drop animation */}
-      <style>{`
-        @keyframes parawaze-pin-drop {
-          0% {
-            transform: translateY(-40px) scale(0.6);
-            opacity: 0;
-          }
-          60% {
-            transform: translateY(4px) scale(1.05);
-            opacity: 1;
-          }
-          80% {
-            transform: translateY(-2px) scale(0.98);
-          }
-          100% {
-            transform: translateY(0) scale(1);
-            opacity: 1;
-          }
-        }
-      `}</style>
+      {/* Pin drop animation removed — using Mapbox default marker */}
     </div>
   );
 });
