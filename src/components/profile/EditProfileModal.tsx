@@ -23,6 +23,7 @@ export default function EditProfileModal({ profile, onSave, onClose }: EditProfi
   const [pastWings, setPastWings] = useState<string[]>(profile.past_wings || []);
   const [newPastWing, setNewPastWing] = useState('');
   const [pilotLevel, setPilotLevel] = useState<PilotLevel | ''>(profile.pilot_level || '');
+  const [flyingSince, setFlyingSince] = useState<string>(profile.flying_since ? String(profile.flying_since) : '');
   const [certifications, setCertifications] = useState<string[]>(profile.certifications || []);
 
   const [saving, setSaving] = useState(false);
@@ -68,6 +69,7 @@ export default function EditProfileModal({ profile, onSave, onClose }: EditProfi
         current_wing_category: (currentWingCategory as WingCategory) || null,
         past_wings: pastWings,
         pilot_level: (pilotLevel as PilotLevel) || null,
+        flying_since: flyingSince ? parseInt(flyingSince, 10) : null,
         certifications,
       });
       onClose();
@@ -137,6 +139,11 @@ export default function EditProfileModal({ profile, onSave, onClose }: EditProfi
               <option key={val} value={val}>{label}</option>
             ))}
           </select>
+        </div>
+
+        <div>
+          <label className={labelClass}>Parapente depuis (année)</label>
+          <input type="number" value={flyingSince} onChange={(e) => setFlyingSince(e.target.value)} className={inputClass} placeholder="Ex: 2015" min="1970" max={new Date().getFullYear()} />
         </div>
 
         {/* --- Wings --- */}

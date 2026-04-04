@@ -79,7 +79,7 @@ export default function ProfileCard({ profile, email }: ProfileCardProps) {
       </div>
 
       {/* Pilot info section */}
-      {(profile.pilot_level || profile.date_of_birth || profile.gender) && (
+      {(profile.pilot_level || profile.date_of_birth || profile.gender || profile.flying_since) && (
         <div>
           <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Informations pilote</h4>
           <div className="space-y-1.5">
@@ -104,6 +104,12 @@ export default function ProfileCard({ profile, email }: ProfileCardProps) {
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-500">Sexe</span>
                 <span className="text-sm text-gray-700">{GENDER_LABELS[profile.gender]}</span>
+              </div>
+            )}
+            {profile.flying_since && (
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-500">Parapente depuis</span>
+                <span className="text-sm text-gray-700">{profile.flying_since} ({new Date().getFullYear() - profile.flying_since} ans)</span>
               </div>
             )}
           </div>

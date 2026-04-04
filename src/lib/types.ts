@@ -24,6 +24,7 @@ export interface Profile {
   past_wings: string[];
   pilot_level: PilotLevel | null;
   certifications: string[];
+  flying_since: number | null;
 }
 
 export interface WeatherReport {
