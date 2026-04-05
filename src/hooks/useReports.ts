@@ -61,12 +61,12 @@ export function useReports() {
           .eq('is_active', true)
           .gt('expires_at', now.toISOString());
       } else if (day === 'today') {
-        // Observations created today + forecasts where forecast_date = today
+        // Observations created today + forecasts where forecast_date = today (or null = default to today)
         query = query
           .eq('is_active', true)
           .gt('expires_at', now.toISOString())
           .or(
-            `and(report_type.in.(observation,image_share),created_at.gte.${todayStart.toISOString()}),and(report_type.eq.forecast,forecast_date.eq.${todayStr})`
+            `and(report_type.in.(observation,image_share),created_at.gte.${todayStart.toISOString()}),and(report_type.eq.forecast,or(forecast_date.eq.${todayStr},forecast_date.is.null))`
           );
       } else {
         // Tomorrow: ONLY forecasts with forecast_date = tomorrow
