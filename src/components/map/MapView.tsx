@@ -286,7 +286,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         },
       });
     }
-
     // Forecast "P" label inside the circle
     if (!map.getLayer('parawaze-forecast-label')) {
       map.addLayer({
