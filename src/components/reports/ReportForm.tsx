@@ -7,7 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useReports } from '@/hooks/useReports';
 import LoadingSpinner from '@/components/shared/LoadingSpinner';
 import { WIND_DIRECTIONS, WIND_DIRECTION_LABELS, REPORT_TYPE_LABELS } from '@/utils/constants';
-import type { ReportType, WindDirection, CreateReportInput, ForecastScenario } from '@/lib/types';
+import type { ReportType, WindDirection, CreateReportInput, ForecastScenario, WeatherReport } from '@/lib/types';
 
 interface ScenarioInput {
   hour_slot: string;
@@ -277,56 +277,80 @@ const FLYABILITY_LABELS: Record<number, string> = {
 // ──────────────────────────────────────────────
 // Main form component
 // ──────────────────────────────────────────────
-export default function ReportForm() {
+interface ReportFormProps {
+  initialData?: WeatherReport;
+  reportId?: string;
+}
+
+export default function ReportForm({ initialData, reportId }: ReportFormProps) {
+  const isEditMode = !!initialData && !!reportId;
   const { user } = useAuth();
-  const { createReport, uploadImage } = useReports();
+  const { createReport, updateReport, uploadImage } = useReports();
   const router = useRouter();
   const searchParams = useSearchParams();
   const fileRef = useRef<HTMLInputElement>(null);
 
-  // Read lat/lng/alt from query params (passed from map marker)
+  // Read lat/lng/alt from query params (passed from map marker) or from initialData
   const paramLat = searchParams.get('lat');
   const paramLng = searchParams.get('lng');
   const paramAlt = searchParams.get('alt');
-  const hasMapCoords = paramLat !== null && paramLng !== null;
-  const mapLat = hasMapCoords ? parseFloat(paramLat) : null;
-  const mapLng = hasMapCoords ? parseFloat(paramLng) : null;
-  const mapAlt = paramAlt !== null ? parseInt(paramAlt) : null;
+  const editLat = initialData?.location?.coordinates?.[1] ?? null;
+  const editLng = initialData?.location?.coordinates?.[0] ?? null;
+  const editAlt = initialData?.altitude_m ?? null;
+  const hasMapCoords = isEditMode ? (editLat !== null && editLng !== null) : (paramLat !== null && paramLng !== null);
+  const mapLat = isEditMode ? editLat : (hasMapCoords ? parseFloat(paramLat!) : null);
+  const mapLng = isEditMode ? editLng : (hasMapCoords ? parseFloat(paramLng!) : null);
+  const mapAlt = isEditMode ? editAlt : (paramAlt !== null ? parseInt(paramAlt) : null);
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  // Form state
-  const [reportType, setReportType] = useState<ReportType>('observation');
-  const [locationName, setLocationName] = useState('');
-  const [altitudeM, setAltitudeM] = useState(mapAlt !== null ? String(mapAlt) : '');
-  const [altAutoFilled] = useState(mapAlt !== null);
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [windSpeed, setWindSpeed] = useState('');
-  const [windGust, setWindGust] = useState('');
-  const [windDirection, setWindDirection] = useState<WindDirection | ''>('');
+  // Form state — pre-filled from initialData when editing
+  const [reportType, setReportType] = useState<ReportType>(initialData?.report_type || 'observation');
+  const [locationName, setLocationName] = useState(initialData?.location_name || '');
+  const [altitudeM, setAltitudeM] = useState(initialData?.altitude_m ? String(initialData.altitude_m) : (mapAlt !== null ? String(mapAlt) : ''));
+  const [altAutoFilled] = useState(mapAlt !== null && !isEditMode);
+  const [title, setTitle] = useState(initialData?.title || '');
+  const [description, setDescription] = useState(initialData?.description || '');
+  const [windSpeed, setWindSpeed] = useState(initialData?.wind_speed_kmh != null ? String(initialData.wind_speed_kmh) : '');
+  const [windGust, setWindGust] = useState(initialData?.wind_gust_kmh != null ? String(initialData.wind_gust_kmh) : '');
+  const [windDirection, setWindDirection] = useState<WindDirection | ''>(initialData?.wind_direction || '');
   const [windVariability, setWindVariability] = useState('0');
-  const [temperature, setTemperature] = useState('');
-  const [cloudCeiling, setCloudCeiling] = useState('');
-  const [visibilityKm, setVisibilityKm] = useState('');
-  const [thermalQuality, setThermalQuality] = useState(3);
-  const [turbulenceLevel, setTurbulenceLevel] = useState(1);
-  const [flyabilityScore, setFlyabilityScore] = useState(3);
+  const [temperature, setTemperature] = useState(initialData?.temperature_c != null ? String(initialData.temperature_c) : '');
+  const [cloudCeiling, setCloudCeiling] = useState(initialData?.cloud_ceiling_m != null ? String(initialData.cloud_ceiling_m) : '');
+  const [visibilityKm, setVisibilityKm] = useState(initialData?.visibility_km != null ? String(initialData.visibility_km) : '');
+  const [thermalQuality, setThermalQuality] = useState(initialData?.thermal_quality || 3);
+  const [turbulenceLevel, setTurbulenceLevel] = useState(initialData?.turbulence_level || 1);
+  const [flyabilityScore, setFlyabilityScore] = useState(initialData?.flyability_score || 3);
   // Track which sliders the user has actually touched
-  const [touchedFields, setTouchedFields] = useState<Set<string>>(new Set());
+  const initTouched = new Set<string>();
+  if (initialData?.thermal_quality) initTouched.add('thermal_quality');
+  if (initialData?.turbulence_level) initTouched.add('turbulence_level');
+  if (initialData?.flyability_score) initTouched.add('flyability_score');
+  const [touchedFields, setTouchedFields] = useState<Set<string>>(initTouched);
   const markTouched = (field: string) => {
     setTouchedFields(prev => new Set(prev).add(field));
   };
 
-  const [tags, setTags] = useState('');
+  const [tags, setTags] = useState(initialData?.tags?.join(', ') || '');
   const [images, setImages] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
 
   // Forecast-specific state
-  const [forecastDate, setForecastDate] = useState<string>('');
-  const [forecastDateMode, setForecastDateMode] = useState<'today' | 'tomorrow' | 'after' | 'custom'>('today');
-  const [scenarios, setScenarios] = useState<ScenarioInput[]>([]);
+  const [forecastDate, setForecastDate] = useState<string>(initialData?.forecast_date || '');
+  const [forecastDateMode, setForecastDateMode] = useState<'today' | 'tomorrow' | 'after' | 'custom'>(initialData?.forecast_date ? 'custom' : 'today');
+  const [scenarios, setScenarios] = useState<ScenarioInput[]>(
+    initialData?.forecast_scenarios?.map((s) => ({
+      hour_slot: s.hour_slot,
+      wind_speed_kmh: s.wind_speed_kmh != null ? String(s.wind_speed_kmh) : '',
+      wind_gust_kmh: s.wind_gust_kmh != null ? String(s.wind_gust_kmh) : '',
+      wind_direction: s.wind_direction || '' as WindDirection | '',
+      turbulence_level: s.turbulence_level || 0,
+      thermal_quality: s.thermal_quality || 0,
+      flyability_score: s.flyability_score || 0,
+      description: s.description || '',
+    })) || []
+  );
 
   // Helpers for forecast date
   const getDateString = (offsetDays: number) => {
@@ -461,15 +485,23 @@ export default function ReportForm() {
           : undefined,
       };
 
-      const report: any = await createReport(input, user.id);
-
-      if (report?.id && images.length > 0) {
-        for (let i = 0; i < images.length; i++) {
-          await uploadImage(report.id, images[i], i);
+      if (isEditMode) {
+        await updateReport(reportId!, input);
+        if (images.length > 0) {
+          for (let i = 0; i < images.length; i++) {
+            await uploadImage(reportId!, images[i], i);
+          }
         }
+        router.push(`/report/${reportId}`);
+      } else {
+        const report: any = await createReport(input, user.id);
+        if (report?.id && images.length > 0) {
+          for (let i = 0; i < images.length; i++) {
+            await uploadImage(report.id, images[i], i);
+          }
+        }
+        router.push('/map');
       }
-
-      router.push('/map');
     } catch (err: any) {
       setError(err.message || 'Erreur lors de la creation');
     } finally {
@@ -985,7 +1017,7 @@ export default function ReportForm() {
         ) : (
           <>
             <Send className="h-5 w-5" />
-            Publier l&apos;observation
+            {isEditMode ? 'Mettre à jour' : 'Publier l\'observation'}
           </>
         )}
       </button>

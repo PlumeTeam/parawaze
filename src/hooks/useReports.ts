@@ -232,6 +232,76 @@ export function useReports() {
     return data;
   }, []);
 
+  const updateReport = useCallback(
+    async (id: string, updates: Partial<CreateReportInput>) => {
+      const updateData: any = {};
+      if (updates.report_type !== undefined) updateData.report_type = updates.report_type;
+      if (updates.location_name !== undefined) updateData.location_name = updates.location_name;
+      if (updates.altitude_m !== undefined) updateData.altitude_m = updates.altitude_m || null;
+      if (updates.title !== undefined) updateData.title = updates.title || null;
+      if (updates.description !== undefined) updateData.description = updates.description || null;
+      if (updates.wind_speed_kmh !== undefined) updateData.wind_speed_kmh = updates.wind_speed_kmh || null;
+      if (updates.wind_gust_kmh !== undefined) updateData.wind_gust_kmh = updates.wind_gust_kmh || null;
+      if (updates.wind_direction !== undefined) updateData.wind_direction = updates.wind_direction || null;
+      if (updates.temperature_c !== undefined) updateData.temperature_c = updates.temperature_c ?? null;
+      if (updates.cloud_ceiling_m !== undefined) updateData.cloud_ceiling_m = updates.cloud_ceiling_m || null;
+      if (updates.visibility_km !== undefined) updateData.visibility_km = updates.visibility_km || null;
+      if (updates.thermal_quality !== undefined) updateData.thermal_quality = updates.thermal_quality || null;
+      if (updates.turbulence_level !== undefined) updateData.turbulence_level = updates.turbulence_level || null;
+      if (updates.flyability_score !== undefined) updateData.flyability_score = updates.flyability_score || null;
+      if (updates.tags !== undefined) updateData.tags = updates.tags || [];
+      if (updates.forecast_date !== undefined) updateData.forecast_date = updates.forecast_date || null;
+
+      const { data, error } = await supabase
+        .from('weather_reports')
+        .update(updateData)
+        .eq('id', id)
+        .select('*, profiles(*), report_images(*), forecast_scenarios(*)')
+        .single();
+
+      if (error) throw error;
+
+      // Update forecast scenarios if provided
+      if (updates.forecast_scenarios !== undefined) {
+        // Delete existing scenarios
+        await supabase.from('forecast_scenarios').delete().eq('report_id', id);
+
+        // Insert new scenarios
+        if (updates.forecast_scenarios && updates.forecast_scenarios.length > 0) {
+          const scenarioRows = updates.forecast_scenarios.map((s) => ({
+            report_id: id,
+            hour_slot: s.hour_slot,
+            wind_speed_kmh: s.wind_speed_kmh ?? null,
+            wind_gust_kmh: s.wind_gust_kmh ?? null,
+            wind_direction: s.wind_direction ?? null,
+            turbulence_level: s.turbulence_level ?? null,
+            thermal_quality: s.thermal_quality ?? null,
+            flyability_score: s.flyability_score ?? null,
+            description: s.description ?? null,
+          }));
+          await supabase.from('forecast_scenarios').insert(scenarioRows);
+        }
+      }
+
+      return data;
+    },
+    []
+  );
+
+  const deleteReport = useCallback(async (id: string) => {
+    // Delete related data first
+    await supabase.from('forecast_scenarios').delete().eq('report_id', id);
+    await supabase.from('report_images').delete().eq('report_id', id);
+    await supabase.from('report_reactions').delete().eq('report_id', id);
+
+    const { error } = await supabase
+      .from('weather_reports')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+  }, []);
+
   const getUserReports = useCallback(async (userId: string) => {
     const { data, error } = await supabase
       .from('weather_reports')
@@ -256,6 +326,8 @@ export function useReports() {
     fetchReportsByDay,
     fetchReportsInRadius,
     createReport,
+    updateReport,
+    deleteReport,
     uploadImage,
     getReport,
     getUserReports,

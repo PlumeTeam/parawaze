@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { ArrowLeft, Clock, Mountain, Eye, Wind, Thermometer, Cloud, MapPin, Calendar } from 'lucide-react';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { ArrowLeft, Clock, Mountain, Eye, Wind, Thermometer, Cloud, MapPin, Calendar, Pencil, Trash2 } from 'lucide-react';
 import type { WeatherReport, ForecastScenario } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
 import {
@@ -26,6 +27,7 @@ import {
 import FlyabilityBadge from '@/components/shared/FlyabilityBadge';
 import WindIndicator from '@/components/shared/WindIndicator';
 import ReactionButtons from '@/components/reports/ReactionButtons';
+import { useReports } from '@/hooks/useReports';
 
 interface ReportDetailProps {
   report: WeatherReport;
@@ -35,7 +37,25 @@ interface ReportDetailProps {
 
 export default function ReportDetail({ report, onBack, onRefresh }: ReportDetailProps) {
   const { user } = useAuth();
+  const { deleteReport } = useReports();
+  const router = useRouter();
   const [imageIdx, setImageIdx] = useState(0);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const isAuthor = user?.id === report.author_id;
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      await deleteReport(report.id);
+      router.push('/map');
+    } catch (e: any) {
+      console.error('Delete failed:', e);
+      setDeleting(false);
+      setShowDeleteConfirm(false);
+    }
+  };
   const images = report.report_images || [];
 
   const authorName = report.profiles?.display_name || report.profiles?.username || 'Anonyme';
@@ -60,6 +80,15 @@ export default function ReportDetail({ report, onBack, onRefresh }: ReportDetail
               {REPORT_TYPE_LABELS[report.report_type]}
             </span>
           </div>
+          {isAuthor && (
+            <button
+              onClick={() => router.push(`/report/edit/${report.id}`)}
+              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              title="Modifier"
+            >
+              <Pencil className="h-4 w-4 text-gray-600" />
+            </button>
+          )}
           <FlyabilityBadge score={report.flyability_score} size="md" />
         </div>
       </div>
@@ -332,6 +361,43 @@ export default function ReportDetail({ report, onBack, onRefresh }: ReportDetail
             doubtCount={report.doubt_count}
             onUpdate={onRefresh}
           />
+        )}
+
+        {/* Delete button — only for author */}
+        {isAuthor && (
+          <div className="pt-4 border-t border-gray-200">
+            {!showDeleteConfirm ? (
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="w-full py-2.5 rounded-xl border-2 border-red-300 text-red-500 text-sm font-semibold hover:bg-red-50 transition-colors flex items-center justify-center gap-2"
+              >
+                <Trash2 className="h-4 w-4" />
+                Supprimer cette observation
+              </button>
+            ) : (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-4 space-y-3">
+                <p className="text-sm text-red-700 font-medium text-center">
+                  {'\u00cates-vous s\u00fbr de vouloir supprimer cette observation ?'}
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowDeleteConfirm(false)}
+                    className="flex-1 py-2 rounded-lg bg-white border border-gray-300 text-gray-600 text-sm font-medium hover:bg-gray-50 transition-colors"
+                    disabled={deleting}
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    onClick={handleDelete}
+                    disabled={deleting}
+                    className="flex-1 py-2 rounded-lg bg-red-500 text-white text-sm font-semibold hover:bg-red-600 transition-colors disabled:opacity-50"
+                  >
+                    {deleting ? 'Suppression...' : 'Confirmer'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         )}
       </div>
     </div>
