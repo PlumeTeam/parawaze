@@ -288,6 +288,41 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView({ repor
 
       shuttleMarkersRef.current.push(marker);
     });
+
+    // Draw lines between meeting_point and destination for each shuttle
+    const map = mapRef.current;
+    const lineFeatures = shuttles
+      .filter(s => s.meeting_point?.coordinates && s.destination?.coordinates)
+      .map(s => ({
+        type: 'Feature' as const,
+        properties: {},
+        geometry: {
+          type: 'LineString' as const,
+          coordinates: [
+            s.meeting_point!.coordinates,
+            s.destination!.coordinates,
+          ],
+        },
+      }));
+
+    const geojson = { type: 'FeatureCollection' as const, features: lineFeatures };
+
+    if (map.getSource('shuttle-routes')) {
+      (map.getSource('shuttle-routes') as any).setData(geojson);
+    } else {
+      map.addSource('shuttle-routes', { type: 'geojson', data: geojson });
+      map.addLayer({
+        id: 'shuttle-routes-line',
+        type: 'line',
+        source: 'shuttle-routes',
+        paint: {
+          'line-color': '#6366f1',
+          'line-width': 2.5,
+          'line-dasharray': [3, 2],
+          'line-opacity': 0.7,
+        },
+      });
+    }
   }, [shuttles, onShuttleClick]);
 
   const flyToLocation = useCallback((lng: number, lat: number, zoom = 13) => {

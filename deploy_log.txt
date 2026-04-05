@@ -1,0 +1,10 @@
+=== Cleaning null bytes ===
+Cleaned null bytes from page.tsx
+=== Git add and commit ===
+warning: in the working copy of 'src/app/shuttle/pick-locations/page.tsx', LF will be replaced by CRLF the next time Git touches it
+[main efbad54] refactor(shuttle): rewrite pick-locations with dual-mode pin UX - Replace confusing auto step 1/2 flow with explicit Depart/Arrivee mode buttons - Fix Validate button not appearing - Users can freely switch between modes and reposition pins - Validate appears only when both pins are placed
+ 1 file changed, 125 insertions(+), 182 deletions(-)
+=== Git push ===
+To https://github.com/PlumeTeam/parawaze.git
+   bdf6ae3..efbad54  main -> main
+=== DONE ===
