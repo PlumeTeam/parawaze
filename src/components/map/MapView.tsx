@@ -73,6 +73,17 @@ function getWindAngle(dir: WindDirection | null | undefined): number {
 /* ------------------------------------------------------------------ */
 /*  GeoJSON helpers                                                   */
 /* ------------------------------------------------------------------ */
+function getAgeOpacity(createdAt: string, reportType: string): number {
+  // Only observations fade over time, forecasts stay at full opacity
+  if (reportType === 'forecast') return 0.95;
+  const ageMs = Date.now() - new Date(createdAt).getTime();
+  const ageHours = ageMs / (1000 * 60 * 60);
+  if (ageHours < 1) return 1.0;        // < 1h: 100%
+  // After 1h: lose 15% per hour, minimum 10%
+  const opacity = 1.0 - (ageHours - 1) * 0.15;
+  return Math.max(0.10, Math.min(1.0, opacity));
+}
+
 function buildReportFeatures(reports: WeatherReport[]): GeoJSON.Feature[] {
   return reports
     .filter((r) => r.location && r.location.coordinates && r.location.coordinates.length >= 2)
@@ -87,6 +98,7 @@ function buildReportFeatures(reports: WeatherReport[]): GeoJSON.Feature[] {
         report_type: r.report_type,
         color: getConditionColor(r),
         wind_angle: getWindAngle(r.wind_direction),
+        opacity: getAgeOpacity(r.created_at, r.report_type),
       },
     }));
 }
@@ -215,7 +227,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           'circle-color': ['get', 'color'],
           'circle-stroke-width': 2,
           'circle-stroke-color': '#ffffff',
-          'circle-opacity': 0.9,
+          'circle-opacity': ['get', 'opacity'],
         },
       });
     }
@@ -232,7 +244,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           'circle-color': ['get', 'color'],
           'circle-stroke-width': 4,
           'circle-stroke-color': '#ffffff',
-          'circle-opacity': 0.9,
+          'circle-opacity': ['get', 'opacity'],
         },
       });
     }
@@ -254,6 +266,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         },
         paint: {
           'text-color': '#ffffff',
+          'text-opacity': ['get', 'opacity'],
         },
       });
     }
