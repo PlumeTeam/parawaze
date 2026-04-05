@@ -474,10 +474,10 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     mapRef.current.setStyle(MAP_STYLES[mapStyle]);
   }, [mapStyle]);
 
-  // Update report data when reports change
+  // Update report data when reports change (including clearing when switching days)
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || reports.length === 0) return;
+    if (!map) return;
     const doUpdate = () => {
       if (map.getSource(SRC_REPORTS)) {
         updateReportSource(map, reports);
@@ -494,8 +494,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   // because shuttles may arrive before the map finishes loading
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || shuttles.length === 0) return;
-    // Wait for map style to be ready before updating
+    if (!map) return;
     const doUpdate = () => {
       if (map.getSource(SRC_SHUTTLES)) {
         updateShuttleSource(map, shuttles);
