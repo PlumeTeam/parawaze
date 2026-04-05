@@ -136,13 +136,26 @@ export interface Shuttle {
   expires_at: string;
   created_at: string;
   profiles?: Profile;
+  passengers?: ShuttlePassenger[];
 }
+
+export interface UpdateShuttleInput {
+  departure_time?: string;
+  total_seats?: number;
+  price_per_person?: number | null;
+  description?: string | null;
+  return_requested?: boolean;
+  return_time?: string | null;
+}
+
+export type PassengerStatus = 'pending' | 'accepted' | 'rejected';
 
 export interface ShuttlePassenger {
   id: string;
   shuttle_id: string;
   user_id: string;
   seats_taken: number;
+  status: PassengerStatus;
   profiles?: Profile;
 }
 

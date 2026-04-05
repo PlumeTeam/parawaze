@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
-import type { Shuttle, ShuttlePassenger, CreateShuttleInput } from '@/lib/types';
+import type { Shuttle, ShuttlePassenger, CreateShuttleInput, UpdateShuttleInput } from '@/lib/types';
 
 export function useShuttles() {
   const [shuttles, setShuttles] = useState<Shuttle[]>([]);
@@ -144,6 +144,83 @@ export function useShuttles() {
     []
   );
 
+  const updateShuttle = useCallback(
+    async (id: string, updates: UpdateShuttleInput) => {
+      const { data, error } = await supabase
+        .from('shuttles')
+        .update({ ...updates, updated_at: new Date().toISOString() })
+        .eq('id', id)
+        .select('*, profiles(*)')
+        .single();
+
+      if (error) throw error;
+      return data as Shuttle;
+    },
+    []
+  );
+
+  const cancelShuttle = useCallback(
+    async (id: string) => {
+      const { error } = await supabase
+        .from('shuttles')
+        .update({ is_active: false, updated_at: new Date().toISOString() })
+        .eq('id', id);
+
+      if (error) throw error;
+    },
+    []
+  );
+
+  const acceptPassenger = useCallback(
+    async (shuttleId: string, userId: string) => {
+      const { error } = await supabase
+        .from('shuttle_passengers')
+        .update({ status: 'accepted' })
+        .eq('shuttle_id', shuttleId)
+        .eq('user_id', userId);
+
+      if (error) throw error;
+    },
+    []
+  );
+
+  const rejectPassenger = useCallback(
+    async (shuttleId: string, userId: string) => {
+      // Get passenger seats before deleting
+      const { data: passenger } = await supabase
+        .from('shuttle_passengers')
+        .select('seats_taken')
+        .eq('shuttle_id', shuttleId)
+        .eq('user_id', userId)
+        .single();
+
+      const { error } = await supabase
+        .from('shuttle_passengers')
+        .delete()
+        .eq('shuttle_id', shuttleId)
+        .eq('user_id', userId);
+
+      if (error) throw error;
+
+      // Decrement taken_seats on the shuttle
+      if (passenger) {
+        const { data: shuttle } = await supabase
+          .from('shuttles')
+          .select('taken_seats')
+          .eq('id', shuttleId)
+          .single();
+
+        if (shuttle) {
+          await supabase
+            .from('shuttles')
+            .update({ taken_seats: Math.max(0, shuttle.taken_seats - passenger.seats_taken) })
+            .eq('id', shuttleId);
+        }
+      }
+    },
+    []
+  );
+
   return {
     shuttles,
     loading,
@@ -155,5 +232,9 @@ export function useShuttles() {
     joinShuttle,
     leaveShuttle,
     isUserInShuttle,
+    updateShuttle,
+    cancelShuttle,
+    acceptPassenger,
+    rejectPassenger,
   };
 }
