@@ -50,24 +50,32 @@ export function useReports() {
         .order('created_at', { ascending: false })
         .limit(100);
 
+      const todayStr = todayStart.toISOString().split('T')[0];
+
       if (day === 'yesterday') {
-        // All reports created yesterday, regardless of active/expired
+        // Only observations/image_shares from yesterday — NEVER forecasts
         query = query
+          .in('report_type', ['observation', 'image_share'])
           .gte('created_at', yesterdayStart.toISOString())
-          .lt('created_at', todayStart.toISOString());
-      } else if (day === 'today') {
-        // Today's active, non-expired reports
-        query = query
-          .gte('created_at', todayStart.toISOString())
+          .lt('created_at', todayStart.toISOString())
           .eq('is_active', true)
           .gt('expires_at', now.toISOString());
+      } else if (day === 'today') {
+        // Observations created today + forecasts where forecast_date = today
+        query = query
+          .eq('is_active', true)
+          .gt('expires_at', now.toISOString())
+          .or(
+            `and(report_type.in.(observation,image_share),created_at.gte.${todayStart.toISOString()}),and(report_type.eq.forecast,forecast_date.eq.${todayStr})`
+          );
       } else {
-        // Tomorrow: forecasts with forecast_date = tomorrow
-        const tomorrowDate = new Date(tomorrowStart);
-        const tomorrowStr = tomorrowDate.toISOString().split('T')[0];
+        // Tomorrow: ONLY forecasts with forecast_date = tomorrow
+        const tomorrowStr = tomorrowStart.toISOString().split('T')[0];
         query = query
           .eq('report_type', 'forecast')
-          .eq('forecast_date', tomorrowStr);
+          .eq('forecast_date', tomorrowStr)
+          .eq('is_active', true)
+          .gt('expires_at', now.toISOString());
       }
 
       const { data, error: err } = await query;

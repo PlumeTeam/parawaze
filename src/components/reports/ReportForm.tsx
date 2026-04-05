@@ -338,7 +338,7 @@ export default function ReportForm({ initialData, reportId }: ReportFormProps) {
 
   // Forecast-specific state
   const [forecastDate, setForecastDate] = useState<string>(initialData?.forecast_date || '');
-  const [forecastDateMode, setForecastDateMode] = useState<'today' | 'tomorrow' | 'after' | 'custom'>(initialData?.forecast_date ? 'custom' : 'today');
+  const [forecastDateMode, setForecastDateMode] = useState<'today' | 'tomorrow'>(initialData?.forecast_date ? 'today' : 'today');
   const [scenarios, setScenarios] = useState<ScenarioInput[]>(
     initialData?.forecast_scenarios?.map((s) => ({
       hour_slot: s.hour_slot,
@@ -359,18 +359,26 @@ export default function ReportForm({ initialData, reportId }: ReportFormProps) {
     return d.toISOString().split('T')[0];
   };
 
-  const handleForecastDateMode = (mode: 'today' | 'tomorrow' | 'after' | 'custom') => {
+  const handleForecastDateMode = (mode: 'today' | 'tomorrow') => {
     setForecastDateMode(mode);
     if (mode === 'today') setForecastDate(getDateString(0));
     else if (mode === 'tomorrow') setForecastDate(getDateString(1));
-    else if (mode === 'after') setForecastDate(getDateString(2));
   };
 
   const handleReportTypeChange = (type: ReportType) => {
     setReportType(type);
     if (type === 'forecast' && !forecastDate) {
-      setForecastDate(getDateString(1));
-      setForecastDateMode('tomorrow');
+      setForecastDate(getDateString(0));
+      setForecastDateMode('today');
+    }
+    // If switching to forecast, validate the date is today or tomorrow only
+    if (type === 'forecast' && forecastDate) {
+      const todayStr = getDateString(0);
+      const tomorrowStr = getDateString(1);
+      if (forecastDate !== todayStr && forecastDate !== tomorrowStr) {
+        setForecastDate(getDateString(0));
+        setForecastDateMode('today');
+      }
     }
   };
 
@@ -445,6 +453,16 @@ export default function ReportForm({ initialData, reportId }: ReportFormProps) {
     if (reportType === 'observation' && !hasWeatherData) {
       setError('Remplissez au moins un champ météo ou ajoutez une description/photo.');
       return;
+    }
+
+    // Forecast date validation: only today or tomorrow allowed
+    if (reportType === 'forecast') {
+      const todayStr = getDateString(0);
+      const tomorrowStr = getDateString(1);
+      if (!forecastDate || (forecastDate !== todayStr && forecastDate !== tomorrowStr)) {
+        setError('La date de prévision doit être aujourd\'hui ou demain.');
+        return;
+      }
     }
 
     setError('');
@@ -540,12 +558,10 @@ export default function ReportForm({ initialData, reportId }: ReportFormProps) {
           <label className="block text-sm font-semibold text-gray-700 mb-2">
             Date de la prévision
           </label>
-          <div className="grid grid-cols-4 gap-2 mb-2">
+          <div className="grid grid-cols-2 gap-2 mb-2">
             {([
               { key: 'today' as const, label: "Aujourd'hui" },
               { key: 'tomorrow' as const, label: 'Demain' },
-              { key: 'after' as const, label: 'Après-demain' },
-              { key: 'custom' as const, label: 'Autre' },
             ]).map(({ key, label }) => (
               <button
                 key={key}
@@ -561,15 +577,6 @@ export default function ReportForm({ initialData, reportId }: ReportFormProps) {
               </button>
             ))}
           </div>
-          {forecastDateMode === 'custom' && (
-            <input
-              type="date"
-              value={forecastDate}
-              onChange={(e) => setForecastDate(e.target.value)}
-              min={getDateString(0)}
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-sky-500 focus:ring-2 focus:ring-sky-200 outline-none text-sm"
-            />
-          )}
         </div>
       )}
 
