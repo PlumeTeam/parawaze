@@ -14,7 +14,7 @@ export function useShuttles() {
     setError(null);
     try {
       const { data, error: err } = await supabase
-        .from('shuttles')
+        .from('shuttles_with_geo')
         .select('*, profiles(*)')
         .eq('is_active', true)
         .gt('departure_time', new Date().toISOString())
@@ -22,7 +22,13 @@ export function useShuttles() {
         .limit(50);
 
       if (err) throw err;
-      setShuttles(data || []);
+      // Map GeoJSON columns to the expected interface
+      const mapped = (data || []).map((s: any) => ({
+        ...s,
+        meeting_point: s.meeting_point_geo || null,
+        destination: s.destination_geo || null,
+      }));
+      setShuttles(mapped);
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -32,13 +38,13 @@ export function useShuttles() {
 
   const getShuttle = useCallback(async (id: string) => {
     const { data, error } = await supabase
-      .from('shuttles')
+      .from('shuttles_with_geo')
       .select('*, profiles(*)')
       .eq('id', id)
       .single();
 
     if (error) throw error;
-    return data as Shuttle;
+    return { ...data, meeting_point: data.meeting_point_geo || null, destination: data.destination_geo || null } as Shuttle;
   }, []);
 
   const getShuttlePassengers = useCallback(async (shuttleId: string) => {
