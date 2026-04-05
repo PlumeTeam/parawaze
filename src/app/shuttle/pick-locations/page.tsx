@@ -70,7 +70,7 @@ function PickLocationsContent() {
     (async () => {
       try {
         const mb = (await import('mapbox-gl')).default;
-        await import('mapbox-gl/dist/mapbox-gl.css');
+        if (!document.querySelector('link[href*="mapbox-gl"]')) { const link = document.createElement('link'); link.rel = 'stylesheet'; link.href = 'https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.css'; document.head.appendChild(link); }
         if (cancelled) return;
 
         mb.accessToken = MAPBOX_TOKEN;
