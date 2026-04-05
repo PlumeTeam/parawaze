@@ -50,9 +50,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView({ repor
   const markerPositionRef = useRef<MarkerPosition | null>(null);
   const [markerInfo, setMarkerInfo] = useState<MarkerPosition | null>(null);
 
-  // Guard to prevent map click from firing when a marker was just clicked
-  const lastMarkerClickTime = useRef(0);
-
   // (tap detection handled by Mapbox GL's built-in click event)
 
   // Expose getCenter and getMarkerPosition to parent via ref
@@ -172,9 +169,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView({ repor
         // This automatically distinguishes clicks from drags and provides
         // geographic coordinates directly (no manual pixel→lngLat conversion).
         map.on('click', (e) => {
-          if (Date.now() - lastMarkerClickTime.current < 300) return;
-          const target = e.originalEvent.target as HTMLElement;
-          if (target?.closest('.parawaze-marker, .parawaze-shuttle-marker, .mapboxgl-marker')) return;
           placeMarker({ lng: e.lngLat.lng, lat: e.lngLat.lat });
         });
 
@@ -217,33 +211,39 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView({ repor
 
       const color = flyabilityColor(report.flyability_score || 3);
 
-      // Create marker — NO transform on outer el (breaks Mapbox positioning!)
+      // Create marker element
       const el = document.createElement('div');
       el.className = 'parawaze-marker';
-      el.style.cssText = 'width:36px;height:36px;cursor:pointer;position:relative;';
+      el.style.cssText = `
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background: ${color};
+        border: 3px solid white;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        transition: transform 0.2s;
+      `;
 
-      const circle = document.createElement('div');
-      circle.style.cssText = `width:36px;height:36px;border-radius:50%;background:${color};border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:14px;`;
       const icon = report.report_type === 'observation' ? '\u{1F441}\uFE0F' : report.report_type === 'forecast' ? '\u{1F52E}' : '\u{1F4F7}';
-      circle.innerHTML = icon;
-      el.appendChild(circle);
+      el.innerHTML = icon;
 
-      // Tooltip on hover
-      const tip = document.createElement('div');
-      tip.style.cssText = 'position:absolute;bottom:42px;left:50%;transform:translateX(-50%);background:rgba(17,24,39,0.9);color:white;padding:4px 10px;border-radius:8px;font-size:11px;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity 0.15s;z-index:100;';
-      tip.textContent = report.location_name || report.description?.slice(0, 30) || 'Observation';
-      el.appendChild(tip);
-
-      el.addEventListener('mouseenter', () => { tip.style.opacity = '1'; });
-      el.addEventListener('mouseleave', () => { tip.style.opacity = '0'; });
+      el.addEventListener('mouseenter', () => {
+        el.style.transform = 'scale(1.2)';
+      });
+      el.addEventListener('mouseleave', () => {
+        el.style.transform = 'scale(1)';
+      });
 
       const marker = new mb.Marker({ element: el })
         .setLngLat([coords[0], coords[1]])
         .addTo(mapRef.current!);
 
-      el.addEventListener('click', (e) => {
-        e.stopPropagation();
-        lastMarkerClickTime.current = Date.now();
+      el.addEventListener('click', () => {
         onReportClick(report);
       });
 
@@ -268,14 +268,26 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView({ repor
       const isFull = shuttle.taken_seats >= shuttle.total_seats;
       const borderColor = isFull ? '#ef4444' : '#22c55e';
 
-      // NO transform on outer el (breaks Mapbox positioning!)
       const el = document.createElement('div');
       el.className = 'parawaze-shuttle-marker';
-      el.style.cssText = 'width:28px;height:28px;cursor:pointer;';
-      const sc = document.createElement('div');
-      sc.style.cssText = `width:28px;height:28px;border-radius:50%;background:white;border:3px solid ${borderColor};box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:14px;`;
-      sc.textContent = '\u{1F690}';
-      el.appendChild(sc);
+      el.style.cssText = `
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: white;
+        border: 3px solid ${borderColor};
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        transition: transform 0.2s;
+      `;
+      el.textContent = '\u{1F690}';
+
+      el.addEventListener('mouseenter', () => { el.style.transform = 'scale(1.2)'; });
+      el.addEventListener('mouseleave', () => { el.style.transform = 'scale(1)'; });
 
       const marker = new mb.Marker({ element: el })
         .setLngLat([coords[0], coords[1]])
