@@ -476,17 +476,38 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
 
   // Update report data when reports change
   useEffect(() => {
-    if (!mapRef.current || !mapLoaded) return;
-    updateReportSource(mapRef.current, reports);
-  }, [reports, mapLoaded]);
+    const map = mapRef.current;
+    if (!map || reports.length === 0) return;
+    const doUpdate = () => {
+      if (map.getSource(SRC_REPORTS)) {
+        updateReportSource(map, reports);
+      }
+    };
+    if (map.isStyleLoaded()) {
+      doUpdate();
+    } else {
+      map.once('idle', doUpdate);
+    }
+  }, [reports]);
 
-  // Update shuttle data when shuttles change
+  // Update shuttle data when shuttles change — don't depend on mapLoaded
+  // because shuttles may arrive before the map finishes loading
   useEffect(() => {
-    console.log('[ParaWaze] shuttle useEffect triggered, mapLoaded:', mapLoaded, 'shuttles:', shuttles.length, 'mapRef:', !!mapRef.current);
-    if (!mapRef.current || !mapLoaded) return;
-    updateShuttleSource(mapRef.current, shuttles);
-    addShuttleRouteLines(mapRef.current, shuttles);
-  }, [shuttles, mapLoaded]);
+    const map = mapRef.current;
+    if (!map || shuttles.length === 0) return;
+    // Wait for map style to be ready before updating
+    const doUpdate = () => {
+      if (map.getSource(SRC_SHUTTLES)) {
+        updateShuttleSource(map, shuttles);
+        addShuttleRouteLines(map, shuttles);
+      }
+    };
+    if (map.isStyleLoaded()) {
+      doUpdate();
+    } else {
+      map.once('idle', doUpdate);
+    }
+  }, [shuttles]);
 
   /* ---------------------------------------------------------------- */
   /*  Utility callbacks                                               */
