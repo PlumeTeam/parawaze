@@ -1,0 +1,35 @@
+=== Cleaning null bytes from modified files ===
+Cleaning src\lib\types.ts ...
+Cleaning src\hooks\useReports.ts ...
+Cleaning src\components\reports\ReportForm.tsx ...
+Cleaning src\components\reports\ReportDetail.tsx ...
+Cleaning src\components\reports\ReportCard.tsx ...
+=== Git status ===
+On branch main
+Your branch is up to date with 'origin/main'.
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   src/components/reports/ReportCard.tsx
+	modified:   src/components/reports/ReportDetail.tsx
+	modified:   src/components/reports/ReportForm.tsx
+	modified:   src/hooks/useReports.ts
+	modified:   src/lib/types.ts
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	push_forecast.bat
+	push_forecast.log
+
+no changes added to commit (use "git add" and/or "git commit -a")
+=== Adding files ===
+warning: in the working copy of 'src/components/reports/ReportCard.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/lib/types.ts', LF will be replaced by CRLF the next time Git touches it
+=== Committing ===
+[main 583b6a8] feat: add forecast_date and hourly scenario support to weather reports
+ 5 files changed, 453 insertions(+), 14 deletions(-)
+=== Pushing ===
+To https://github.com/PlumeTeam/parawaze.git
+   2983a60..583b6a8  main -> main
+=== Done ===

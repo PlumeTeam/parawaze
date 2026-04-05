@@ -237,7 +237,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView({ repor
       el.addEventListener('mouseenter', () => { tip.style.opacity = '1'; });
       el.addEventListener('mouseleave', () => { tip.style.opacity = '0'; });
 
-      const marker = new mb.Marker({ element: el })
+      const marker = new mb.Marker({ element: el, anchor: 'center' })
         .setLngLat([coords[0], coords[1]])
         .addTo(mapRef.current!);
 
@@ -277,7 +277,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView({ repor
       depCircle.textContent = '\u{1F690}';
       depEl.appendChild(depCircle);
 
-      const depMarker = new mb.Marker({ element: depEl })
+      const depMarker = new mb.Marker({ element: depEl, anchor: 'center' })
         .setLngLat([coords[0], coords[1]])
         .addTo(mapRef.current!);
 
@@ -300,7 +300,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView({ repor
         arrCircle.textContent = '\u{1F3D4}';
         arrEl.appendChild(arrCircle);
 
-        const arrMarker = new mb.Marker({ element: arrEl })
+        const arrMarker = new mb.Marker({ element: arrEl, anchor: 'center' })
           .setLngLat([destCoords[0], destCoords[1]])
           .addTo(mapRef.current!);
 
