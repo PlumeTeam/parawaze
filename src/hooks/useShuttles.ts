@@ -43,7 +43,7 @@ export function useShuttles() {
   const getShuttle = useCallback(async (id: string) => {
     const { data, error } = await supabase
       .from('shuttles_with_geo')
-      .select('*, profiles(*)')
+      .select('*, profiles(*), vehicles(*)')
       .eq('id', id)
       .single();
 
@@ -80,6 +80,7 @@ export function useShuttles() {
         description: input.description || null,
         is_active: true,
         expires_at: expiresAt.toISOString(),
+        vehicle_id: input.vehicle_id || null,
       };
 
       // Two-pin location picker (preferred)

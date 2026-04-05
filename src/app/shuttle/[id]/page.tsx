@@ -389,6 +389,24 @@ export default function ShuttleDetailPage() {
           </div>
         </div>
 
+        {/* Vehicle card */}
+        {shuttle.vehicles && (
+          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center gap-3">
+            <span className="text-xl">{'\uD83D\uDE97'}</span>
+            <div>
+              <p className="text-sm font-semibold text-gray-900">
+                {shuttle.vehicles.brand && shuttle.vehicles.model
+                  ? `${shuttle.vehicles.brand} ${shuttle.vehicles.model}`
+                  : shuttle.vehicles.name || 'V\u00e9hicule'}
+                {shuttle.vehicles.color ? ` (${shuttle.vehicles.color})` : ''}
+              </p>
+              {shuttle.vehicles.license_plate && (
+                <p className="text-xs text-gray-400 mt-0.5">{shuttle.vehicles.license_plate}</p>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Info cards */}
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">

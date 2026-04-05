@@ -5,9 +5,10 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, MapPin } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useShuttles } from '@/hooks/useShuttles';
+import { useVehicles } from '@/hooks/useVehicles';
 import BottomNav from '@/components/shared/BottomNav';
 import LoadingSpinner from '@/components/shared/LoadingSpinner';
-import type { ShuttleType } from '@/lib/types';
+import type { ShuttleType, Vehicle } from '@/lib/types';
 
 function formatCoordDisplay(lat: number, lng: number, alt?: number): string {
   const latDir = lat >= 0 ? 'N' : 'S';
@@ -20,6 +21,7 @@ function formatCoordDisplay(lat: number, lng: number, alt?: number): string {
 export default function ShuttleFormContent() {
   const { user, loading: authLoading } = useAuth();
   const { createShuttle } = useShuttles();
+  const { vehicles, fetchVehicles } = useVehicles();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -49,6 +51,7 @@ export default function ShuttleFormContent() {
   const [returnRequested, setReturnRequested] = useState(false);
   const [returnTime, setReturnTime] = useState('');
   const [description, setDescription] = useState('');
+  const [selectedVehicleId, setSelectedVehicleId] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -57,6 +60,16 @@ export default function ShuttleFormContent() {
       router.replace('/auth');
     }
   }, [user, authLoading, router]);
+
+  // Fetch user's vehicles and pre-select default
+  useEffect(() => {
+    if (user) {
+      fetchVehicles(user.id).then((v: Vehicle[]) => {
+        const defaultV = v.find((vh) => vh.is_default);
+        if (defaultV) setSelectedVehicleId(defaultV.id);
+      });
+    }
+  }, [user, fetchVehicles]);
 
   // Set default departure time to next round hour
   useEffect(() => {
@@ -107,6 +120,7 @@ export default function ShuttleFormContent() {
           latitude: lat,
           longitude: lng,
           altitude_m: alt,
+          vehicle_id: selectedVehicleId || null,
         },
         user.id
       );
@@ -351,6 +365,29 @@ export default function ShuttleFormContent() {
             </div>
           )}
         </div>
+
+        {/* Vehicle selector */}
+        {vehicles.length > 0 && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {'\uD83D\uDE97'} V&eacute;hicule
+            </label>
+            <select
+              value={selectedVehicleId}
+              onChange={(e) => setSelectedVehicleId(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-sm focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none"
+            >
+              <option value="">Aucun v&eacute;hicule</option>
+              {vehicles.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.brand && v.model ? `${v.brand} ${v.model}` : v.name || 'V\u00e9hicule'}
+                  {v.color ? ` (${v.color})` : ''}
+                  {` - ${v.seats} places`}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {/* Description */}
         <div>

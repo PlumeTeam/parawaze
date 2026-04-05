@@ -112,6 +112,35 @@ export interface CreateReportInput {
   forecast_scenarios?: Omit<ForecastScenario, 'id' | 'report_id'>[];
 }
 
+// Wing types
+export interface Wing {
+  id: string;
+  owner_id: string;
+  brand: string;
+  model: string;
+  size: string | null;
+  category: WingCategory | null;
+  color: string | null;
+  year: number | null;
+  is_current: boolean;
+  serial_number: string | null;
+  notes: string | null;
+}
+
+// Vehicle types
+export interface Vehicle {
+  id: string;
+  owner_id: string;
+  name: string | null;
+  brand: string | null;
+  model: string | null;
+  color: string | null;
+  license_plate: string | null;
+  seats: number;
+  photo_url: string | null;
+  is_default: boolean;
+}
+
 // Shuttle types
 export type ShuttleType = 'offer' | 'request';
 
@@ -134,9 +163,11 @@ export interface Shuttle {
   description: string | null;
   is_active: boolean;
   expires_at: string;
+  vehicle_id: string | null;
   created_at: string;
   profiles?: Profile;
   passengers?: ShuttlePassenger[];
+  vehicles?: Vehicle;
 }
 
 export interface UpdateShuttleInput {
@@ -179,6 +210,7 @@ export interface CreateShuttleInput {
   dest_lat?: number;
   dest_lng?: number;
   dest_alt?: number;
+  vehicle_id?: string | null;
 }
 
 // Database type for supabase-js generics
