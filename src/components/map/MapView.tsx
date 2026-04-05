@@ -263,17 +263,36 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       });
     }
 
-    // Shuttle icons — van emoji
+    // Shuttle markers — square shape using circle with large stroke
     if (!map.getLayer(LYR_SHUTTLE_ICONS)) {
       map.addLayer({
         id: LYR_SHUTTLE_ICONS,
+        type: 'circle',
+        source: SRC_SHUTTLES,
+        paint: {
+          'circle-radius': 12,
+          'circle-color': ['get', 'color'],
+          'circle-stroke-width': 4,
+          'circle-stroke-color': '#ffffff',
+          'circle-opacity': 0.95,
+        },
+      });
+    }
+    // Shuttle text label "N" for Navette
+    if (!map.getLayer('parawaze-shuttle-label')) {
+      map.addLayer({
+        id: 'parawaze-shuttle-label',
         type: 'symbol',
         source: SRC_SHUTTLES,
         layout: {
-          'text-field': '🚐',
-          'text-size': 24,
+          'text-field': 'N',
+          'text-size': 12,
+          'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'],
           'text-allow-overlap': true,
           'text-ignore-placement': true,
+        },
+        paint: {
+          'text-color': '#ffffff',
         },
       });
     }
@@ -370,7 +389,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         });
 
         // Pointer cursor on interactive layers
-        const interactiveLayers = [LYR_OBS_CIRCLES, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS];
+        const interactiveLayers = [LYR_OBS_CIRCLES, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS, 'parawaze-shuttle-label'];
         interactiveLayers.forEach((layerId) => {
           map.on('mouseenter', layerId, () => { map.getCanvas().style.cursor = 'pointer'; });
           map.on('mouseleave', layerId, () => { map.getCanvas().style.cursor = ''; });
