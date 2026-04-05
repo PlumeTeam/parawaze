@@ -220,9 +220,17 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView({ repor
 
       const color = flyabilityColor(report.flyability_score || 3);
 
-      // Create marker element
+      // Create marker element — use a wrapper to prevent hover transform from
+      // interfering with Mapbox's absolute positioning of the marker
+      const wrapper = document.createElement('div');
+      wrapper.className = 'parawaze-marker';
+      wrapper.style.cssText = `
+        width: 36px;
+        height: 36px;
+        cursor: pointer;
+      `;
+
       const el = document.createElement('div');
-      el.className = 'parawaze-marker';
       el.style.cssText = `
         width: 36px;
         height: 36px;
@@ -230,29 +238,22 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView({ repor
         background: ${color};
         border: 3px solid white;
         box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-        cursor: pointer;
         display: flex;
         align-items: center;
         justify-content: center;
         font-size: 14px;
-        transition: transform 0.2s;
+        pointer-events: none;
       `;
 
       const icon = report.report_type === 'observation' ? '\u{1F441}\uFE0F' : report.report_type === 'forecast' ? '\u{1F52E}' : '\u{1F4F7}';
       el.innerHTML = icon;
+      wrapper.appendChild(el);
 
-      el.addEventListener('mouseenter', () => {
-        el.style.transform = 'scale(1.2)';
-      });
-      el.addEventListener('mouseleave', () => {
-        el.style.transform = 'scale(1)';
-      });
-
-      const marker = new mb.Marker({ element: el })
+      const marker = new mb.Marker({ element: wrapper })
         .setLngLat([coords[0], coords[1]])
         .addTo(mapRef.current!);
 
-      el.addEventListener('click', (e) => {
+      wrapper.addEventListener('click', (e) => {
         e.stopPropagation();
         lastMarkerClickTime.current = Date.now();
         onReportClick(report);

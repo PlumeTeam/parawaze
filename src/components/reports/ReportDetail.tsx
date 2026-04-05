@@ -53,7 +53,7 @@ export default function ReportDetail({ report, onBack, onRefresh }: ReportDetail
             <div className="flex items-center gap-2">
               <span>{REPORT_TYPE_ICONS[report.report_type]}</span>
               <span className="font-semibold text-gray-800 truncate">
-                {report.location_name || 'Rapport'}
+                {report.location_name || (report.location?.coordinates ? `${Math.abs(report.location.coordinates[1]).toFixed(4)}\u00B0 ${report.location.coordinates[1] >= 0 ? 'N' : 'S'}, ${Math.abs(report.location.coordinates[0]).toFixed(4)}\u00B0 ${report.location.coordinates[0] >= 0 ? 'E' : 'W'}` : 'Rapport')}
               </span>
             </div>
             <span className="text-xs text-gray-400">
@@ -127,6 +127,17 @@ export default function ReportDetail({ report, onBack, onRefresh }: ReportDetail
         )}
         {report.description && (
           <p className="text-sm text-gray-600 leading-relaxed">{report.description}</p>
+        )}
+
+        {/* Location */}
+        {report.location?.coordinates && (
+          <div className="flex items-center gap-2 bg-sky-50 rounded-xl px-3 py-2">
+            <MapPin className="h-4 w-4 text-sky-500 flex-shrink-0" />
+            <span className="text-sm text-sky-700">
+              {Math.abs(report.location.coordinates[1]).toFixed(4)}&deg; {report.location.coordinates[1] >= 0 ? 'N' : 'S'}, {Math.abs(report.location.coordinates[0]).toFixed(4)}&deg; {report.location.coordinates[0] >= 0 ? 'E' : 'W'}
+              {report.altitude_m ? ` \u00B7 ${report.altitude_m}m` : ''}
+            </span>
+          </div>
         )}
 
         {/* Weather data grid */}
