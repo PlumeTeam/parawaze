@@ -482,6 +482,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
 
   // Update shuttle data when shuttles change
   useEffect(() => {
+    console.log('[ParaWaze] shuttle useEffect triggered, mapLoaded:', mapLoaded, 'shuttles:', shuttles.length, 'mapRef:', !!mapRef.current);
     if (!mapRef.current || !mapLoaded) return;
     updateShuttleSource(mapRef.current, shuttles);
     addShuttleRouteLines(mapRef.current, shuttles);
