@@ -75,16 +75,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView({ repor
     const map = mapRef.current;
     const mb = mbRef.current;
 
-    // Query terrain elevation (free, uses loaded DEM tiles)
-    let alt: number | null = null;
-    try {
-      const elev = map.queryTerrainElevation([lngLat.lng, lngLat.lat]);
-      if (elev !== null && elev !== undefined) {
-        alt = Math.round(elev);
-      }
-    } catch {
-      // Terrain not available — keep alt as null
-    }
+    // Altitude not queried on main map (terrain disabled to prevent marker drift)
+    const alt: number | null = null;
 
     const pos: MarkerPosition = { lat: lngLat.lat, lng: lngLat.lng, alt };
     markerPositionRef.current = pos;
@@ -137,31 +129,12 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView({ repor
           if (cancelled) return;
           setMapLoaded(true);
 
-          // Add terrain DEM source for elevation queries
-          // exaggeration: 0 means no visual 3D but elevation data is available
-          if (!map.getSource('mapbox-dem')) {
-            map.addSource('mapbox-dem', {
-              type: 'raster-dem',
-              url: 'mapbox://mapbox.mapbox-terrain-dem-v1',
-              tileSize: 512,
-              maxzoom: 14,
-            });
-            map.setTerrain({ source: 'mapbox-dem', exaggeration: 0 });
-          }
+          // NOTE: Terrain DEM removed from main map — it causes markers to drift
+          // when zooming because setTerrain enables 3D projection.
+          // Elevation queries are only done on the shuttle pick-locations page.
         });
 
-        // Re-add terrain after style change
-        map.on('style.load', () => {
-          if (!map.getSource('mapbox-dem')) {
-            map.addSource('mapbox-dem', {
-              type: 'raster-dem',
-              url: 'mapbox://mapbox.mapbox-terrain-dem-v1',
-              tileSize: 512,
-              maxzoom: 14,
-            });
-            map.setTerrain({ source: 'mapbox-dem', exaggeration: 0 });
-          }
-        });
+        // No terrain re-add on style change (removed to prevent marker drift)
 
         map.on('moveend', () => {
           const center = map.getCenter();
