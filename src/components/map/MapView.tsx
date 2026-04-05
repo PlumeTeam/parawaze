@@ -234,7 +234,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       });
     }
 
-    // Forecast circles — larger stroke to distinguish
+    // Forecast circles — larger with diamond shape stroke to distinguish
     if (!map.getLayer(LYR_FORECAST_CIRCLES)) {
       map.addLayer({
         id: LYR_FORECAST_CIRCLES,
@@ -242,11 +242,35 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         source: SRC_REPORTS,
         filter: ['==', ['get', 'report_type'], 'forecast'],
         paint: {
-          'circle-radius': 14,
+          'circle-radius': 16,
           'circle-color': ['get', 'color'],
-          'circle-stroke-width': 4,
-          'circle-stroke-color': '#ffffff',
+          'circle-stroke-width': 3,
+          'circle-stroke-color': '#8b5cf6',
           'circle-opacity': ['get', 'opacity'],
+        },
+      });
+    }
+
+    // Forecast "P" label inside the circle
+    if (!map.getLayer('parawaze-forecast-label')) {
+      map.addLayer({
+        id: 'parawaze-forecast-label',
+        type: 'symbol',
+        source: SRC_REPORTS,
+        filter: ['==', ['get', 'report_type'], 'forecast'],
+        layout: {
+          'text-field': 'P',
+          'text-size': 13,
+          'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'],
+          'text-allow-overlap': true,
+          'text-ignore-placement': true,
+          'text-offset': [0, -0.1],
+        },
+        paint: {
+          'text-color': '#ffffff',
+          'text-halo-color': 'rgba(0,0,0,0.3)',
+          'text-halo-width': 1,
+          'text-opacity': ['get', 'opacity'],
         },
       });
     }
@@ -409,7 +433,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         });
 
         // Pointer cursor on interactive layers
-        const interactiveLayers = [LYR_OBS_CIRCLES, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS, 'parawaze-shuttle-label'];
+        const interactiveLayers = [LYR_OBS_CIRCLES, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS, 'parawaze-shuttle-label', 'parawaze-forecast-label'];
         interactiveLayers.forEach((layerId) => {
           map.on('mouseenter', layerId, () => { map.getCanvas().style.cursor = 'pointer'; });
           map.on('mouseleave', layerId, () => { map.getCanvas().style.cursor = ''; });
