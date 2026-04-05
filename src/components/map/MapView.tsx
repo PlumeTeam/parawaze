@@ -332,26 +332,32 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView({ repor
 
     const geojson = { type: 'FeatureCollection' as const, features: lineFeatures };
 
-    // Draw shuttle route lines (only if map style is loaded)
-    try {
-      if (map.getSource('shuttle-routes')) {
-        (map.getSource('shuttle-routes') as any).setData(geojson);
-      } else if (map.isStyleLoaded()) {
-        map.addSource('shuttle-routes', { type: 'geojson', data: geojson });
-        map.addLayer({
-          id: 'shuttle-routes-line',
-          type: 'line',
-          source: 'shuttle-routes',
-          paint: {
-            'line-color': '#6366f1',
-            'line-width': 2.5,
-            'line-dasharray': [3, 2],
-            'line-opacity': 0.7,
-          },
-        });
-      }
-    } catch {
-      // Style not ready yet — lines will be added on next render
+    // Draw shuttle route lines
+    const addRouteLines = () => {
+      try {
+        if (map.getSource('shuttle-routes')) {
+          (map.getSource('shuttle-routes') as any).setData(geojson);
+        } else {
+          map.addSource('shuttle-routes', { type: 'geojson', data: geojson });
+          map.addLayer({
+            id: 'shuttle-routes-line',
+            type: 'line',
+            source: 'shuttle-routes',
+            paint: {
+              'line-color': '#6366f1',
+              'line-width': 2.5,
+              'line-dasharray': [3, 2],
+              'line-opacity': 0.7,
+            },
+          });
+        }
+      } catch { /* style not ready */ }
+    };
+
+    if (map.isStyleLoaded()) {
+      addRouteLines();
+    } else {
+      map.once('style.load', addRouteLines);
     }
   }, [shuttles, onShuttleClick]);
 
