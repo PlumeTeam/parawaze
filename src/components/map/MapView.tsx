@@ -422,9 +422,13 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   }
 
   function updateShuttleSource(map: mapboxgl.Map, sht: Shuttle[]) {
+    const features = buildShuttleFeatures(sht);
+    console.log('[ParaWaze] updateShuttleSource:', features.length, 'features, source exists:', !!map.getSource(SRC_SHUTTLES));
     const src = map.getSource(SRC_SHUTTLES) as mapboxgl.GeoJSONSource | undefined;
     if (src) {
-      src.setData({ type: 'FeatureCollection', features: buildShuttleFeatures(sht) });
+      src.setData({ type: 'FeatureCollection', features });
+    } else {
+      console.warn('[ParaWaze] shuttle source not found!');
     }
   }
 
