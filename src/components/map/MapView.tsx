@@ -65,9 +65,10 @@ const WIND_ANGLE_MAP: Record<string, number> = {
 function getWindAngle(dir: WindDirection | null | undefined): number {
   if (!dir || dir === 'variable') return -1; // -1 means hide arrow
   // Wind direction means "where the wind comes FROM"
-  // Arrow should point in the direction the wind BLOWS TO (add 180°)
+  // Arrow ➤ points right by default (90°), so subtract 90 to align with north=0
+  // Then add 180° to show where wind BLOWS TO
   const angle = WIND_ANGLE_MAP[dir];
-  return angle !== undefined ? (angle + 180) % 360 : -1;
+  return angle !== undefined ? (angle + 180 - 90 + 360) % 360 : -1;
 }
 
 /* ------------------------------------------------------------------ */
@@ -258,8 +259,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         source: SRC_REPORTS,
         filter: ['!=', ['get', 'wind_angle'], -1],
         layout: {
-          'text-field': '↑',
-          'text-size': 16,
+          'text-field': '➤',
+          'text-size': 22,
           'text-rotate': ['get', 'wind_angle'],
           'text-allow-overlap': true,
           'text-ignore-placement': true,
@@ -267,6 +268,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         },
         paint: {
           'text-color': '#ffffff',
+          'text-halo-color': 'rgba(0,0,0,0.6)',
+          'text-halo-width': 1.5,
           'text-opacity': ['get', 'opacity'],
         },
       });
