@@ -77,11 +77,12 @@ function getAgeOpacity(createdAt: string, reportType: string): number {
   // Only observations fade over time, forecasts stay at full opacity
   if (reportType === 'forecast') return 0.95;
   const ageMs = Date.now() - new Date(createdAt).getTime();
-  const ageHours = ageMs / (1000 * 60 * 60);
-  if (ageHours < 1) return 1.0;        // < 1h: 100%
-  // After 1h: lose 15% per hour, minimum 10%
-  const opacity = 1.0 - (ageHours - 1) * 0.15;
-  return Math.max(0.10, Math.min(1.0, opacity));
+  const ageMinutes = ageMs / (1000 * 60);
+  if (ageMinutes < 30) return 1.0;     // < 30min: 100%
+  // After 30min: lose 5% every 30 minutes, minimum 40%
+  const halfHours = Math.floor(ageMinutes / 30);
+  const opacity = 1.0 - halfHours * 0.05;
+  return Math.max(0.40, Math.min(1.0, opacity));
 }
 
 function buildReportFeatures(reports: WeatherReport[]): GeoJSON.Feature[] {
