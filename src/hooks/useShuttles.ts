@@ -10,6 +10,7 @@ export function useShuttles() {
   const [error, setError] = useState<string | null>(null);
 
   const fetchShuttles = useCallback(async () => {
+    console.log('[ParaWaze] fetchShuttles called');
     setLoading(true);
     setError(null);
     try {
@@ -22,14 +23,17 @@ export function useShuttles() {
         .limit(50);
 
       if (err) throw err;
+      console.log('[ParaWaze] fetchShuttles got', data?.length, 'shuttles');
       // Map GeoJSON columns to the expected interface
       const mapped = (data || []).map((s: any) => ({
         ...s,
         meeting_point: s.meeting_point_geo || null,
         destination: s.destination_geo || null,
       }));
+      console.log('[ParaWaze] shuttle mapped, first mp:', mapped[0]?.meeting_point);
       setShuttles(mapped);
     } catch (e: any) {
+      console.error('[ParaWaze] fetchShuttles error:', e.message);
       setError(e.message);
     } finally {
       setLoading(false);
