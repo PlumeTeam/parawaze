@@ -7,10 +7,9 @@ import {
   MAP_STYLES,
   DEFAULT_CENTER,
   DEFAULT_ZOOM,
-  flyabilityColor,
   type MapStyleKey,
 } from '@/lib/mapbox';
-import type { WeatherReport, Shuttle } from '@/lib/types';
+import type { WeatherReport, Shuttle, WindDirection } from '@/lib/types';
 
 // mapbox-gl types only — the actual library is loaded dynamically below
 import type mapboxgl from 'mapbox-gl';
@@ -35,11 +34,101 @@ interface MapViewProps {
   onMarkerPlaced?: (pos: MarkerPosition) => void;
 }
 
-const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView({ reports, shuttles = [], onReportClick, onShuttleClick, onMapMove, onMarkerPlaced }, ref) {
+/* ------------------------------------------------------------------ */
+/*  Condition-based color                                             */
+/* ------------------------------------------------------------------ */
+function getConditionColor(report: WeatherReport): string {
+  const wind = report.wind_speed_kmh ?? 0;
+  const gust = report.wind_gust_kmh ?? 0;
+  const thermal = report.thermal_quality ?? 0;
+  const turbulence = report.turbulence_level ?? 0;
+  const flyability = report.flyability_score ?? 3;
+
+  // GREEN: calm conditions
+  if (wind <= 10 && gust <= 15 && thermal <= 2 && turbulence <= 1 && flyability >= 4) {
+    return '#22c55e';
+  }
+  // RED: dangerous conditions
+  if (wind >= 25 || gust >= 30 || thermal >= 4 || turbulence >= 4 || flyability <= 2) {
+    return '#ef4444';
+  }
+  // YELLOW: moderate / in-between
+  return '#eab308';
+}
+
+/* ------------------------------------------------------------------ */
+/*  Wind direction → angle (degrees, 0 = North, clockwise)           */
+/* ------------------------------------------------------------------ */
+const WIND_ANGLE_MAP: Record<string, number> = {
+  N: 0, NE: 45, E: 90, SE: 135, S: 180, SW: 225, W: 270, NW: 315,
+};
+function getWindAngle(dir: WindDirection | null | undefined): number {
+  if (!dir || dir === 'variable') return -1; // -1 means hide arrow
+  return WIND_ANGLE_MAP[dir] ?? -1;
+}
+
+/* ------------------------------------------------------------------ */
+/*  GeoJSON helpers                                                   */
+/* ------------------------------------------------------------------ */
+function buildReportFeatures(reports: WeatherReport[]): GeoJSON.Feature[] {
+  return reports
+    .filter((r) => r.location && r.location.coordinates && r.location.coordinates.length >= 2)
+    .map((r) => ({
+      type: 'Feature' as const,
+      geometry: {
+        type: 'Point' as const,
+        coordinates: r.location!.coordinates,
+      },
+      properties: {
+        id: r.id,
+        report_type: r.report_type,
+        color: getConditionColor(r),
+        wind_angle: getWindAngle(r.wind_direction),
+      },
+    }));
+}
+
+function buildShuttleFeatures(shuttles: Shuttle[]): GeoJSON.Feature[] {
+  const features: GeoJSON.Feature[] = [];
+  shuttles.forEach((s) => {
+    if (s.meeting_point?.coordinates && s.meeting_point.coordinates.length >= 2) {
+      const isFull = s.taken_seats >= s.total_seats;
+      features.push({
+        type: 'Feature' as const,
+        geometry: { type: 'Point' as const, coordinates: s.meeting_point.coordinates },
+        properties: { id: s.id, shuttle_role: 'departure', color: isFull ? '#ef4444' : '#22c55e' },
+      });
+    }
+    if (s.destination?.coordinates && s.destination.coordinates.length >= 2) {
+      features.push({
+        type: 'Feature' as const,
+        geometry: { type: 'Point' as const, coordinates: s.destination.coordinates },
+        properties: { id: s.id, shuttle_role: 'arrival', color: '#3b82f6' },
+      });
+    }
+  });
+  return features;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Layer IDs (constants to avoid typos)                              */
+/* ------------------------------------------------------------------ */
+const SRC_REPORTS = 'parawaze-reports';
+const LYR_OBS_CIRCLES = 'parawaze-obs-circles';
+const LYR_FORECAST_CIRCLES = 'parawaze-forecast-circles';
+const LYR_WIND_ARROWS = 'parawaze-wind-arrows';
+const SRC_SHUTTLES = 'parawaze-shuttles';
+const LYR_SHUTTLE_ICONS = 'parawaze-shuttle-icons';
+
+/* ------------------------------------------------------------------ */
+/*  Component                                                         */
+/* ------------------------------------------------------------------ */
+const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
+  { reports, shuttles = [], onReportClick, onShuttleClick, onMapMove, onMarkerPlaced },
+  ref,
+) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
-  const markersRef = useRef<mapboxgl.Marker[]>([]);
-  const shuttleMarkersRef = useRef<mapboxgl.Marker[]>([]);
   const mbRef = useRef<typeof mapboxgl | null>(null);
   const [mapStyle, setMapStyle] = useState<MapStyleKey>('outdoors');
   const [mapLoaded, setMapLoaded] = useState(false);
@@ -50,10 +139,15 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView({ repor
   const markerPositionRef = useRef<MarkerPosition | null>(null);
   const [markerInfo, setMarkerInfo] = useState<MarkerPosition | null>(null);
 
-  // Guard to prevent map click from firing when a marker was just clicked
-  const lastMarkerClickTime = useRef(0);
-
-  // (tap detection handled by Mapbox GL's built-in click event)
+  // Stable refs for callbacks used inside map events
+  const reportsRef = useRef<WeatherReport[]>(reports);
+  reportsRef.current = reports;
+  const shuttlesRef = useRef<Shuttle[]>(shuttles);
+  shuttlesRef.current = shuttles;
+  const onReportClickRef = useRef(onReportClick);
+  onReportClickRef.current = onReportClick;
+  const onShuttleClickRef = useRef(onShuttleClick);
+  onShuttleClickRef.current = onShuttleClick;
 
   // Expose getCenter and getMarkerPosition to parent via ref
   useImperativeHandle(ref, () => ({
@@ -62,54 +156,139 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView({ repor
       const c = mapRef.current.getCenter();
       return { lat: c.lat, lng: c.lng };
     },
-    getMarkerPosition: () => {
-      return markerPositionRef.current;
-    },
+    getMarkerPosition: () => markerPositionRef.current,
   }));
 
-  // No custom pin element needed — we use Mapbox's default red marker
+  /** Place (or move) the red placement marker at given coordinates */
+  const placeMarker = useCallback(
+    (lngLat: { lng: number; lat: number }) => {
+      if (!mapRef.current || !mbRef.current) return;
+      const map = mapRef.current;
+      const mb = mbRef.current;
 
-  /** Place (or move) the marker at given coordinates */
-  const placeMarker = useCallback((lngLat: { lng: number; lat: number }) => {
-    if (!mapRef.current || !mbRef.current) return;
-    const map = mapRef.current;
-    const mb = mbRef.current;
+      const pos: MarkerPosition = { lat: lngLat.lat, lng: lngLat.lng, alt: null };
+      markerPositionRef.current = pos;
+      setMarkerInfo(pos);
 
-    // Altitude not queried on main map (terrain disabled to prevent marker drift)
-    const alt: number | null = null;
+      if (placedMarkerRef.current) {
+        placedMarkerRef.current.remove();
+        placedMarkerRef.current = null;
+      }
 
-    const pos: MarkerPosition = { lat: lngLat.lat, lng: lngLat.lng, alt };
-    markerPositionRef.current = pos;
-    setMarkerInfo(pos);
+      const marker = new mb.Marker({ color: '#EF4444' })
+        .setLngLat([lngLat.lng, lngLat.lat])
+        .addTo(map);
+      placedMarkerRef.current = marker;
 
-    // Remove existing placed marker
-    if (placedMarkerRef.current) {
-      placedMarkerRef.current.remove();
-      placedMarkerRef.current = null;
+      onMarkerPlaced?.(pos);
+    },
+    [onMarkerPlaced],
+  );
+
+  /* ---------------------------------------------------------------- */
+  /*  Add GeoJSON sources & layers                                    */
+  /* ---------------------------------------------------------------- */
+  const addLayersToMap = useCallback((map: mapboxgl.Map) => {
+    // --- Reports source ---
+    if (!map.getSource(SRC_REPORTS)) {
+      map.addSource(SRC_REPORTS, {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] },
+      });
     }
 
-    // Create new marker using Mapbox default red pin (simple & reliable)
-    const marker = new mb.Marker({ color: '#EF4444' })
-      .setLngLat([lngLat.lng, lngLat.lat])
-      .addTo(map);
+    // Observation circles (report_type = 'observation' or 'image_share')
+    if (!map.getLayer(LYR_OBS_CIRCLES)) {
+      map.addLayer({
+        id: LYR_OBS_CIRCLES,
+        type: 'circle',
+        source: SRC_REPORTS,
+        filter: ['any',
+          ['==', ['get', 'report_type'], 'observation'],
+          ['==', ['get', 'report_type'], 'image_share'],
+        ],
+        paint: {
+          'circle-radius': 14,
+          'circle-color': ['get', 'color'],
+          'circle-stroke-width': 2,
+          'circle-stroke-color': '#ffffff',
+          'circle-opacity': 0.9,
+        },
+      });
+    }
 
-    placedMarkerRef.current = marker;
+    // Forecast circles — larger stroke to distinguish
+    if (!map.getLayer(LYR_FORECAST_CIRCLES)) {
+      map.addLayer({
+        id: LYR_FORECAST_CIRCLES,
+        type: 'circle',
+        source: SRC_REPORTS,
+        filter: ['==', ['get', 'report_type'], 'forecast'],
+        paint: {
+          'circle-radius': 14,
+          'circle-color': ['get', 'color'],
+          'circle-stroke-width': 4,
+          'circle-stroke-color': '#ffffff',
+          'circle-opacity': 0.9,
+        },
+      });
+    }
 
-    // Notify parent so it can store the position
-    onMarkerPlaced?.(pos);
-  }, [onMarkerPlaced]);
+    // Wind direction arrows — symbol layer on top of circles
+    if (!map.getLayer(LYR_WIND_ARROWS)) {
+      map.addLayer({
+        id: LYR_WIND_ARROWS,
+        type: 'symbol',
+        source: SRC_REPORTS,
+        filter: ['!=', ['get', 'wind_angle'], -1],
+        layout: {
+          'text-field': '↑',
+          'text-size': 16,
+          'text-rotate': ['get', 'wind_angle'],
+          'text-allow-overlap': true,
+          'text-ignore-placement': true,
+          'text-rotation-alignment': 'map',
+        },
+        paint: {
+          'text-color': '#ffffff',
+        },
+      });
+    }
 
-  // Initialize map — dynamically import mapbox-gl to avoid SSR issues
+    // --- Shuttles source ---
+    if (!map.getSource(SRC_SHUTTLES)) {
+      map.addSource(SRC_SHUTTLES, {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] },
+      });
+    }
+
+    // Shuttle icons — van emoji
+    if (!map.getLayer(LYR_SHUTTLE_ICONS)) {
+      map.addLayer({
+        id: LYR_SHUTTLE_ICONS,
+        type: 'symbol',
+        source: SRC_SHUTTLES,
+        layout: {
+          'text-field': '🚐',
+          'text-size': 24,
+          'text-allow-overlap': true,
+          'text-ignore-placement': true,
+        },
+      });
+    }
+  }, []);
+
+  /* ---------------------------------------------------------------- */
+  /*  Initialize map                                                  */
+  /* ---------------------------------------------------------------- */
   useEffect(() => {
     if (!mapContainer.current || mapRef.current) return;
-
     let cancelled = false;
 
     (async () => {
       try {
-        // Dynamic import ensures mapbox-gl is only loaded in the browser
         const mb = (await import('mapbox-gl')).default;
-
         if (cancelled) return;
 
         mb.accessToken = MAPBOX_TOKEN;
@@ -125,30 +304,76 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView({ repor
 
         map.addControl(new mb.AttributionControl({ compact: true }), 'bottom-left');
 
-        map.on('load', () => {
+        const onStyleReady = () => {
           if (cancelled) return;
+          addLayersToMap(map);
+          // Populate with current data
+          updateReportSource(map, reportsRef.current);
+          updateShuttleSource(map, shuttlesRef.current);
           setMapLoaded(true);
+        };
 
-          // NOTE: Terrain DEM removed from main map — it causes markers to drift
-          // when zooming because setTerrain enables 3D projection.
-          // Elevation queries are only done on the shuttle pick-locations page.
+        map.on('load', onStyleReady);
+
+        // Re-add layers after style change (style.load fires after setStyle)
+        map.on('style.load', () => {
+          if (cancelled) return;
+          addLayersToMap(map);
+          updateReportSource(map, reportsRef.current);
+          updateShuttleSource(map, shuttlesRef.current);
+          // Re-add shuttle route lines
+          addShuttleRouteLines(map, shuttlesRef.current);
         });
-
-        // No terrain re-add on style change (removed to prevent marker drift)
 
         map.on('moveend', () => {
           const center = map.getCenter();
           onMapMove?.({ lat: center.lat, lng: center.lng });
         });
 
-        // --- Tap-to-place: use Mapbox GL's built-in click event ---
-        // This automatically distinguishes clicks from drags and provides
-        // geographic coordinates directly (no manual pixel→lngLat conversion).
+        // Tap-to-place: map click (ignoring clicks on GeoJSON layers)
         map.on('click', (e) => {
-          if (Date.now() - lastMarkerClickTime.current < 300) return;
+          // Check if the click was on one of our layers
+          const layerFeatures = map.queryRenderedFeatures(e.point, {
+            layers: [LYR_OBS_CIRCLES, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS].filter(
+              (l) => !!map.getLayer(l),
+            ),
+          });
+          if (layerFeatures.length > 0) return; // handled by layer click
+          // Also ignore clicks on native placement marker
           const target = e.originalEvent.target as HTMLElement;
-          if (target?.closest('.parawaze-marker, .parawaze-shuttle-marker, .mapboxgl-marker')) return;
+          if (target?.closest('.mapboxgl-marker')) return;
+
           placeMarker({ lng: e.lngLat.lng, lat: e.lngLat.lat });
+        });
+
+        // --- Click handlers for GeoJSON layers ---
+        map.on('click', LYR_OBS_CIRCLES, (e) => {
+          if (e.features && e.features[0]) {
+            const reportId = e.features[0].properties?.id;
+            const report = reportsRef.current.find((r) => r.id === reportId);
+            if (report) onReportClickRef.current(report);
+          }
+        });
+        map.on('click', LYR_FORECAST_CIRCLES, (e) => {
+          if (e.features && e.features[0]) {
+            const reportId = e.features[0].properties?.id;
+            const report = reportsRef.current.find((r) => r.id === reportId);
+            if (report) onReportClickRef.current(report);
+          }
+        });
+        map.on('click', LYR_SHUTTLE_ICONS, (e) => {
+          if (e.features && e.features[0]) {
+            const shuttleId = e.features[0].properties?.id;
+            const shuttle = shuttlesRef.current.find((s) => s.id === shuttleId);
+            if (shuttle) onShuttleClickRef.current?.(shuttle);
+          }
+        });
+
+        // Pointer cursor on interactive layers
+        const interactiveLayers = [LYR_OBS_CIRCLES, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS];
+        interactiveLayers.forEach((layerId) => {
+          map.on('mouseenter', layerId, () => { map.getCanvas().style.cursor = 'pointer'; });
+          map.on('mouseleave', layerId, () => { map.getCanvas().style.cursor = ''; });
         });
 
         mapRef.current = map;
@@ -167,165 +392,91 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView({ repor
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  /* ---------------------------------------------------------------- */
+  /*  Source data update helpers                                       */
+  /* ---------------------------------------------------------------- */
+  function updateReportSource(map: mapboxgl.Map, rpts: WeatherReport[]) {
+    const src = map.getSource(SRC_REPORTS) as mapboxgl.GeoJSONSource | undefined;
+    if (src) {
+      src.setData({ type: 'FeatureCollection', features: buildReportFeatures(rpts) });
+    }
+  }
+
+  function updateShuttleSource(map: mapboxgl.Map, sht: Shuttle[]) {
+    const src = map.getSource(SRC_SHUTTLES) as mapboxgl.GeoJSONSource | undefined;
+    if (src) {
+      src.setData({ type: 'FeatureCollection', features: buildShuttleFeatures(sht) });
+    }
+  }
+
+  function addShuttleRouteLines(map: mapboxgl.Map, sht: Shuttle[]) {
+    const lineFeatures = sht
+      .filter((s) => s.meeting_point?.coordinates && s.destination?.coordinates)
+      .map((s) => ({
+        type: 'Feature' as const,
+        properties: {},
+        geometry: {
+          type: 'LineString' as const,
+          coordinates: [s.meeting_point!.coordinates, s.destination!.coordinates],
+        },
+      }));
+
+    const geojson = { type: 'FeatureCollection' as const, features: lineFeatures };
+
+    try {
+      if (map.getSource('shuttle-routes')) {
+        (map.getSource('shuttle-routes') as any).setData(geojson);
+      } else {
+        map.addSource('shuttle-routes', { type: 'geojson', data: geojson });
+        map.addLayer({
+          id: 'shuttle-routes-line',
+          type: 'line',
+          source: 'shuttle-routes',
+          paint: {
+            'line-color': '#6366f1',
+            'line-width': 2.5,
+            'line-dasharray': [3, 2],
+            'line-opacity': 0.7,
+          },
+        });
+      }
+    } catch {
+      /* style not ready */
+    }
+  }
+
   // Change style
   useEffect(() => {
     if (!mapRef.current) return;
     mapRef.current.setStyle(MAP_STYLES[mapStyle]);
   }, [mapStyle]);
 
-  // Update report markers
+  // Update report data when reports change
   useEffect(() => {
-    if (!mapRef.current || !mbRef.current) return;
-    const mb = mbRef.current;
+    if (!mapRef.current || !mapLoaded) return;
+    updateReportSource(mapRef.current, reports);
+  }, [reports, mapLoaded]);
 
-    // Clear existing report markers
-    markersRef.current.forEach((m) => m.remove());
-    markersRef.current = [];
-
-    reports.forEach((report) => {
-      if (!report.location) return;
-
-      const coords = report.location.coordinates;
-      if (!coords || coords.length < 2) return;
-
-      const color = flyabilityColor(report.flyability_score || 3);
-
-      // Use native Mapbox colored marker — reliable positioning, no drift
-      const marker = new mb.Marker({ color })
-        .setLngLat([coords[0], coords[1]])
-        .addTo(mapRef.current!);
-
-      // Get the marker element to add click handler
-      const markerEl = marker.getElement();
-      markerEl.classList.add('parawaze-marker');
-      markerEl.style.cursor = 'pointer';
-
-      markerEl.addEventListener('click', (e) => {
-        e.stopPropagation();
-        lastMarkerClickTime.current = Date.now();
-        onReportClick(report);
-      });
-
-      markersRef.current.push(marker);
-    });
-  }, [reports, onReportClick]);
-
-  // Update shuttle markers
+  // Update shuttle data when shuttles change
   useEffect(() => {
-    if (!mapRef.current || !mbRef.current) return;
-    const mb = mbRef.current;
+    if (!mapRef.current || !mapLoaded) return;
+    updateShuttleSource(mapRef.current, shuttles);
+    addShuttleRouteLines(mapRef.current, shuttles);
+  }, [shuttles, mapLoaded]);
 
-    // Clear existing shuttle markers
-    shuttleMarkersRef.current.forEach((m) => m.remove());
-    shuttleMarkersRef.current = [];
-
-    shuttles.forEach((shuttle) => {
-      if (!shuttle.meeting_point) return;
-      const coords = shuttle.meeting_point.coordinates;
-      if (!coords || coords.length < 2) return;
-
-      const isFull = shuttle.taken_seats >= shuttle.total_seats;
-      const borderColor = isFull ? '#ef4444' : '#22c55e';
-
-      // Departure marker — native Mapbox marker (green or red based on capacity)
-      const depMarker = new mb.Marker({ color: borderColor })
-        .setLngLat([coords[0], coords[1]])
-        .addTo(mapRef.current!);
-
-      const depEl = depMarker.getElement();
-      depEl.classList.add('parawaze-shuttle-marker');
-      depEl.style.cursor = 'pointer';
-
-      depEl.addEventListener('click', (e) => {
-        e.stopPropagation();
-        lastMarkerClickTime.current = Date.now();
-        onShuttleClick?.(shuttle);
-      });
-
-      shuttleMarkersRef.current.push(depMarker);
-
-      // Arrival marker (blue) — if destination exists
-      if (shuttle.destination?.coordinates && shuttle.destination.coordinates.length >= 2) {
-        const destCoords = shuttle.destination.coordinates;
-
-        const arrMarker = new mb.Marker({ color: '#3b82f6' })
-          .setLngLat([destCoords[0], destCoords[1]])
-          .addTo(mapRef.current!);
-
-        const arrEl = arrMarker.getElement();
-        arrEl.classList.add('parawaze-shuttle-marker');
-        arrEl.style.cursor = 'pointer';
-
-        arrEl.addEventListener('click', (e) => {
-          e.stopPropagation();
-          lastMarkerClickTime.current = Date.now();
-          onShuttleClick?.(shuttle);
-        });
-
-        shuttleMarkersRef.current.push(arrMarker);
-      }
-    });
-
-    // Draw lines between meeting_point and destination for each shuttle
-    const map = mapRef.current;
-    const lineFeatures = shuttles
-      .filter(s => s.meeting_point?.coordinates && s.destination?.coordinates)
-      .map(s => ({
-        type: 'Feature' as const,
-        properties: {},
-        geometry: {
-          type: 'LineString' as const,
-          coordinates: [
-            s.meeting_point!.coordinates,
-            s.destination!.coordinates,
-          ],
-        },
-      }));
-
-    const geojson = { type: 'FeatureCollection' as const, features: lineFeatures };
-
-    // Draw shuttle route lines
-    const addRouteLines = () => {
-      try {
-        if (map.getSource('shuttle-routes')) {
-          (map.getSource('shuttle-routes') as any).setData(geojson);
-        } else {
-          map.addSource('shuttle-routes', { type: 'geojson', data: geojson });
-          map.addLayer({
-            id: 'shuttle-routes-line',
-            type: 'line',
-            source: 'shuttle-routes',
-            paint: {
-              'line-color': '#6366f1',
-              'line-width': 2.5,
-              'line-dasharray': [3, 2],
-              'line-opacity': 0.7,
-            },
-          });
-        }
-      } catch { /* style not ready */ }
-    };
-
-    if (map.isStyleLoaded()) {
-      addRouteLines();
-    } else {
-      map.once('style.load', addRouteLines);
-    }
-  }, [shuttles, onShuttleClick]);
-
+  /* ---------------------------------------------------------------- */
+  /*  Utility callbacks                                               */
+  /* ---------------------------------------------------------------- */
   const flyToLocation = useCallback((lng: number, lat: number, zoom = 13) => {
     mapRef.current?.flyTo({ center: [lng, lat], zoom, duration: 1500 });
   }, []);
 
   const locateMe = useCallback(() => {
     if (!navigator.geolocation) return;
-
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        flyToLocation(pos.coords.longitude, pos.coords.latitude, 12);
-      },
+      (pos) => flyToLocation(pos.coords.longitude, pos.coords.latitude, 12),
       () => {},
-      { enableHighAccuracy: true, timeout: 10000 }
+      { enableHighAccuracy: true, timeout: 10000 },
     );
   }, [flyToLocation]);
 
@@ -350,6 +501,9 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView({ repor
     return `\u{1F4CD} ${coords}${alt}`;
   };
 
+  /* ---------------------------------------------------------------- */
+  /*  Render                                                          */
+  /* ---------------------------------------------------------------- */
   return (
     <div className="relative w-full h-full">
       {error && (
