@@ -6,6 +6,19 @@ export type Gender = 'homme' | 'femme' | 'autre' | 'non_precise';
 export type WingCategory = 'A' | 'B' | 'B+' | 'C' | 'D' | 'CCC' | 'biplace';
 export type PilotLevel = 'debutant' | 'progression' | 'autonome' | 'confirme' | 'expert' | 'competition';
 
+export interface ForecastScenario {
+  id: string;
+  report_id: string;
+  hour_slot: string; // "10:00", "11:00", etc.
+  wind_speed_kmh: number | null;
+  wind_gust_kmh: number | null;
+  wind_direction: WindDirection | null;
+  turbulence_level: number | null;
+  thermal_quality: number | null;
+  flyability_score: number | null;
+  description: string | null;
+}
+
 export interface Profile {
   id: string;
   username: string | null;
@@ -47,6 +60,7 @@ export interface WeatherReport {
   turbulence_level: number | null;
   flyability_score: number | null;
   tags: string[] | null;
+  forecast_date: string | null;
   likes_count: number;
   genius_count: number;
   doubt_count: number;
@@ -56,6 +70,7 @@ export interface WeatherReport {
   // Joined fields
   profiles?: Profile;
   report_images?: ReportImage[];
+  forecast_scenarios?: ForecastScenario[];
 }
 
 export interface ReportImage {
@@ -93,6 +108,8 @@ export interface CreateReportInput {
   turbulence_level?: number;
   flyability_score?: number;
   tags?: string[];
+  forecast_date?: string;
+  forecast_scenarios?: Omit<ForecastScenario, 'id' | 'report_id'>[];
 }
 
 // Shuttle types

@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Clock, Mountain, Eye, Wind, Thermometer, Cloud, MapPin } from 'lucide-react';
-import type { WeatherReport } from '@/lib/types';
+import { ArrowLeft, Clock, Mountain, Eye, Wind, Thermometer, Cloud, MapPin, Calendar } from 'lucide-react';
+import type { WeatherReport, ForecastScenario } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
 import {
   REPORT_TYPE_LABELS,
@@ -120,6 +120,16 @@ export default function ReportDetail({ report, onBack, onRefresh }: ReportDetail
             </span>
           </div>
         </div>
+
+        {/* Forecast date banner */}
+        {report.report_type === 'forecast' && report.forecast_date && (
+          <div className="flex items-center gap-2 bg-purple-50 border border-purple-200 rounded-xl px-4 py-2.5">
+            <Calendar className="h-5 w-5 text-purple-500 flex-shrink-0" />
+            <span className="text-sm font-semibold text-purple-700">
+              Prevision pour le {new Date(report.forecast_date + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+            </span>
+          </div>
+        )}
 
         {/* Title & description */}
         {report.title && (
@@ -240,6 +250,63 @@ export default function ReportDetail({ report, onBack, onRefresh }: ReportDetail
             )}
           </div>
         </div>
+
+        {/* Forecast scenarios timeline */}
+        {report.forecast_scenarios && report.forecast_scenarios.length > 0 && (
+          <div className="space-y-2">
+            <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+              <Clock className="h-4 w-4 text-sky-500" />
+              Scenarios horaires
+            </h3>
+            {[...report.forecast_scenarios]
+              .sort((a, b) => a.hour_slot.localeCompare(b.hour_slot))
+              .map((scenario) => {
+                const borderColor =
+                  scenario.flyability_score && scenario.flyability_score >= 4 ? 'border-l-green-500' :
+                  scenario.flyability_score && scenario.flyability_score >= 3 ? 'border-l-orange-400' :
+                  scenario.flyability_score && scenario.flyability_score >= 1 ? 'border-l-red-500' :
+                  'border-l-gray-300';
+                return (
+                  <div
+                    key={scenario.id}
+                    className={`bg-white rounded-xl p-3 shadow-sm border-l-4 ${borderColor}`}
+                  >
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-base font-bold text-gray-800">{scenario.hour_slot}</span>
+                      {scenario.flyability_score && (
+                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                          scenario.flyability_score >= 4 ? 'bg-green-100 text-green-700' :
+                          scenario.flyability_score >= 3 ? 'bg-orange-100 text-orange-700' :
+                          'bg-red-100 text-red-700'
+                        }`}>
+                          {scenario.flyability_score}/5
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-3 text-xs text-gray-600">
+                      {scenario.wind_speed_kmh !== null && (
+                        <span>
+                          <Wind className="h-3 w-3 inline mr-0.5 text-sky-500" />
+                          {scenario.wind_speed_kmh} km/h
+                          {scenario.wind_gust_kmh ? ` (raf. ${scenario.wind_gust_kmh})` : ''}
+                          {scenario.wind_direction ? ` ${scenario.wind_direction}` : ''}
+                        </span>
+                      )}
+                      {scenario.turbulence_level !== null && scenario.turbulence_level > 0 && (
+                        <span>Turb. {scenario.turbulence_level}/5</span>
+                      )}
+                      {scenario.thermal_quality !== null && scenario.thermal_quality > 0 && (
+                        <span>Therm. {scenario.thermal_quality}/5</span>
+                      )}
+                    </div>
+                    {scenario.description && (
+                      <p className="text-xs text-gray-500 mt-1.5">{scenario.description}</p>
+                    )}
+                  </div>
+                );
+              })}
+          </div>
+        )}
 
         {/* Tags */}
         {report.tags && report.tags.length > 0 && (

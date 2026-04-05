@@ -34,6 +34,15 @@ export default function ReportCard({ report, onClick, expanded = false }: Report
             <FlyabilityBadge score={report.flyability_score} size="sm" />
           </div>
 
+          {/* Forecast date badge */}
+          {report.report_type === 'forecast' && report.forecast_date && (
+            <div className="mb-1">
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-purple-100 text-purple-700">
+                Prevision pour le {new Date(report.forecast_date + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })}
+              </span>
+            </div>
+          )}
+
           {/* Author + time */}
           <div className="flex items-center gap-2 text-xs text-gray-400 mb-2">
             <span>{authorName}</span>
@@ -80,11 +89,16 @@ export default function ReportCard({ report, onClick, expanded = false }: Report
             <p className="text-sm text-gray-600 mt-2 line-clamp-3">{report.description}</p>
           )}
 
-          {/* Reactions */}
+          {/* Reactions + scenario count */}
           <div className="flex items-center gap-3 mt-2 text-xs text-gray-400">
             {report.likes_count > 0 && <span>👍 {report.likes_count}</span>}
             {report.genius_count > 0 && <span>🧠 {report.genius_count}</span>}
             {report.doubt_count > 0 && <span>🤔 {report.doubt_count}</span>}
+            {report.forecast_scenarios && report.forecast_scenarios.length > 0 && (
+              <span className="text-sky-500 font-medium">
+                🕐 {report.forecast_scenarios.length} creneau{report.forecast_scenarios.length > 1 ? 'x' : ''}
+              </span>
+            )}
           </div>
         </div>
 

@@ -2,13 +2,24 @@
 
 import { useState, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Camera, MapPin, Send, X } from 'lucide-react';
+import { Camera, MapPin, Send, X, Plus, Clock } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useReports } from '@/hooks/useReports';
 import StarRating from '@/components/shared/StarRating';
 import LoadingSpinner from '@/components/shared/LoadingSpinner';
 import { WIND_DIRECTIONS, WIND_DIRECTION_LABELS, REPORT_TYPE_LABELS } from '@/utils/constants';
-import type { ReportType, WindDirection, CreateReportInput } from '@/lib/types';
+import type { ReportType, WindDirection, CreateReportInput, ForecastScenario } from '@/lib/types';
+
+interface ScenarioInput {
+  hour_slot: string;
+  wind_speed_kmh: string;
+  wind_gust_kmh: string;
+  wind_direction: WindDirection | '';
+  turbulence_level: number;
+  thermal_quality: number;
+  flyability_score: number;
+  description: string;
+}
 
 export default function ReportForm() {
   const { user } = useAuth();
@@ -47,6 +58,63 @@ export default function ReportForm() {
   const [tags, setTags] = useState('');
   const [images, setImages] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
+
+  // Forecast-specific state
+  const [forecastDate, setForecastDate] = useState<string>('');
+  const [forecastDateMode, setForecastDateMode] = useState<'today' | 'tomorrow' | 'after' | 'custom'>('today');
+  const [scenarios, setScenarios] = useState<ScenarioInput[]>([]);
+
+  // Helpers for forecast date
+  const getDateString = (offsetDays: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() + offsetDays);
+    return d.toISOString().split('T')[0];
+  };
+
+  const handleForecastDateMode = (mode: 'today' | 'tomorrow' | 'after' | 'custom') => {
+    setForecastDateMode(mode);
+    if (mode === 'today') setForecastDate(getDateString(0));
+    else if (mode === 'tomorrow') setForecastDate(getDateString(1));
+    else if (mode === 'after') setForecastDate(getDateString(2));
+  };
+
+  // Initialize forecast date when switching to forecast type
+  const handleReportTypeChange = (type: ReportType) => {
+    setReportType(type);
+    if (type === 'forecast' && !forecastDate) {
+      setForecastDate(getDateString(1));
+      setForecastDateMode('tomorrow');
+    }
+  };
+
+  // Scenario management
+  const addScenario = (hour?: string) => {
+    setScenarios([...scenarios, {
+      hour_slot: hour || '10:00',
+      wind_speed_kmh: '',
+      wind_gust_kmh: '',
+      wind_direction: '',
+      turbulence_level: 0,
+      thermal_quality: 0,
+      flyability_score: 0,
+      description: '',
+    }]);
+  };
+
+  const removeScenario = (idx: number) => {
+    setScenarios(scenarios.filter((_, i) => i !== idx));
+  };
+
+  const updateScenario = (idx: number, field: keyof ScenarioInput, value: any) => {
+    const updated = [...scenarios];
+    (updated[idx] as any)[field] = value;
+    setScenarios(updated);
+  };
+
+  const HOUR_SLOTS = Array.from({ length: 15 }, (_, i) => {
+    const h = i + 6;
+    return `${h.toString().padStart(2, '0')}:00`;
+  });
 
   const handleImageAdd = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -106,6 +174,19 @@ export default function ReportForm() {
           .split(',')
           .map((t) => t.trim())
           .filter(Boolean),
+        forecast_date: reportType === 'forecast' && forecastDate ? forecastDate : undefined,
+        forecast_scenarios: reportType === 'forecast' && scenarios.length > 0
+          ? scenarios.map((s) => ({
+              hour_slot: s.hour_slot,
+              wind_speed_kmh: s.wind_speed_kmh ? parseInt(s.wind_speed_kmh) : null,
+              wind_gust_kmh: s.wind_gust_kmh ? parseInt(s.wind_gust_kmh) : null,
+              wind_direction: s.wind_direction || null,
+              turbulence_level: s.turbulence_level || null,
+              thermal_quality: s.thermal_quality || null,
+              flyability_score: s.flyability_score || null,
+              description: s.description.trim() || null,
+            }))
+          : undefined,
       };
 
       const report: any = await createReport(input, user.id);
@@ -137,7 +218,7 @@ export default function ReportForm() {
             <button
               key={type}
               type="button"
-              onClick={() => setReportType(type)}
+              onClick={() => handleReportTypeChange(type)}
               className={`py-2.5 px-2 rounded-xl text-xs font-medium transition-all ${
                 reportType === type
                   ? 'bg-sky-500 text-white shadow-md'
@@ -149,6 +230,50 @@ export default function ReportForm() {
           ))}
         </div>
       </div>
+
+      {/* Forecast date selector (only for forecast type) */}
+      {reportType === 'forecast' && (
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            Date de la prevision
+          </label>
+          <div className="grid grid-cols-4 gap-2 mb-2">
+            {([
+              { key: 'today' as const, label: "Aujourd'hui" },
+              { key: 'tomorrow' as const, label: 'Demain' },
+              { key: 'after' as const, label: 'Apres-demain' },
+              { key: 'custom' as const, label: 'Autre' },
+            ]).map(({ key, label }) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => handleForecastDateMode(key)}
+                className={`py-2 px-1 rounded-xl text-xs font-medium transition-all ${
+                  forecastDateMode === key
+                    ? 'bg-sky-500 text-white shadow-md'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {forecastDateMode === 'custom' && (
+            <input
+              type="date"
+              value={forecastDate}
+              onChange={(e) => setForecastDate(e.target.value)}
+              min={getDateString(0)}
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-sky-500 focus:ring-2 focus:ring-sky-200 outline-none text-sm"
+            />
+          )}
+          {forecastDate && (
+            <p className="text-xs text-gray-500 mt-1">
+              Prevision pour le {new Date(forecastDate + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Location preview from map */}
       <div>
@@ -194,6 +319,14 @@ export default function ReportForm() {
           className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-sky-500 focus:ring-2 focus:ring-sky-200 outline-none text-sm"
         />
       </div>
+
+      {/* General forecast label */}
+      {reportType === 'forecast' && (
+        <div className="bg-sky-50 border border-sky-200 rounded-xl px-4 py-2.5">
+          <p className="text-sm font-semibold text-sky-700">Prevision generale de la journee</p>
+          <p className="text-xs text-sky-500 mt-0.5">Remplissez les champs ci-dessous pour la tendance globale</p>
+        </div>
+      )}
 
       {/* Wind */}
       {reportType !== 'image_share' && (
@@ -312,6 +445,189 @@ export default function ReportForm() {
             </div>
           </div>
         </>
+      )}
+
+      {/* Hourly scenarios (only for forecast type) */}
+      {reportType === 'forecast' && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <label className="block text-sm font-semibold text-gray-700">
+              Scenarios par tranche horaire (optionnel)
+            </label>
+          </div>
+
+          {/* Quick preset buttons */}
+          <div className="flex gap-2 flex-wrap">
+            <span className="text-xs text-gray-400 self-center">Ajouter :</span>
+            {[
+              { label: 'Matin (10h)', hour: '10:00' },
+              { label: 'Midi (12h)', hour: '12:00' },
+              { label: 'Apres-midi (15h)', hour: '15:00' },
+            ].map(({ label, hour }) => (
+              <button
+                key={hour}
+                type="button"
+                onClick={() => addScenario(hour)}
+                className="text-xs px-3 py-1.5 rounded-full bg-sky-50 text-sky-600 hover:bg-sky-100 transition-colors font-medium"
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* Scenario cards */}
+          {scenarios
+            .map((s, idx) => ({ s, idx }))
+            .sort((a, b) => a.s.hour_slot.localeCompare(b.s.hour_slot))
+            .map(({ s, idx }) => (
+            <div key={idx} className="bg-gray-50 rounded-xl p-3 space-y-2 border border-gray-200 relative">
+              <button
+                type="button"
+                onClick={() => removeScenario(idx)}
+                className="absolute top-2 right-2 w-6 h-6 rounded-full bg-red-100 flex items-center justify-center hover:bg-red-200 transition-colors"
+              >
+                <X className="h-3 w-3 text-red-500" />
+              </button>
+
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4 text-sky-500" />
+                <select
+                  value={s.hour_slot}
+                  onChange={(e) => updateScenario(idx, 'hour_slot', e.target.value)}
+                  className="px-3 py-1.5 rounded-lg border border-gray-200 text-sm font-semibold bg-white"
+                >
+                  {HOUR_SLOTS.map((h) => (
+                    <option key={h} value={h}>{h}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-xs text-gray-500">Vent (km/h)</label>
+                  <input
+                    type="number"
+                    value={s.wind_speed_kmh}
+                    onChange={(e) => updateScenario(idx, 'wind_speed_kmh', e.target.value)}
+                    placeholder="15"
+                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500">Rafales (km/h)</label>
+                  <input
+                    type="number"
+                    value={s.wind_gust_kmh}
+                    onChange={(e) => updateScenario(idx, 'wind_gust_kmh', e.target.value)}
+                    placeholder="25"
+                    className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs text-gray-500">Direction du vent</label>
+                <div className="grid grid-cols-5 gap-1 mt-1">
+                  {WIND_DIRECTIONS.map((dir) => (
+                    <button
+                      key={dir}
+                      type="button"
+                      onClick={() => updateScenario(idx, 'wind_direction', dir)}
+                      className={`py-1 rounded text-[10px] font-medium transition-all ${
+                        s.wind_direction === dir
+                          ? 'bg-sky-500 text-white'
+                          : 'bg-white text-gray-500 hover:bg-gray-100 border border-gray-200'
+                      }`}
+                    >
+                      {dir === 'variable' ? 'VAR' : dir}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="text-xs text-gray-500">Turbulence</label>
+                  <div className="flex gap-1 mt-1">
+                    {[1, 2, 3, 4, 5].map((v) => (
+                      <button
+                        key={v}
+                        type="button"
+                        onClick={() => updateScenario(idx, 'turbulence_level', s.turbulence_level === v ? 0 : v)}
+                        className={`w-7 h-7 rounded text-xs font-bold transition-all ${
+                          s.turbulence_level === v
+                            ? 'bg-red-500 text-white'
+                            : 'bg-white text-gray-400 border border-gray-200'
+                        }`}
+                      >
+                        {v}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500">Thermiques</label>
+                  <div className="flex gap-1 mt-1">
+                    {[1, 2, 3, 4, 5].map((v) => (
+                      <button
+                        key={v}
+                        type="button"
+                        onClick={() => updateScenario(idx, 'thermal_quality', s.thermal_quality === v ? 0 : v)}
+                        className={`w-7 h-7 rounded text-xs font-bold transition-all ${
+                          s.thermal_quality === v
+                            ? 'bg-orange-500 text-white'
+                            : 'bg-white text-gray-400 border border-gray-200'
+                        }`}
+                      >
+                        {v}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500">Volabilite</label>
+                  <div className="flex gap-1 mt-1">
+                    {[1, 2, 3, 4, 5].map((v) => (
+                      <button
+                        key={v}
+                        type="button"
+                        onClick={() => updateScenario(idx, 'flyability_score', s.flyability_score === v ? 0 : v)}
+                        className={`w-7 h-7 rounded text-xs font-bold transition-all ${
+                          s.flyability_score === v
+                            ? 'bg-green-500 text-white'
+                            : 'bg-white text-gray-400 border border-gray-200'
+                        }`}
+                      >
+                        {v}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs text-gray-500">Description</label>
+                <input
+                  type="text"
+                  value={s.description}
+                  onChange={(e) => updateScenario(idx, 'description', e.target.value)}
+                  placeholder="Conditions prevues..."
+                  className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm mt-1"
+                />
+              </div>
+            </div>
+          ))}
+
+          {/* Add custom slot */}
+          <button
+            type="button"
+            onClick={() => addScenario()}
+            className="w-full py-2.5 rounded-xl border-2 border-dashed border-sky-300 text-sky-500 text-sm font-medium hover:bg-sky-50 transition-colors flex items-center justify-center gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            Ajouter un creneau
+          </button>
+        </div>
       )}
 
       {/* Title */}

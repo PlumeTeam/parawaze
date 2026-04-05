@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
-import type { WeatherReport, CreateReportInput } from '@/lib/types';
+import type { WeatherReport, CreateReportInput, ForecastScenario } from '@/lib/types';
 
 export type DayFilter = 'yesterday' | 'today' | 'tomorrow';
 
@@ -17,7 +17,7 @@ export function useReports() {
     try {
       const { data, error: err } = await supabase
         .from('weather_reports')
-        .select('*, profiles(*), report_images(*)')
+        .select('*, profiles(*), report_images(*), forecast_scenarios(*)')
         .eq('is_active', true)
         .gt('expires_at', new Date().toISOString())
         .order('created_at', { ascending: false })
@@ -46,7 +46,7 @@ export function useReports() {
 
       let query = supabase
         .from('weather_reports')
-        .select('*, profiles(*), report_images(*)')
+        .select('*, profiles(*), report_images(*), forecast_scenarios(*)')
         .order('created_at', { ascending: false })
         .limit(100);
 
@@ -62,10 +62,12 @@ export function useReports() {
           .eq('is_active', true)
           .gt('expires_at', now.toISOString());
       } else {
-        // Tomorrow: only forecasts created today (about tomorrow)
+        // Tomorrow: forecasts with forecast_date = tomorrow
+        const tomorrowDate = new Date(tomorrowStart);
+        const tomorrowStr = tomorrowDate.toISOString().split('T')[0];
         query = query
-          .gte('created_at', todayStart.toISOString())
-          .eq('report_type', 'forecast');
+          .eq('report_type', 'forecast')
+          .eq('forecast_date', tomorrowStr);
       }
 
       const { data, error: err } = await query;
@@ -100,7 +102,7 @@ export function useReports() {
           const ids = data.map((r: any) => r.id);
           const { data: full } = await supabase
             .from('weather_reports')
-            .select('*, profiles(*), report_images(*)')
+            .select('*, profiles(*), report_images(*), forecast_scenarios(*)')
             .in('id', ids)
             .eq('is_active', true)
             .gt('expires_at', new Date().toISOString())
@@ -143,6 +145,7 @@ export function useReports() {
         turbulence_level: input.turbulence_level || null,
         flyability_score: input.flyability_score || null,
         tags: input.tags || [],
+        forecast_date: input.forecast_date || null,
         expires_at: expiresAt.toISOString(),
         is_active: true,
       };
@@ -158,6 +161,28 @@ export function useReports() {
         .single();
 
       if (error) throw error;
+
+      // Insert forecast scenarios if any
+      if (data && input.forecast_scenarios && input.forecast_scenarios.length > 0) {
+        const scenarioRows = input.forecast_scenarios.map((s) => ({
+          report_id: data.id,
+          hour_slot: s.hour_slot,
+          wind_speed_kmh: s.wind_speed_kmh ?? null,
+          wind_gust_kmh: s.wind_gust_kmh ?? null,
+          wind_direction: s.wind_direction ?? null,
+          turbulence_level: s.turbulence_level ?? null,
+          thermal_quality: s.thermal_quality ?? null,
+          flyability_score: s.flyability_score ?? null,
+          description: s.description ?? null,
+        }));
+
+        const { error: scenarioError } = await supabase
+          .from('forecast_scenarios')
+          .insert(scenarioRows);
+
+        if (scenarioError) console.error('Error inserting scenarios:', scenarioError);
+      }
+
       return data;
     },
     []
@@ -199,7 +224,7 @@ export function useReports() {
   const getReport = useCallback(async (id: string) => {
     const { data, error } = await supabase
       .from('weather_reports')
-      .select('*, profiles(*), report_images(*)')
+      .select('*, profiles(*), report_images(*), forecast_scenarios(*)')
       .eq('id', id)
       .single();
 
