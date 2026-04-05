@@ -64,7 +64,10 @@ const WIND_ANGLE_MAP: Record<string, number> = {
 };
 function getWindAngle(dir: WindDirection | null | undefined): number {
   if (!dir || dir === 'variable') return -1; // -1 means hide arrow
-  return WIND_ANGLE_MAP[dir] ?? -1;
+  // Wind direction means "where the wind comes FROM"
+  // Arrow should point in the direction the wind BLOWS TO (add 180°)
+  const angle = WIND_ANGLE_MAP[dir];
+  return angle !== undefined ? (angle + 180) % 360 : -1;
 }
 
 /* ------------------------------------------------------------------ */
