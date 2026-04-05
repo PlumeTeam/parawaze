@@ -190,31 +190,17 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView({ repor
 
       const color = flyabilityColor(report.flyability_score || 3);
 
-      // Create marker — NO transform on outer el (breaks Mapbox positioning!)
-      const el = document.createElement('div');
-      el.className = 'parawaze-marker';
-      el.style.cssText = 'width:36px;height:36px;cursor:pointer;position:relative;';
-
-      const circle = document.createElement('div');
-      circle.style.cssText = `width:36px;height:36px;border-radius:50%;background:${color};border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:14px;`;
-      const icon = report.report_type === 'observation' ? '\u{1F441}\uFE0F' : report.report_type === 'forecast' ? '\u{1F52E}' : '\u{1F4F7}';
-      circle.innerHTML = icon;
-      el.appendChild(circle);
-
-      // Tooltip on hover
-      const tip = document.createElement('div');
-      tip.style.cssText = 'position:absolute;bottom:42px;left:50%;transform:translateX(-50%);background:rgba(17,24,39,0.9);color:white;padding:4px 10px;border-radius:8px;font-size:11px;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity 0.15s;z-index:100;';
-      tip.textContent = report.location_name || report.description?.slice(0, 30) || 'Observation';
-      el.appendChild(tip);
-
-      el.addEventListener('mouseenter', () => { tip.style.opacity = '1'; });
-      el.addEventListener('mouseleave', () => { tip.style.opacity = '0'; });
-
-      const marker = new mb.Marker({ element: el, anchor: 'center' })
+      // Use native Mapbox colored marker — reliable positioning, no drift
+      const marker = new mb.Marker({ color })
         .setLngLat([coords[0], coords[1]])
         .addTo(mapRef.current!);
 
-      el.addEventListener('click', (e) => {
+      // Get the marker element to add click handler
+      const markerEl = marker.getElement();
+      markerEl.classList.add('parawaze-marker');
+      markerEl.style.cursor = 'pointer';
+
+      markerEl.addEventListener('click', (e) => {
         e.stopPropagation();
         lastMarkerClickTime.current = Date.now();
         onReportClick(report);
@@ -241,18 +227,14 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView({ repor
       const isFull = shuttle.taken_seats >= shuttle.total_seats;
       const borderColor = isFull ? '#ef4444' : '#22c55e';
 
-      // Departure marker (green van)
-      const depEl = document.createElement('div');
-      depEl.className = 'parawaze-shuttle-marker';
-      depEl.style.cssText = 'width:28px;height:28px;cursor:pointer;';
-      const depCircle = document.createElement('div');
-      depCircle.style.cssText = `width:28px;height:28px;border-radius:50%;background:white;border:3px solid ${borderColor};box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:14px;`;
-      depCircle.textContent = '\u{1F690}';
-      depEl.appendChild(depCircle);
-
-      const depMarker = new mb.Marker({ element: depEl, anchor: 'center' })
+      // Departure marker — native Mapbox marker (green or red based on capacity)
+      const depMarker = new mb.Marker({ color: borderColor })
         .setLngLat([coords[0], coords[1]])
         .addTo(mapRef.current!);
+
+      const depEl = depMarker.getElement();
+      depEl.classList.add('parawaze-shuttle-marker');
+      depEl.style.cursor = 'pointer';
 
       depEl.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -262,20 +244,17 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView({ repor
 
       shuttleMarkersRef.current.push(depMarker);
 
-      // Arrival marker (blue flag) — if destination exists
+      // Arrival marker (blue) — if destination exists
       if (shuttle.destination?.coordinates && shuttle.destination.coordinates.length >= 2) {
         const destCoords = shuttle.destination.coordinates;
-        const arrEl = document.createElement('div');
-        arrEl.className = 'parawaze-shuttle-marker';
-        arrEl.style.cssText = 'width:24px;height:24px;cursor:pointer;';
-        const arrCircle = document.createElement('div');
-        arrCircle.style.cssText = `width:24px;height:24px;border-radius:50%;background:white;border:3px solid #3b82f6;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:11px;`;
-        arrCircle.textContent = '\u{1F3D4}';
-        arrEl.appendChild(arrCircle);
 
-        const arrMarker = new mb.Marker({ element: arrEl, anchor: 'center' })
+        const arrMarker = new mb.Marker({ color: '#3b82f6' })
           .setLngLat([destCoords[0], destCoords[1]])
           .addTo(mapRef.current!);
+
+        const arrEl = arrMarker.getElement();
+        arrEl.classList.add('parawaze-shuttle-marker');
+        arrEl.style.cursor = 'pointer';
 
         arrEl.addEventListener('click', (e) => {
           e.stopPropagation();
