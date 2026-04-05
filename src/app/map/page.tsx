@@ -162,7 +162,19 @@ export default function MapPage() {
         <MapView
           ref={mapRef}
           reports={reports}
-          shuttles={shuttles}
+          shuttles={shuttles.filter(s => {
+            if (!s.departure_time) return false;
+            const dep = new Date(s.departure_time);
+            const now = new Date();
+            const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            const tomorrowStart = new Date(todayStart); tomorrowStart.setDate(tomorrowStart.getDate() + 1);
+            const dayAfter = new Date(tomorrowStart); dayAfter.setDate(dayAfter.getDate() + 1);
+            const yesterdayStart = new Date(todayStart); yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+            if (selectedDay === 'today') return dep >= todayStart && dep < tomorrowStart;
+            if (selectedDay === 'tomorrow') return dep >= tomorrowStart && dep < dayAfter;
+            if (selectedDay === 'yesterday') return dep >= yesterdayStart && dep < todayStart;
+            return true;
+          })}
           onReportClick={handleReportClick}
           onShuttleClick={handleShuttleClick}
           onMapMove={handleMapMove}
