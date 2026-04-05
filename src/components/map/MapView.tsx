@@ -268,25 +268,50 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView({ repor
       const isFull = shuttle.taken_seats >= shuttle.total_seats;
       const borderColor = isFull ? '#ef4444' : '#22c55e';
 
-      // NO transform on outer el (breaks Mapbox positioning!)
-      const el = document.createElement('div');
-      el.className = 'parawaze-shuttle-marker';
-      el.style.cssText = 'width:28px;height:28px;cursor:pointer;';
-      const sc = document.createElement('div');
-      sc.style.cssText = `width:28px;height:28px;border-radius:50%;background:white;border:3px solid ${borderColor};box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:14px;`;
-      sc.textContent = '\u{1F690}';
-      el.appendChild(sc);
+      // Departure marker (green van)
+      const depEl = document.createElement('div');
+      depEl.className = 'parawaze-shuttle-marker';
+      depEl.style.cssText = 'width:28px;height:28px;cursor:pointer;';
+      const depCircle = document.createElement('div');
+      depCircle.style.cssText = `width:28px;height:28px;border-radius:50%;background:white;border:3px solid ${borderColor};box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:14px;`;
+      depCircle.textContent = '\u{1F690}';
+      depEl.appendChild(depCircle);
 
-      const marker = new mb.Marker({ element: el })
+      const depMarker = new mb.Marker({ element: depEl })
         .setLngLat([coords[0], coords[1]])
         .addTo(mapRef.current!);
 
-      el.addEventListener('click', (e) => {
+      depEl.addEventListener('click', (e) => {
         e.stopPropagation();
+        lastMarkerClickTime.current = Date.now();
         onShuttleClick?.(shuttle);
       });
 
-      shuttleMarkersRef.current.push(marker);
+      shuttleMarkersRef.current.push(depMarker);
+
+      // Arrival marker (blue flag) — if destination exists
+      if (shuttle.destination?.coordinates && shuttle.destination.coordinates.length >= 2) {
+        const destCoords = shuttle.destination.coordinates;
+        const arrEl = document.createElement('div');
+        arrEl.className = 'parawaze-shuttle-marker';
+        arrEl.style.cssText = 'width:24px;height:24px;cursor:pointer;';
+        const arrCircle = document.createElement('div');
+        arrCircle.style.cssText = `width:24px;height:24px;border-radius:50%;background:white;border:3px solid #3b82f6;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:11px;`;
+        arrCircle.textContent = '\u{1F3D4}';
+        arrEl.appendChild(arrCircle);
+
+        const arrMarker = new mb.Marker({ element: arrEl })
+          .setLngLat([destCoords[0], destCoords[1]])
+          .addTo(mapRef.current!);
+
+        arrEl.addEventListener('click', (e) => {
+          e.stopPropagation();
+          lastMarkerClickTime.current = Date.now();
+          onShuttleClick?.(shuttle);
+        });
+
+        shuttleMarkersRef.current.push(arrMarker);
+      }
     });
 
     // Draw lines between meeting_point and destination for each shuttle
