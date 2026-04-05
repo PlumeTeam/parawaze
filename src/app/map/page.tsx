@@ -6,11 +6,12 @@ import dynamic from 'next/dynamic';
 import { useAuth } from '@/hooks/useAuth';
 import { useReports } from '@/hooks/useReports';
 import { useShuttles } from '@/hooks/useShuttles';
+import { usePois } from '@/hooks/usePois';
 import type { DayFilter } from '@/hooks/useReports';
 import ReportBottomSheet from '@/components/map/ReportBottomSheet';
 import BottomNav from '@/components/shared/BottomNav';
 import LoadingSpinner from '@/components/shared/LoadingSpinner';
-import type { WeatherReport, Shuttle } from '@/lib/types';
+import type { WeatherReport, Shuttle, Poi } from '@/lib/types';
 import type { MapViewHandle } from '@/components/map/MapView';
 
 // Dynamic import MapView to avoid SSR issues with mapbox-gl
@@ -33,6 +34,7 @@ export default function MapPage() {
   const { user, profile, loading: authLoading } = useAuth();
   const { reports, loading: reportsLoading, fetchReportsByDay } = useReports();
   const { shuttles, fetchShuttles } = useShuttles();
+  const { pois, fetchPois } = usePois();
   const [selectedReport, setSelectedReport] = useState<WeatherReport | null>(null);
   const [selectedDay, setSelectedDay] = useState<DayFilter>('today');
   const [toast, setToast] = useState<string | null>(null);
@@ -56,6 +58,11 @@ export default function MapPage() {
     fetchShuttles();
   }, [fetchShuttles]);
 
+  // Fetch POIs once (always visible)
+  useEffect(() => {
+    fetchPois();
+  }, [fetchPois]);
+
   // Auto-hide toast after 3 seconds
   useEffect(() => {
     if (!toast) return;
@@ -69,6 +76,10 @@ export default function MapPage() {
 
   const handleShuttleClick = (shuttle: Shuttle) => {
     router.push(`/shuttle/${shuttle.id}`);
+  };
+
+  const handlePoiClick = (poi: Poi) => {
+    router.push(`/sites/${poi.id}`);
   };
 
   const handleViewDetail = (report: WeatherReport) => {
@@ -162,6 +173,8 @@ export default function MapPage() {
         <MapView
           ref={mapRef}
           reports={reports}
+          pois={pois}
+          onPoiClick={handlePoiClick}
           shuttles={shuttles.filter(s => {
             if (!s.departure_time) return false;
             const dep = new Date(s.departure_time);

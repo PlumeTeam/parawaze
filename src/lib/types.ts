@@ -1,3 +1,51 @@
+// POI types
+export type PoiType = 'landing' | 'takeoff' | 'weather_station' | 'webcam';
+export type PoiDifficulty = 'easy' | 'moderate' | 'difficult' | 'expert';
+
+export interface Poi {
+  id: string;
+  author_id: string;
+  poi_type: PoiType;
+  location: { type: 'Point'; coordinates: [number, number] } | null;
+  location_name: string;
+  altitude_m: number | null;
+  description: string | null;
+  wind_orientations: string[];
+  difficulty: PoiDifficulty | null;
+  ffvl_approved: boolean;
+  station_url: string | null;
+  station_provider: string | null;
+  webcam_url: string | null;
+  webcam_orientation: string | null;
+  total_rating_sum: number;
+  total_votes: number;
+  is_active: boolean;
+  average_rating: number;
+  profiles?: Profile;
+}
+
+export interface PoiVote {
+  poi_id: string;
+  user_id: string;
+  rating: number;
+}
+
+export interface CreatePoiInput {
+  poi_type: PoiType;
+  location_name: string;
+  latitude?: number;
+  longitude?: number;
+  altitude_m?: number;
+  description?: string;
+  wind_orientations?: string[];
+  difficulty?: PoiDifficulty;
+  ffvl_approved?: boolean;
+  station_url?: string;
+  station_provider?: string;
+  webcam_url?: string;
+  webcam_orientation?: string;
+}
+
 export type WindDirection = 'N' | 'NE' | 'E' | 'SE' | 'S' | 'SW' | 'W' | 'NW' | 'variable';
 export type ReportType = 'observation' | 'forecast' | 'image_share';
 export type ReactionType = 'like' | 'genius' | 'doubt';

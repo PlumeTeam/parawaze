@@ -1,12 +1,13 @@
 'use client';
 
 import { usePathname, useRouter } from 'next/navigation';
-import { Map, PlusCircle, Truck, User } from 'lucide-react';
+import { Map, PlusCircle, Truck, MapPinned, User } from 'lucide-react';
 
 const navItems = [
   { href: '/map', label: 'Carte', icon: Map },
   { href: '/report/new', label: 'Observation', icon: PlusCircle },
   { href: '/shuttle', label: 'Navette', icon: Truck },
+  { href: '/sites', label: 'Sites', icon: MapPinned },
   { href: '/profile', label: 'Profil', icon: User },
 ];
 

@@ -9,7 +9,7 @@ import {
   DEFAULT_ZOOM,
   type MapStyleKey,
 } from '@/lib/mapbox';
-import type { WeatherReport, Shuttle, WindDirection } from '@/lib/types';
+import type { WeatherReport, Shuttle, WindDirection, Poi } from '@/lib/types';
 
 // mapbox-gl types only — the actual library is loaded dynamically below
 import type mapboxgl from 'mapbox-gl';
@@ -28,8 +28,10 @@ export interface MapViewHandle {
 interface MapViewProps {
   reports: WeatherReport[];
   shuttles?: Shuttle[];
+  pois?: Poi[];
   onReportClick: (report: WeatherReport) => void;
   onShuttleClick?: (shuttle: Shuttle) => void;
+  onPoiClick?: (poi: Poi) => void;
   onMapMove?: (center: { lat: number; lng: number }) => void;
   onMarkerPlaced?: (pos: MarkerPosition) => void;
 }
@@ -128,6 +130,33 @@ function buildShuttleFeatures(shuttles: Shuttle[]): GeoJSON.Feature[] {
 }
 
 /* ------------------------------------------------------------------ */
+/*  POI GeoJSON                                                       */
+/* ------------------------------------------------------------------ */
+function buildPoiFeatures(pois: Poi[]): GeoJSON.Feature[] {
+  return pois
+    .filter((p) => p.location && p.location.coordinates && p.location.coordinates.length >= 2)
+    .map((p) => ({
+      type: 'Feature' as const,
+      geometry: {
+        type: 'Point' as const,
+        coordinates: p.location!.coordinates,
+      },
+      properties: {
+        id: p.id,
+        poi_type: p.poi_type,
+        label:
+          p.poi_type === 'landing' ? 'A' :
+          p.poi_type === 'takeoff' ? 'D' :
+          p.poi_type === 'weather_station' ? 'M' : 'W',
+        color:
+          p.poi_type === 'landing' ? '#22c55e' :
+          p.poi_type === 'takeoff' ? '#3b82f6' :
+          p.poi_type === 'weather_station' ? '#eab308' : '#a855f7',
+      },
+    }));
+}
+
+/* ------------------------------------------------------------------ */
 /*  Layer IDs (constants to avoid typos)                              */
 /* ------------------------------------------------------------------ */
 const SRC_REPORTS = 'parawaze-reports';
@@ -136,12 +165,15 @@ const LYR_FORECAST_CIRCLES = 'parawaze-forecast-circles';
 const LYR_WIND_ARROWS = 'parawaze-wind-arrows';
 const SRC_SHUTTLES = 'parawaze-shuttles';
 const LYR_SHUTTLE_ICONS = 'parawaze-shuttle-icons';
+const SRC_POIS = 'parawaze-pois';
+const LYR_POI_CIRCLES = 'parawaze-poi-circles';
+const LYR_POI_LABELS = 'parawaze-poi-labels';
 
 /* ------------------------------------------------------------------ */
 /*  Component                                                         */
 /* ------------------------------------------------------------------ */
 const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
-  { reports, shuttles = [], onReportClick, onShuttleClick, onMapMove, onMarkerPlaced },
+  { reports, shuttles = [], pois = [], onReportClick, onShuttleClick, onPoiClick, onMapMove, onMarkerPlaced },
   ref,
 ) {
   const mapContainer = useRef<HTMLDivElement>(null);
@@ -165,6 +197,10 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   onReportClickRef.current = onReportClick;
   const onShuttleClickRef = useRef(onShuttleClick);
   onShuttleClickRef.current = onShuttleClick;
+  const poisRef = useRef<Poi[]>(pois);
+  poisRef.current = pois;
+  const onPoiClickRef = useRef(onPoiClick);
+  onPoiClickRef.current = onPoiClick;
 
   // Expose getCenter and getMarkerPosition to parent via ref
   useImperativeHandle(ref, () => ({
@@ -322,6 +358,51 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         },
       });
     }
+    // --- POIs source ---
+    if (!map.getSource(SRC_POIS)) {
+      map.addSource(SRC_POIS, {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] },
+      });
+    }
+
+    // POI circles
+    if (!map.getLayer(LYR_POI_CIRCLES)) {
+      map.addLayer({
+        id: LYR_POI_CIRCLES,
+        type: 'circle',
+        source: SRC_POIS,
+        paint: {
+          'circle-radius': 14,
+          'circle-color': ['get', 'color'],
+          'circle-stroke-width': 3,
+          'circle-stroke-color': '#ffffff',
+          'circle-opacity': 0.95,
+        },
+      });
+    }
+
+    // POI text labels (A/D/M/W)
+    if (!map.getLayer(LYR_POI_LABELS)) {
+      map.addLayer({
+        id: LYR_POI_LABELS,
+        type: 'symbol',
+        source: SRC_POIS,
+        layout: {
+          'text-field': ['get', 'label'],
+          'text-size': 13,
+          'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'],
+          'text-allow-overlap': true,
+          'text-ignore-placement': true,
+        },
+        paint: {
+          'text-color': '#ffffff',
+          'text-halo-color': 'rgba(0,0,0,0.3)',
+          'text-halo-width': 1,
+        },
+      });
+    }
+
     // Shuttle text label "N" for Navette
     if (!map.getLayer('parawaze-shuttle-label')) {
       map.addLayer({
@@ -373,6 +454,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           // Populate with current data
           updateReportSource(map, reportsRef.current);
           updateShuttleSource(map, shuttlesRef.current);
+          updatePoiSource(map, poisRef.current);
           setMapLoaded(true);
         };
 
@@ -384,6 +466,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           addLayersToMap(map);
           updateReportSource(map, reportsRef.current);
           updateShuttleSource(map, shuttlesRef.current);
+          updatePoiSource(map, poisRef.current);
           // Re-add shuttle route lines
           addShuttleRouteLines(map, shuttlesRef.current);
         });
@@ -397,7 +480,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         map.on('click', (e) => {
           // Check if the click was on one of our layers
           const layerFeatures = map.queryRenderedFeatures(e.point, {
-            layers: [LYR_OBS_CIRCLES, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS].filter(
+            layers: [LYR_OBS_CIRCLES, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS, LYR_POI_CIRCLES].filter(
               (l) => !!map.getLayer(l),
             ),
           });
@@ -431,9 +514,16 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
             if (shuttle) onShuttleClickRef.current?.(shuttle);
           }
         });
+        map.on('click', LYR_POI_CIRCLES, (e) => {
+          if (e.features && e.features[0]) {
+            const poiId = e.features[0].properties?.id;
+            const poi = poisRef.current.find((p) => p.id === poiId);
+            if (poi) onPoiClickRef.current?.(poi);
+          }
+        });
 
         // Pointer cursor on interactive layers
-        const interactiveLayers = [LYR_OBS_CIRCLES, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS, 'parawaze-shuttle-label', 'parawaze-forecast-label'];
+        const interactiveLayers = [LYR_OBS_CIRCLES, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS, LYR_POI_CIRCLES, LYR_POI_LABELS, 'parawaze-shuttle-label', 'parawaze-forecast-label'];
         interactiveLayers.forEach((layerId) => {
           map.on('mouseenter', layerId, () => { map.getCanvas().style.cursor = 'pointer'; });
           map.on('mouseleave', layerId, () => { map.getCanvas().style.cursor = ''; });
@@ -473,6 +563,13 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       src.setData({ type: 'FeatureCollection', features });
     } else {
       console.warn('[ParaWaze] shuttle source not found!');
+    }
+  }
+
+  function updatePoiSource(map: mapboxgl.Map, poiList: Poi[]) {
+    const src = map.getSource(SRC_POIS) as mapboxgl.GeoJSONSource | undefined;
+    if (src) {
+      src.setData({ type: 'FeatureCollection', features: buildPoiFeatures(poiList) });
     }
   }
 
@@ -551,6 +648,22 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       map.once('idle', doUpdate);
     }
   }, [shuttles]);
+
+  // Update POI data when pois change — always visible regardless of day
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const doUpdate = () => {
+      if (map.getSource(SRC_POIS)) {
+        updatePoiSource(map, pois);
+      }
+    };
+    if (map.isStyleLoaded()) {
+      doUpdate();
+    } else {
+      map.once('idle', doUpdate);
+    }
+  }, [pois]);
 
   /* ---------------------------------------------------------------- */
   /*  Utility callbacks                                               */
