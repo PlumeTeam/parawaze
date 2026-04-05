@@ -65,7 +65,10 @@ export default function ReportBottomSheet({
       <div className="flex items-center justify-between px-4 pb-2">
         <h3 className="text-sm font-semibold text-gray-700">
           {selectedReport
-            ? selectedReport.location_name || 'Rapport'
+            ? selectedReport.location_name
+              || (selectedReport.location?.coordinates
+                ? `${selectedReport.location.coordinates[1].toFixed(4)}° ${selectedReport.location.coordinates[1] >= 0 ? 'N' : 'S'}, ${selectedReport.location.coordinates[0].toFixed(4)}° ${selectedReport.location.coordinates[0] >= 0 ? 'E' : 'W'}`
+                : 'Rapport')
             : getDayTitle(reports, selectedDay)}
         </h3>
         <div className="flex items-center gap-2">

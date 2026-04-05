@@ -26,7 +26,10 @@ export default function ReportCard({ report, onClick, expanded = false }: Report
           <div className="flex items-center gap-2 mb-1">
             <span className="text-base">{REPORT_TYPE_ICONS[report.report_type]}</span>
             <span className="font-semibold text-gray-800 truncate text-sm">
-              {report.location_name || 'Position inconnue'}
+              {report.location_name
+                || (report.location?.coordinates
+                  ? `${report.location.coordinates[1].toFixed(4)}° ${report.location.coordinates[1] >= 0 ? 'N' : 'S'}, ${report.location.coordinates[0].toFixed(4)}° ${report.location.coordinates[0] >= 0 ? 'E' : 'W'}`
+                  : 'Position inconnue')}
             </span>
             <FlyabilityBadge score={report.flyability_score} size="sm" />
           </div>

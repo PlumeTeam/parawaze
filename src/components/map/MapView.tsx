@@ -50,10 +50,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView({ repor
   const markerPositionRef = useRef<MarkerPosition | null>(null);
   const [markerInfo, setMarkerInfo] = useState<MarkerPosition | null>(null);
 
-  // Timestamp to prevent map click when a report/shuttle marker is clicked
-  // We use a time-based approach because DOM events and Mapbox events are separate systems
-  const lastMarkerClickTime = useRef(0);
-
   // (tap detection handled by Mapbox GL's built-in click event)
 
   // Expose getCenter and getMarkerPosition to parent via ref
@@ -173,11 +169,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView({ repor
         // This automatically distinguishes clicks from drags and provides
         // geographic coordinates directly (no manual pixel→lngLat conversion).
         map.on('click', (e) => {
-          // Check if the click landed on a marker element — if so, skip pin placement
-          const target = e.originalEvent.target as HTMLElement;
-          if (target && target.closest('.parawaze-marker, .parawaze-shuttle-marker, .mapboxgl-marker')) {
-            return;
-          }
           placeMarker({ lng: e.lngLat.lng, lat: e.lngLat.lat });
         });
 
@@ -220,17 +211,9 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView({ repor
 
       const color = flyabilityColor(report.flyability_score || 3);
 
-      // Create marker element — use a wrapper to prevent hover transform from
-      // interfering with Mapbox's absolute positioning of the marker
-      const wrapper = document.createElement('div');
-      wrapper.className = 'parawaze-marker';
-      wrapper.style.cssText = `
-        width: 36px;
-        height: 36px;
-        cursor: pointer;
-      `;
-
+      // Create marker element
       const el = document.createElement('div');
+      el.className = 'parawaze-marker';
       el.style.cssText = `
         width: 36px;
         height: 36px;
@@ -238,24 +221,29 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView({ repor
         background: ${color};
         border: 3px solid white;
         box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        cursor: pointer;
         display: flex;
         align-items: center;
         justify-content: center;
         font-size: 14px;
-        pointer-events: none;
+        transition: transform 0.2s;
       `;
 
       const icon = report.report_type === 'observation' ? '\u{1F441}\uFE0F' : report.report_type === 'forecast' ? '\u{1F52E}' : '\u{1F4F7}';
       el.innerHTML = icon;
-      wrapper.appendChild(el);
 
-      const marker = new mb.Marker({ element: wrapper })
+      el.addEventListener('mouseenter', () => {
+        el.style.transform = 'scale(1.2)';
+      });
+      el.addEventListener('mouseleave', () => {
+        el.style.transform = 'scale(1)';
+      });
+
+      const marker = new mb.Marker({ element: el })
         .setLngLat([coords[0], coords[1]])
         .addTo(mapRef.current!);
 
-      wrapper.addEventListener('click', (e) => {
-        e.stopPropagation();
-        lastMarkerClickTime.current = Date.now();
+      el.addEventListener('click', () => {
         onReportClick(report);
       });
 
@@ -307,7 +295,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView({ repor
 
       el.addEventListener('click', (e) => {
         e.stopPropagation();
-        lastMarkerClickTime.current = Date.now();
         onShuttleClick?.(shuttle);
       });
 
@@ -363,7 +350,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView({ repor
 
       {/* Marker info label — shown when a marker is placed */}
       {markerInfo && (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 bg-gray-900/85 backdrop-blur-sm text-white text-sm px-4 py-2.5 rounded-2xl shadow-lg pointer-events-none whitespace-nowrap font-medium">
+        <div className="absolute bottom-28 left-1/2 -translate-x-1/2 z-50 bg-gray-900/85 backdrop-blur-sm text-white text-sm px-4 py-2.5 rounded-2xl shadow-lg pointer-events-none whitespace-nowrap font-medium">
           {formatLabel(markerInfo)}
         </div>
       )}

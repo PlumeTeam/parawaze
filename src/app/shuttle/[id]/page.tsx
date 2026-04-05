@@ -12,13 +12,13 @@ import type { Shuttle, ShuttlePassenger } from '@/lib/types';
 function formatDepartureTime(iso: string): string {
   const d = new Date(iso);
   const days = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
-  const months = ['janv.', 'f\u00e9vr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'ao\u00fbt', 'sept.', 'oct.', 'nov.', 'd\u00e9c.'];
+  const months = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
   const day = days[d.getDay()];
   const date = d.getDate();
   const month = months[d.getMonth()];
   const hours = d.getHours();
   const minutes = d.getMinutes().toString().padStart(2, '0');
-  return `${day} ${date} ${month} \u00e0 ${hours}h${minutes}`;
+  return `${day} ${date} ${month} à ${hours}h${minutes}`;
 }
 
 function formatPrice(price: number | null): string {
@@ -137,7 +137,7 @@ export default function ShuttleDetailPage() {
           <button onClick={() => router.back()} className="p-1 hover:bg-gray-100 rounded-full">
             <ArrowLeft className="h-5 w-5 text-gray-600" />
           </button>
-          <h1 className="text-lg font-bold text-gray-800">D\u00e9tail de la navette</h1>
+          <h1 className="text-lg font-bold text-gray-800">Détail de la navette</h1>
         </div>
       </header>
 
@@ -190,7 +190,7 @@ export default function ShuttleDetailPage() {
           <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
             <div className="flex items-center gap-2 mb-1">
               <Clock className="h-4 w-4 text-gray-400" />
-              <span className="text-xs text-gray-500">D\u00e9part</span>
+              <span className="text-xs text-gray-500">Départ</span>
             </div>
             <p className="text-sm font-semibold text-gray-900">
               {formatDepartureTime(shuttle.departure_time)}
@@ -211,7 +211,7 @@ export default function ShuttleDetailPage() {
           <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
             <div className="flex items-center gap-2 mb-1">
               <Clock className="h-4 w-4 text-gray-400" />
-              <span className="text-xs text-gray-500">{'\u{1F504}'} Retour souhait\u00e9</span>
+              <span className="text-xs text-gray-500">{'\u{1F504}'} Retour souhaité</span>
             </div>
             <p className="text-sm font-semibold text-gray-900">
               {formatDepartureTime(shuttle.return_time)}

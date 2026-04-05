@@ -12,13 +12,13 @@ import type { Shuttle } from '@/lib/types';
 function formatDepartureTime(iso: string): string {
   const d = new Date(iso);
   const days = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
-  const months = ['janv.', 'f\u00e9vr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'ao\u00fbt', 'sept.', 'oct.', 'nov.', 'd\u00e9c.'];
+  const months = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
   const day = days[d.getDay()];
   const date = d.getDate();
   const month = months[d.getMonth()];
   const hours = d.getHours();
   const minutes = d.getMinutes().toString().padStart(2, '0');
-  return `${day} ${date} ${month} \u00e0 ${hours}h${minutes}`;
+  return `${day} ${date} ${month} à ${hours}h${minutes}`;
 }
 
 function formatPrice(price: number | null): string {
@@ -163,7 +163,7 @@ export default function ShuttleListPage() {
             <div className="text-5xl mb-4">{'\u{1F690}'}</div>
             <p className="text-gray-500 font-medium">Aucune navette pour le moment</p>
             <p className="text-gray-400 text-sm mt-1">
-              Soyez le premier \u00e0 proposer un trajet !
+              Soyez le premier à proposer un trajet !
             </p>
           </div>
         ) : (
@@ -172,7 +172,7 @@ export default function ShuttleListPage() {
             {offers.length > 0 && (
               <section>
                 <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
-                  Navettes propos\u00e9es ({offers.length})
+                  Navettes proposées ({offers.length})
                 </h2>
                 <div className="space-y-3">
                   {offers.map((s) => (

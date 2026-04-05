@@ -70,7 +70,7 @@ function PickLocationsContent() {
     (async () => {
       try {
         const mb = (await import('mapbox-gl')).default;
-        if (!document.querySelector('link[href*="mapbox-gl"]')) { const link = document.createElement('link'); link.rel = 'stylesheet'; link.href = 'https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.css'; document.head.appendChild(link); }
+        await import('mapbox-gl/dist/mapbox-gl.css');
         if (cancelled) return;
 
         mb.accessToken = MAPBOX_TOKEN;
@@ -245,7 +245,7 @@ function PickLocationsContent() {
   return (
     <div className="relative w-screen h-screen overflow-hidden">
       {/* Map container */}
-      <div ref={mapContainer} className="absolute inset-0" style={{ height: '100%', width: '100%' }} />
+      <div ref={mapContainer} className="absolute inset-0" />
 
       {/* Back button */}
       <button
@@ -259,19 +259,19 @@ function PickLocationsContent() {
       <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 bg-gray-900/85 backdrop-blur-sm text-white text-sm px-4 py-2.5 rounded-2xl shadow-lg max-w-[85vw] text-center">
         {step === 1 && !pin1 && (
           <span>
-            <span className="font-semibold text-green-400">{'\u00C9'}tape 1/2</span>
-            {' \u2014 '}Touchez la carte pour le <span className="text-green-400 font-semibold">point de d{'\u00E9'}part</span>
+            <span className="font-semibold text-green-400">Étape 1/2</span>
+            {' \u2014 '}Touchez la carte pour le <span className="text-green-400 font-semibold">point de départ</span>
           </span>
         )}
         {step === 2 && !pin2 && (
           <span>
-            <span className="font-semibold text-blue-400">{'\u00C9'}tape 2/2</span>
-            {' \u2014 '}Touchez la carte pour le <span className="text-blue-400 font-semibold">lieu de d{'\u00E9'}collage</span>
+            <span className="font-semibold text-blue-400">Étape 2/2</span>
+            {' \u2014 '}Touchez la carte pour le <span className="text-blue-400 font-semibold">lieu de décollage</span>
           </span>
         )}
         {pin1 && pin2 && distance !== null && (
           <span>
-            {'\uD83D\uDFE2'} D{'\u00E9'}part {'\u2192'} {'\uD83D\uDD35'} Arriv{'\u00E9'}e ({distance < 1 ? `${Math.round(distance * 1000)}m` : `${distance.toFixed(1)} km`})
+            {'\uD83D\uDFE2'} Départ {'\u2192'} {'\uD83D\uDD35'} Arrivée ({distance < 1 ? `${Math.round(distance * 1000)}m` : `${distance.toFixed(1)} km`})
           </span>
         )}
       </div>
@@ -299,12 +299,12 @@ function PickLocationsContent() {
       {/* Pin info labels */}
       {pin1 && (
         <div className="absolute bottom-32 left-4 z-20 bg-green-600/90 backdrop-blur-sm text-white text-xs px-3 py-2 rounded-xl shadow-lg max-w-[60vw]">
-          {'\uD83D\uDFE2'} D{'\u00E9'}part: {formatCoord(pin1)}
+          {'\uD83D\uDFE2'} Départ: {formatCoord(pin1)}
         </div>
       )}
       {pin2 && (
         <div className="absolute bottom-32 right-4 z-20 bg-blue-600/90 backdrop-blur-sm text-white text-xs px-3 py-2 rounded-xl shadow-lg max-w-[60vw]">
-          {'\uD83D\uDD35'} Arriv{'\u00E9'}e: {formatCoord(pin2)}
+          {'\uD83D\uDD35'} Arrivée: {formatCoord(pin2)}
         </div>
       )}
 

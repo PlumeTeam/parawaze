@@ -47,12 +47,15 @@ export default function ProfileCard({ profile, email }: ProfileCardProps) {
           )}
           {email && <p className="text-xs text-gray-400 mt-0.5">{email}</p>}
         </div>
-        <span
-          className="px-3 py-1 rounded-full text-white text-xs font-bold"
-          style={{ backgroundColor: BADGE_COLORS[badgeLevel] }}
-        >
-          {BADGE_LABELS[badgeLevel]}
-        </span>
+        <div className="text-right">
+          <span
+            className="px-3 py-1 rounded-full text-white text-xs font-bold"
+            style={{ backgroundColor: BADGE_COLORS[badgeLevel] }}
+          >
+            {BADGE_LABELS[badgeLevel]}
+          </span>
+          <p className="text-[10px] text-gray-400 mt-1">Badge d&apos;observateur</p>
+        </div>
       </div>
 
       {/* Bio */}
@@ -84,14 +87,17 @@ export default function ProfileCard({ profile, email }: ProfileCardProps) {
           <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Informations pilote</h4>
           <div className="space-y-1.5">
             {profile.pilot_level && (
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-500">Niveau</span>
-                <span
-                  className="px-2.5 py-0.5 rounded-full text-white text-xs font-semibold"
-                  style={{ backgroundColor: PILOT_LEVEL_COLORS[profile.pilot_level] }}
-                >
-                  {PILOT_LEVEL_LABELS[profile.pilot_level]}
-                </span>
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-500">Niveau pilote</span>
+                  <span
+                    className="px-2.5 py-0.5 rounded-full text-white text-xs font-semibold"
+                    style={{ backgroundColor: PILOT_LEVEL_COLORS[profile.pilot_level] }}
+                  >
+                    {PILOT_LEVEL_LABELS[profile.pilot_level]}
+                  </span>
+                </div>
+                <p className="text-[10px] text-gray-400 mt-0.5">Auto-déclaré (différent du badge d&apos;observateur basé sur l&apos;activité)</p>
               </div>
             )}
             {profile.date_of_birth && (
