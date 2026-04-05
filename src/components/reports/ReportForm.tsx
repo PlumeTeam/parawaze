@@ -460,10 +460,11 @@ export default function ReportForm({ initialData, reportId }: ReportFormProps) {
       const todayStr = getDateString(0);
       const tomorrowStr = getDateString(1);
       if (!forecastDate || (forecastDate !== todayStr && forecastDate !== tomorrowStr)) {
-        setError('La date de prévision doit être aujourd\'hui ou demain.');
+        setError('La date de pr\u00e9vision doit \u00eatre aujourd\'hui ou demain.');
         return;
       }
     }
+
 
     setError('');
     setSubmitting(true);
