@@ -10,6 +10,7 @@ import {
   type MapStyleKey,
 } from '@/lib/mapbox';
 import type { WeatherReport, Shuttle, WindDirection, Poi } from '@/lib/types';
+import type { PioupiouStation } from '@/hooks/usePioupiou';
 
 // mapbox-gl types only — the actual library is loaded dynamically below
 import type mapboxgl from 'mapbox-gl';
@@ -29,6 +30,7 @@ interface MapViewProps {
   reports: WeatherReport[];
   shuttles?: Shuttle[];
   pois?: Poi[];
+  pioupiouStations?: PioupiouStation[];
   onReportClick: (report: WeatherReport) => void;
   onShuttleClick?: (shuttle: Shuttle) => void;
   onPoiClick?: (poi: Poi) => void;
@@ -157,6 +159,47 @@ function buildPoiFeatures(pois: Poi[]): GeoJSON.Feature[] {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Pioupiou GeoJSON                                                  */
+/* ------------------------------------------------------------------ */
+function getPioupiouColor(station: PioupiouStation): string {
+  if (!station.isOnline || station.windAvg == null) return '#9ca3af'; // gray
+  const w = station.windAvg;
+  if (w < 15) return '#22c55e';  // green
+  if (w < 25) return '#eab308';  // yellow
+  if (w < 35) return '#f97316';  // orange
+  return '#ef4444';              // red
+}
+
+function buildPioupiouFeatures(stations: PioupiouStation[]): GeoJSON.Feature[] {
+  return stations.map((s) => ({
+    type: 'Feature' as const,
+    geometry: {
+      type: 'Point' as const,
+      coordinates: [s.lng, s.lat],
+    },
+    properties: {
+      id: s.id,
+      name: s.name,
+      color: getPioupiouColor(s),
+      windAvg: s.windAvg,
+      windMax: s.windMax,
+      windMin: s.windMin,
+      windHeading: s.windHeading,
+      isOnline: s.isOnline,
+      lastUpdate: s.lastUpdate,
+      // Wind arrow rotation: heading is where wind comes FROM, arrow shows direction it blows TO
+      // ➤ points right (90°) by default, so subtract 90
+      wind_arrow_angle:
+        s.windHeading != null && s.isOnline && s.windAvg != null
+          ? (s.windHeading + 180 - 90 + 360) % 360
+          : -1,
+      windLabel:
+        s.isOnline && s.windAvg != null ? `${Math.round(s.windAvg)}` : '',
+    },
+  }));
+}
+
+/* ------------------------------------------------------------------ */
 /*  Layer IDs (constants to avoid typos)                              */
 /* ------------------------------------------------------------------ */
 const SRC_REPORTS = 'parawaze-reports';
@@ -168,12 +211,16 @@ const LYR_SHUTTLE_ICONS = 'parawaze-shuttle-icons';
 const SRC_POIS = 'parawaze-pois';
 const LYR_POI_CIRCLES = 'parawaze-poi-circles';
 const LYR_POI_LABELS = 'parawaze-poi-labels';
+const SRC_PIOUPIOU = 'parawaze-pioupiou';
+const LYR_PIOUPIOU_CIRCLES = 'parawaze-pioupiou-circles';
+const LYR_PIOUPIOU_LABELS = 'parawaze-pioupiou-labels';
+const LYR_PIOUPIOU_ARROWS = 'parawaze-pioupiou-arrows';
 
 /* ------------------------------------------------------------------ */
 /*  Component                                                         */
 /* ------------------------------------------------------------------ */
 const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
-  { reports, shuttles = [], pois = [], onReportClick, onShuttleClick, onPoiClick, onMapMove, onMarkerPlaced },
+  { reports, shuttles = [], pois = [], pioupiouStations = [], onReportClick, onShuttleClick, onPoiClick, onMapMove, onMarkerPlaced },
   ref,
 ) {
   const mapContainer = useRef<HTMLDivElement>(null);
@@ -201,6 +248,9 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   poisRef.current = pois;
   const onPoiClickRef = useRef(onPoiClick);
   onPoiClickRef.current = onPoiClick;
+  const pioupiouRef = useRef<PioupiouStation[]>(pioupiouStations);
+  pioupiouRef.current = pioupiouStations;
+  const popupRef = useRef<mapboxgl.Popup | null>(null);
 
   // Expose getCenter and getMarkerPosition to parent via ref
   useImperativeHandle(ref, () => ({
@@ -420,6 +470,76 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         },
       });
     }
+
+    // --- Pioupiou source ---
+    if (!map.getSource(SRC_PIOUPIOU)) {
+      map.addSource(SRC_PIOUPIOU, {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] },
+      });
+    }
+
+    // Pioupiou circles — small wind station markers
+    if (!map.getLayer(LYR_PIOUPIOU_CIRCLES)) {
+      map.addLayer({
+        id: LYR_PIOUPIOU_CIRCLES,
+        type: 'circle',
+        source: SRC_PIOUPIOU,
+        paint: {
+          'circle-radius': 8,
+          'circle-color': ['get', 'color'],
+          'circle-stroke-width': 2,
+          'circle-stroke-color': '#ffffff',
+          'circle-opacity': 0.9,
+        },
+      });
+    }
+
+    // Pioupiou wind speed labels (avg km/h next to station)
+    if (!map.getLayer(LYR_PIOUPIOU_LABELS)) {
+      map.addLayer({
+        id: LYR_PIOUPIOU_LABELS,
+        type: 'symbol',
+        source: SRC_PIOUPIOU,
+        filter: ['!=', ['get', 'windLabel'], ''],
+        layout: {
+          'text-field': ['get', 'windLabel'],
+          'text-size': 11,
+          'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'],
+          'text-offset': [1.2, 0],
+          'text-anchor': 'left',
+          'text-allow-overlap': false,
+        },
+        paint: {
+          'text-color': ['get', 'color'],
+          'text-halo-color': '#ffffff',
+          'text-halo-width': 1.5,
+        },
+      });
+    }
+
+    // Pioupiou wind direction arrows
+    if (!map.getLayer(LYR_PIOUPIOU_ARROWS)) {
+      map.addLayer({
+        id: LYR_PIOUPIOU_ARROWS,
+        type: 'symbol',
+        source: SRC_PIOUPIOU,
+        filter: ['!=', ['get', 'wind_arrow_angle'], -1],
+        layout: {
+          'text-field': '➤',
+          'text-size': 14,
+          'text-rotate': ['get', 'wind_arrow_angle'],
+          'text-allow-overlap': true,
+          'text-ignore-placement': true,
+          'text-rotation-alignment': 'map',
+        },
+        paint: {
+          'text-color': '#ffffff',
+          'text-halo-color': 'rgba(0,0,0,0.5)',
+          'text-halo-width': 1,
+        },
+      });
+    }
   }, []);
 
   /* ---------------------------------------------------------------- */
@@ -454,6 +574,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           updateReportSource(map, reportsRef.current);
           updateShuttleSource(map, shuttlesRef.current);
           updatePoiSource(map, poisRef.current);
+          updatePioupiouSource(map, pioupiouRef.current);
           setMapLoaded(true);
         };
 
@@ -466,6 +587,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           updateReportSource(map, reportsRef.current);
           updateShuttleSource(map, shuttlesRef.current);
           updatePoiSource(map, poisRef.current);
+          updatePioupiouSource(map, pioupiouRef.current);
           // Re-add shuttle route lines
           addShuttleRouteLines(map, shuttlesRef.current);
         });
@@ -479,7 +601,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         map.on('click', (e) => {
           // Check if the click was on one of our layers
           const layerFeatures = map.queryRenderedFeatures(e.point, {
-            layers: [LYR_OBS_CIRCLES, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS, LYR_POI_CIRCLES].filter(
+            layers: [LYR_OBS_CIRCLES, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS, LYR_POI_CIRCLES, LYR_PIOUPIOU_CIRCLES].filter(
               (l) => !!map.getLayer(l),
             ),
           });
@@ -521,8 +643,57 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           }
         });
 
+        // Pioupiou click → show popup
+        map.on('click', LYR_PIOUPIOU_CIRCLES, (e) => {
+          if (!e.features || !e.features[0]) return;
+          const props = e.features[0].properties;
+          if (!props) return;
+          const coords = (e.features[0].geometry as any).coordinates.slice() as [number, number];
+
+          // Close previous popup
+          if (popupRef.current) {
+            popupRef.current.remove();
+            popupRef.current = null;
+          }
+
+          const isOnline = props.isOnline === true || props.isOnline === 'true';
+          const windAvg = props.windAvg != null && props.windAvg !== '' ? Number(props.windAvg) : null;
+          const windMin = props.windMin != null && props.windMin !== '' ? Number(props.windMin) : null;
+          const windMax = props.windMax != null && props.windMax !== '' ? Number(props.windMax) : null;
+          const heading = props.windHeading != null && props.windHeading !== '' ? Number(props.windHeading) : null;
+
+          const dirLabel = heading != null ? `${Math.round(heading)}°` : '—';
+          const statusLabel = isOnline ? '🟢 En ligne' : '🔴 Hors ligne';
+          const lastUp = props.lastUpdate
+            ? new Date(props.lastUpdate).toLocaleString('fr-FR', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })
+            : '—';
+
+          const html = `
+            <div style="font-family:system-ui,-apple-system,sans-serif;font-size:13px;line-height:1.5;min-width:180px">
+              <div style="font-weight:700;font-size:14px;margin-bottom:6px">${props.name || 'Pioupiou ' + props.id}</div>
+              <div style="margin-bottom:2px">💨 Moy: <b>${windAvg != null ? Math.round(windAvg) + ' km/h' : '—'}</b></div>
+              <div style="margin-bottom:2px">📉 Min: ${windMin != null ? Math.round(windMin) + ' km/h' : '—'} · 📈 Max: ${windMax != null ? Math.round(windMax) + ' km/h' : '—'}</div>
+              <div style="margin-bottom:2px">🧭 Direction: ${dirLabel}</div>
+              <div style="margin-bottom:2px">${statusLabel}</div>
+              <div style="margin-bottom:6px;color:#666">🕐 ${lastUp}</div>
+              <a href="https://www.openwindmap.org/PP${props.id}" target="_blank" rel="noopener"
+                 style="color:#0ea5e9;text-decoration:underline;font-size:12px">
+                Voir sur OpenWindMap ↗
+              </a>
+            </div>
+          `;
+
+          const popup = new mb.Popup({ closeButton: true, maxWidth: '260px', offset: 12 })
+            .setLngLat(coords)
+            .setHTML(html)
+            .addTo(map);
+
+          popup.on('close', () => { popupRef.current = null; });
+          popupRef.current = popup;
+        });
+
         // Pointer cursor on interactive layers
-        const interactiveLayers = [LYR_OBS_CIRCLES, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS, LYR_POI_CIRCLES, LYR_POI_LABELS, 'parawaze-shuttle-label', 'parawaze-forecast-label'];
+        const interactiveLayers = [LYR_OBS_CIRCLES, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS, LYR_POI_CIRCLES, LYR_POI_LABELS, LYR_PIOUPIOU_CIRCLES, LYR_PIOUPIOU_LABELS, 'parawaze-shuttle-label', 'parawaze-forecast-label'];
         interactiveLayers.forEach((layerId) => {
           map.on('mouseenter', layerId, () => { map.getCanvas().style.cursor = 'pointer'; });
           map.on('mouseleave', layerId, () => { map.getCanvas().style.cursor = ''; });
@@ -569,6 +740,13 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     const src = map.getSource(SRC_POIS) as mapboxgl.GeoJSONSource | undefined;
     if (src) {
       src.setData({ type: 'FeatureCollection', features: buildPoiFeatures(poiList) });
+    }
+  }
+
+  function updatePioupiouSource(map: mapboxgl.Map, stns: PioupiouStation[]) {
+    const src = map.getSource(SRC_PIOUPIOU) as mapboxgl.GeoJSONSource | undefined;
+    if (src) {
+      src.setData({ type: 'FeatureCollection', features: buildPioupiouFeatures(stns) });
     }
   }
 
@@ -663,6 +841,22 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       map.once('idle', doUpdate);
     }
   }, [pois]);
+
+  // Update Pioupiou data — always visible regardless of day
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const doUpdate = () => {
+      if (map.getSource(SRC_PIOUPIOU)) {
+        updatePioupiouSource(map, pioupiouStations);
+      }
+    };
+    if (map.isStyleLoaded()) {
+      doUpdate();
+    } else {
+      map.once('idle', doUpdate);
+    }
+  }, [pioupiouStations]);
 
   /* ---------------------------------------------------------------- */
   /*  Utility callbacks                                               */

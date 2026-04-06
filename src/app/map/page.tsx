@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useReports } from '@/hooks/useReports';
 import { useShuttles } from '@/hooks/useShuttles';
 import { usePois } from '@/hooks/usePois';
+import { usePioupiou } from '@/hooks/usePioupiou';
 import type { DayFilter } from '@/hooks/useReports';
 import ReportBottomSheet from '@/components/map/ReportBottomSheet';
 import BottomNav from '@/components/shared/BottomNav';
@@ -35,6 +36,7 @@ export default function MapPage() {
   const { reports, loading: reportsLoading, fetchReportsByDay } = useReports();
   const { shuttles, fetchShuttles } = useShuttles();
   const { pois, fetchPois } = usePois();
+  const { stations: pioupiouStations, fetchStations: fetchPioupiou } = usePioupiou();
   const [selectedReport, setSelectedReport] = useState<WeatherReport | null>(null);
   const [selectedDay, setSelectedDay] = useState<DayFilter>('today');
   const [toast, setToast] = useState<string | null>(null);
@@ -62,6 +64,13 @@ export default function MapPage() {
   useEffect(() => {
     fetchPois();
   }, [fetchPois]);
+
+  // Fetch Pioupiou stations on mount + auto-refresh every 5 minutes
+  useEffect(() => {
+    fetchPioupiou();
+    const interval = setInterval(fetchPioupiou, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [fetchPioupiou]);
 
   // Auto-hide toast after 3 seconds
   useEffect(() => {
@@ -174,6 +183,7 @@ export default function MapPage() {
           ref={mapRef}
           reports={reports}
           pois={pois}
+          pioupiouStations={pioupiouStations}
           onPoiClick={handlePoiClick}
           shuttles={shuttles.filter(s => {
             if (!s.departure_time) return false;
