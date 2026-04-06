@@ -1,12 +1,10 @@
 import { NextResponse } from 'next/server';
 
-export const runtime = 'edge';
-
 export async function GET() {
   try {
     const res = await fetch('https://api.pioupiou.fr/1/live-with-meta/all', {
       headers: { Accept: 'application/json' },
-      next: { revalidate: 60 },
+      cache: 'no-store',
     });
 
     if (!res.ok) {
