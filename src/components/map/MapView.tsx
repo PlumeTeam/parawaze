@@ -13,6 +13,7 @@ import type { WeatherReport, Shuttle, WindDirection, Poi } from '@/lib/types';
 import type { PioupiouStation } from '@/hooks/usePioupiou';
 import type { FFVLStation } from '@/hooks/useFFVL';
 import type { WindsMobiStation } from '@/hooks/useWindsMobi';
+import type { GeoSphereStation } from '@/hooks/useGeoSphere';
 
 // mapbox-gl types only — the actual library is loaded dynamically below
 import type mapboxgl from 'mapbox-gl';
@@ -35,6 +36,7 @@ interface MapViewProps {
   pioupiouStations?: PioupiouStation[];
   ffvlStations?: FFVLStation[];
   windsMobiStations?: WindsMobiStation[];
+  geoSphereStations?: GeoSphereStation[];
   onReportClick: (report: WeatherReport) => void;
   onShuttleClick?: (shuttle: Shuttle) => void;
   onPoiClick?: (poi: Poi) => void;
@@ -292,6 +294,46 @@ function buildWindsMobiFeatures(stations: WindsMobiStation[]): GeoJSON.Feature[]
 }
 
 /* ------------------------------------------------------------------ */
+/*  GeoSphere Austria GeoJSON                                         */
+/* ------------------------------------------------------------------ */
+function getGeoSphereColor(station: GeoSphereStation): string {
+  if (station.windAvg == null) return '#9ca3af'; // gray — no data
+  const w = station.windAvg;
+  if (w < 15) return '#22c55e';  // green
+  if (w < 25) return '#eab308';  // yellow
+  if (w < 35) return '#f97316';  // orange
+  return '#ef4444';              // red
+}
+
+function buildGeoSphereFeatures(stations: GeoSphereStation[]): GeoJSON.Feature[] {
+  return stations.map((s) => ({
+    type: 'Feature' as const,
+    geometry: {
+      type: 'Point' as const,
+      coordinates: [s.lng, s.lat],
+    },
+    properties: {
+      id: s.id,
+      name: s.name,
+      color: getGeoSphereColor(s),
+      altitude: s.altitude,
+      state: s.state,
+      windAvg: s.windAvg,
+      windGust: s.windGust,
+      windDirection: s.windDirection,
+      temperature: s.temperature,
+      timestamp: s.timestamp,
+      // Arrow: direction is where wind comes FROM, ➤ faces right (90°)
+      wind_arrow_angle:
+        s.windDirection != null && s.windAvg != null
+          ? (s.windDirection + 180 - 90 + 360) % 360
+          : -1,
+      windLabel: s.windAvg != null ? `${Math.round(s.windAvg)}` : '',
+    },
+  }));
+}
+
+/* ------------------------------------------------------------------ */
 /*  Layer IDs (constants to avoid typos)                              */
 /* ------------------------------------------------------------------ */
 const SRC_REPORTS = 'parawaze-reports';
@@ -315,12 +357,16 @@ const SRC_WINDS_MOBI = 'parawaze-winds-mobi';
 const LYR_WINDS_MOBI_CIRCLES = 'parawaze-winds-mobi-circles';
 const LYR_WINDS_MOBI_LABELS = 'parawaze-winds-mobi-labels';
 const LYR_WINDS_MOBI_ARROWS = 'parawaze-winds-mobi-arrows';
+const SRC_GEOSPHERE = 'parawaze-geosphere';
+const LYR_GEOSPHERE_CIRCLES = 'parawaze-geosphere-circles';
+const LYR_GEOSPHERE_LABELS = 'parawaze-geosphere-labels';
+const LYR_GEOSPHERE_ARROWS = 'parawaze-geosphere-arrows';
 
 /* ------------------------------------------------------------------ */
 /*  Component                                                         */
 /* ------------------------------------------------------------------ */
 const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
-  { reports, shuttles = [], pois = [], pioupiouStations = [], ffvlStations = [], windsMobiStations = [], onReportClick, onShuttleClick, onPoiClick, onMapMove, onMarkerPlaced },
+  { reports, shuttles = [], pois = [], pioupiouStations = [], ffvlStations = [], windsMobiStations = [], geoSphereStations = [], onReportClick, onShuttleClick, onPoiClick, onMapMove, onMarkerPlaced },
   ref,
 ) {
   const mapContainer = useRef<HTMLDivElement>(null);
@@ -354,6 +400,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   ffvlRef.current = ffvlStations;
   const windsMobiRef = useRef<WindsMobiStation[]>(windsMobiStations);
   windsMobiRef.current = windsMobiStations;
+  const geoSphereRef = useRef<GeoSphereStation[]>(geoSphereStations);
+  geoSphereRef.current = geoSphereStations;
   const popupRef = useRef<mapboxgl.Popup | null>(null);
 
   // Expose getCenter and getMarkerPosition to parent via ref
@@ -785,6 +833,77 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         },
       });
     }
+
+    // --- GeoSphere Austria source ---
+    if (!map.getSource(SRC_GEOSPHERE)) {
+      map.addSource(SRC_GEOSPHERE, {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] },
+      });
+    }
+
+    // GeoSphere markers — colored fill with indigo ring, distinct from all other providers
+    // Pioupiou: colored+white, FFVL: white+colored, winds.mobi: colored+dark, GeoSphere: colored+indigo
+    if (!map.getLayer(LYR_GEOSPHERE_CIRCLES)) {
+      map.addLayer({
+        id: LYR_GEOSPHERE_CIRCLES,
+        type: 'circle',
+        source: SRC_GEOSPHERE,
+        paint: {
+          'circle-radius': 10,
+          'circle-color': ['get', 'color'],
+          'circle-stroke-width': 3,
+          'circle-stroke-color': '#6366f1', // indigo — identifies GeoSphere Austria
+          'circle-opacity': 0.9,
+        },
+      });
+    }
+
+    // GeoSphere wind speed labels
+    if (!map.getLayer(LYR_GEOSPHERE_LABELS)) {
+      map.addLayer({
+        id: LYR_GEOSPHERE_LABELS,
+        type: 'symbol',
+        source: SRC_GEOSPHERE,
+        filter: ['!=', ['get', 'windLabel'], ''],
+        layout: {
+          'text-field': ['get', 'windLabel'],
+          'text-size': 11,
+          'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'],
+          'text-offset': [1.3, 0],
+          'text-anchor': 'left',
+          'text-allow-overlap': false,
+        },
+        paint: {
+          'text-color': ['get', 'color'],
+          'text-halo-color': '#ffffff',
+          'text-halo-width': 1.5,
+        },
+      });
+    }
+
+    // GeoSphere wind direction arrows
+    if (!map.getLayer(LYR_GEOSPHERE_ARROWS)) {
+      map.addLayer({
+        id: LYR_GEOSPHERE_ARROWS,
+        type: 'symbol',
+        source: SRC_GEOSPHERE,
+        filter: ['!=', ['get', 'wind_arrow_angle'], -1],
+        layout: {
+          'text-field': '➤',
+          'text-size': 13,
+          'text-rotate': ['get', 'wind_arrow_angle'],
+          'text-allow-overlap': true,
+          'text-ignore-placement': true,
+          'text-rotation-alignment': 'map',
+        },
+        paint: {
+          'text-color': '#ffffff',
+          'text-halo-color': 'rgba(0,0,0,0.5)',
+          'text-halo-width': 1,
+        },
+      });
+    }
   }, []);
 
   /* ---------------------------------------------------------------- */
@@ -822,6 +941,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           updatePioupiouSource(map, pioupiouRef.current);
           updateFFVLSource(map, ffvlRef.current);
           updateWindsMobiSource(map, windsMobiRef.current);
+          updateGeoSphereSource(map, geoSphereRef.current);
           setMapLoaded(true);
         };
 
@@ -837,6 +957,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           updatePioupiouSource(map, pioupiouRef.current);
           updateFFVLSource(map, ffvlRef.current);
           updateWindsMobiSource(map, windsMobiRef.current);
+          updateGeoSphereSource(map, geoSphereRef.current);
           // Re-add shuttle route lines
           addShuttleRouteLines(map, shuttlesRef.current);
         });
@@ -850,7 +971,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         map.on('click', (e) => {
           // Check if the click was on one of our layers
           const layerFeatures = map.queryRenderedFeatures(e.point, {
-            layers: [LYR_OBS_CIRCLES, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS, LYR_POI_CIRCLES, LYR_PIOUPIOU_CIRCLES, LYR_FFVL_CIRCLES, LYR_WINDS_MOBI_CIRCLES].filter(
+            layers: [LYR_OBS_CIRCLES, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS, LYR_POI_CIRCLES, LYR_PIOUPIOU_CIRCLES, LYR_FFVL_CIRCLES, LYR_WINDS_MOBI_CIRCLES, LYR_GEOSPHERE_CIRCLES].filter(
               (l) => !!map.getLayer(l),
             ),
           });
@@ -1047,8 +1168,59 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           popupRef.current = popup;
         });
 
+        // GeoSphere Austria click → show popup
+        map.on('click', LYR_GEOSPHERE_CIRCLES, (e) => {
+          if (!e.features || !e.features[0]) return;
+          const props = e.features[0].properties;
+          if (!props) return;
+          const coords = (e.features[0].geometry as any).coordinates.slice() as [number, number];
+
+          if (popupRef.current) {
+            popupRef.current.remove();
+            popupRef.current = null;
+          }
+
+          const windAvg = props.windAvg != null && props.windAvg !== '' ? Number(props.windAvg) : null;
+          const windGust = props.windGust != null && props.windGust !== '' ? Number(props.windGust) : null;
+          const windDir = props.windDirection != null && props.windDirection !== '' ? Number(props.windDirection) : null;
+          const temp = props.temperature != null && props.temperature !== '' ? Number(props.temperature) : null;
+          const alt = props.altitude != null && props.altitude !== '' ? Number(props.altitude) : null;
+          const state = props.state && props.state !== 'null' ? props.state : null;
+
+          const lastUp = props.timestamp
+            ? new Date(props.timestamp).toLocaleString('fr-FR', {
+                hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit',
+              })
+            : '—';
+
+          const html = `
+            <div style="font-family:system-ui,-apple-system,sans-serif;font-size:13px;line-height:1.5;min-width:190px">
+              <div style="font-weight:700;font-size:14px;margin-bottom:2px">${props.name || props.id}</div>
+              <div style="color:#6366f1;font-size:11px;font-weight:600;letter-spacing:0.03em;margin-bottom:4px">GeoSphere Austria</div>
+              ${alt != null ? `<div style="color:#666;font-size:12px;margin-bottom:6px">⛰️ ${alt} m${state ? ' · ' + state : ''}</div>` : (state ? `<div style="color:#666;font-size:12px;margin-bottom:6px">${state}</div>` : '')}
+              <div style="margin-bottom:2px">💨 Moy: <b>${windAvg != null ? Math.round(windAvg) + ' km/h' : '—'}</b></div>
+              <div style="margin-bottom:2px">📈 Rafales: ${windGust != null ? Math.round(windGust) + ' km/h' : '—'}</div>
+              <div style="margin-bottom:2px">🧭 Direction: ${windDir != null ? Math.round(windDir) + '°' : '—'}</div>
+              ${temp != null ? `<div style="margin-bottom:2px">🌡️ Température: ${temp.toFixed(1)} °C</div>` : ''}
+              <div style="margin-bottom:6px;color:#666">🕐 ${lastUp}</div>
+              <a href="https://geosphere.at" target="_blank" rel="noopener"
+                 style="color:#6366f1;text-decoration:underline;font-size:12px">
+                GeoSphere Austria ↗
+              </a>
+            </div>
+          `;
+
+          const popup = new mb.Popup({ closeButton: true, maxWidth: '280px', offset: 12 })
+            .setLngLat(coords)
+            .setHTML(html)
+            .addTo(map);
+
+          popup.on('close', () => { popupRef.current = null; });
+          popupRef.current = popup;
+        });
+
         // Pointer cursor on interactive layers
-        const interactiveLayers = [LYR_OBS_CIRCLES, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS, LYR_POI_CIRCLES, LYR_POI_LABELS, LYR_PIOUPIOU_CIRCLES, LYR_PIOUPIOU_LABELS, LYR_FFVL_CIRCLES, LYR_FFVL_LABELS, LYR_WINDS_MOBI_CIRCLES, LYR_WINDS_MOBI_LABELS, 'parawaze-shuttle-label', 'parawaze-forecast-label'];
+        const interactiveLayers = [LYR_OBS_CIRCLES, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS, LYR_POI_CIRCLES, LYR_POI_LABELS, LYR_PIOUPIOU_CIRCLES, LYR_PIOUPIOU_LABELS, LYR_FFVL_CIRCLES, LYR_FFVL_LABELS, LYR_WINDS_MOBI_CIRCLES, LYR_WINDS_MOBI_LABELS, LYR_GEOSPHERE_CIRCLES, LYR_GEOSPHERE_LABELS, 'parawaze-shuttle-label', 'parawaze-forecast-label'];
         interactiveLayers.forEach((layerId) => {
           map.on('mouseenter', layerId, () => { map.getCanvas().style.cursor = 'pointer'; });
           map.on('mouseleave', layerId, () => { map.getCanvas().style.cursor = ''; });
@@ -1116,6 +1288,13 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     const src = map.getSource(SRC_WINDS_MOBI) as mapboxgl.GeoJSONSource | undefined;
     if (src) {
       src.setData({ type: 'FeatureCollection', features: buildWindsMobiFeatures(stns) });
+    }
+  }
+
+  function updateGeoSphereSource(map: mapboxgl.Map, stns: GeoSphereStation[]) {
+    const src = map.getSource(SRC_GEOSPHERE) as mapboxgl.GeoJSONSource | undefined;
+    if (src) {
+      src.setData({ type: 'FeatureCollection', features: buildGeoSphereFeatures(stns) });
     }
   }
 
@@ -1258,6 +1437,22 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       map.once('idle', doUpdate);
     }
   }, [windsMobiStations]);
+
+  // Update GeoSphere Austria data — always visible regardless of day
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const doUpdate = () => {
+      if (map.getSource(SRC_GEOSPHERE)) {
+        updateGeoSphereSource(map, geoSphereStations);
+      }
+    };
+    if (map.isStyleLoaded()) {
+      doUpdate();
+    } else {
+      map.once('idle', doUpdate);
+    }
+  }, [geoSphereStations]);
 
   /* ---------------------------------------------------------------- */
   /*  Utility callbacks                                               */
