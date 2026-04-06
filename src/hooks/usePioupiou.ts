@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 
 export interface PioupiouStation {
   id: number;
@@ -61,6 +61,13 @@ export function usePioupiou() {
       setLoading(false);
     }
   }, []);
+
+  // Auto-fetch on mount and refresh every 5 minutes
+  useEffect(() => {
+    fetchStations();
+    const interval = setInterval(fetchStations, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [fetchStations]);
 
   return { stations, loading, error, fetchStations };
 }
