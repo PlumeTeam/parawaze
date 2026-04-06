@@ -30,6 +30,34 @@ export interface PoiVote {
   rating: number;
 }
 
+export interface PoiEdit {
+  id: string;
+  poi_id: string;
+  editor_id: string;
+  field_name: string;
+  old_value: string | null;
+  new_value: string | null;
+  reason: string | null;
+  upvotes: number;
+  downvotes: number;
+  is_applied: boolean;
+  is_reverted: boolean;
+  created_at: string;
+  profiles?: Profile;
+}
+
+export interface PoiComment {
+  id: string;
+  poi_id: string;
+  author_id: string;
+  content: string;
+  photo_url: string | null;
+  upvotes: number;
+  downvotes: number;
+  created_at: string;
+  profiles?: Profile;
+}
+
 export interface CreatePoiInput {
   poi_type: PoiType;
   location_name: string;

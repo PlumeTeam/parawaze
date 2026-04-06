@@ -3,7 +3,7 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
-import type { Poi, CreatePoiInput, PoiVote } from '@/lib/types';
+import type { Poi, CreatePoiInput, PoiVote, PoiEdit, PoiComment } from '@/lib/types';
 
 export function usePois() {
   const { user } = useAuth();
@@ -158,6 +158,120 @@ export function usePois() {
     };
   }, []);
 
+  // === Wiki: Edit a POI field ===
+  const editPoiField = useCallback(async (
+    poiId: string,
+    fieldName: string,
+    oldValue: string | null,
+    newValue: string | null,
+    reason?: string
+  ) => {
+    if (!user) throw new Error('Non connecte');
+
+    // 1. Update the POI field directly (wiki-style, immediate)
+    const { error: updateErr } = await supabase
+      .from('pois')
+      .update({ [fieldName]: fieldName === 'wind_orientations' ? JSON.parse(newValue || '[]') : newValue })
+      .eq('id', poiId);
+
+    if (updateErr) throw updateErr;
+
+    // 2. Create the edit record for tracking
+    const { data, error: editErr } = await supabase
+      .from('poi_edits')
+      .insert({
+        poi_id: poiId,
+        editor_id: user.id,
+        field_name: fieldName,
+        old_value: oldValue,
+        new_value: newValue,
+        reason: reason || null,
+        is_applied: true,
+      })
+      .select('*, profiles!poi_edits_editor_id_fkey(id, username, display_name, avatar_url)')
+      .single();
+
+    if (editErr) throw editErr;
+    return data;
+  }, [user]);
+
+  // === Wiki: Get edit history for a POI ===
+  const getPoiEdits = useCallback(async (poiId: string): Promise<PoiEdit[]> => {
+    const { data, error: err } = await supabase
+      .from('poi_edits')
+      .select('*, profiles!poi_edits_editor_id_fkey(id, username, display_name, avatar_url)')
+      .eq('poi_id', poiId)
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (err) {
+      console.error('[usePois] getPoiEdits error:', err);
+      return [];
+    }
+    return (data || []) as PoiEdit[];
+  }, []);
+
+  // === Wiki: Vote on an edit ===
+  const voteOnEdit = useCallback(async (editId: string, voteType: 'up' | 'down') => {
+    if (!user) throw new Error('Non connecte');
+
+    const { error: err } = await supabase
+      .from('poi_edit_votes')
+      .upsert(
+        { edit_id: editId, user_id: user.id, vote_type: voteType },
+        { onConflict: 'edit_id,user_id' }
+      );
+
+    if (err) throw err;
+  }, [user]);
+
+  // === Wiki: Add a comment ===
+  const addComment = useCallback(async (poiId: string, content: string) => {
+    if (!user) throw new Error('Non connecte');
+
+    const { data, error: err } = await supabase
+      .from('poi_comments')
+      .insert({
+        poi_id: poiId,
+        author_id: user.id,
+        content,
+      })
+      .select('*, profiles!poi_comments_author_id_fkey(id, username, display_name, avatar_url)')
+      .single();
+
+    if (err) throw err;
+    return data as PoiComment;
+  }, [user]);
+
+  // === Wiki: Get comments for a POI ===
+  const getComments = useCallback(async (poiId: string): Promise<PoiComment[]> => {
+    const { data, error: err } = await supabase
+      .from('poi_comments')
+      .select('*, profiles!poi_comments_author_id_fkey(id, username, display_name, avatar_url)')
+      .eq('poi_id', poiId)
+      .order('upvotes', { ascending: false });
+
+    if (err) {
+      console.error('[usePois] getComments error:', err);
+      return [];
+    }
+    return (data || []) as PoiComment[];
+  }, []);
+
+  // === Wiki: Vote on a comment ===
+  const voteOnComment = useCallback(async (commentId: string, voteType: 'up' | 'down') => {
+    if (!user) throw new Error('Non connecte');
+
+    const { error: err } = await supabase
+      .from('poi_comment_votes')
+      .upsert(
+        { comment_id: commentId, user_id: user.id, vote_type: voteType },
+        { onConflict: 'comment_id,user_id' }
+      );
+
+    if (err) throw err;
+  }, [user]);
+
   return {
     pois,
     loading,
@@ -167,5 +281,12 @@ export function usePois() {
     votePoi,
     getUserVote,
     getPoi,
+    // Wiki functions
+    editPoiField,
+    getPoiEdits,
+    voteOnEdit,
+    addComment,
+    getComments,
+    voteOnComment,
   };
 }
