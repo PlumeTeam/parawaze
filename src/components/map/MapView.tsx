@@ -14,6 +14,7 @@ import type { PioupiouStation } from '@/hooks/usePioupiou';
 import type { FFVLStation } from '@/hooks/useFFVL';
 import type { WindsMobiStation } from '@/hooks/useWindsMobi';
 import type { GeoSphereStation } from '@/hooks/useGeoSphere';
+import type { BrightSkyStation } from '@/hooks/useBrightSky';
 
 // mapbox-gl types only — the actual library is loaded dynamically below
 import type mapboxgl from 'mapbox-gl';
@@ -37,6 +38,7 @@ interface MapViewProps {
   ffvlStations?: FFVLStation[];
   windsMobiStations?: WindsMobiStation[];
   geoSphereStations?: GeoSphereStation[];
+  brightSkyStations?: BrightSkyStation[];
   onReportClick: (report: WeatherReport) => void;
   onShuttleClick?: (shuttle: Shuttle) => void;
   onPoiClick?: (poi: Poi) => void;
@@ -299,6 +301,12 @@ function buildWindsMobiFeatures(stations: WindsMobiStation[]): GeoJSON.Feature[]
 function getGeoSphereColor(station: GeoSphereStation): string {
   if (station.windAvg == null) return '#9ca3af'; // gray — no data
   const w = station.windAvg;
+/*  Bright Sky (DWD) GeoJSON                                          */
+/* ------------------------------------------------------------------ */
+const BS_COMPASS = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+
+function getBrightSkyColor(station: BrightSkyStation): string {
+  const w = station.wind_speed_kmh;
   if (w < 15) return '#22c55e';  // green
   if (w < 25) return '#eab308';  // yellow
   if (w < 35) return '#f97316';  // orange
@@ -333,6 +341,37 @@ function buildGeoSphereFeatures(stations: GeoSphereStation[]): GeoJSON.Feature[]
   }));
 }
 
+function buildBrightSkyFeatures(stations: BrightSkyStation[]): GeoJSON.Feature[] {
+  return stations.map((s) => ({
+    type: 'Feature' as const,
+    geometry: {
+      type: 'Point' as const,
+      coordinates: [s.lon, s.lat],
+    },
+    properties: {
+      id: s.id,
+      dwd_station_id: s.dwd_station_id,
+      name: s.name,
+      color: getBrightSkyColor(s),
+      altitude: s.altitude,
+      windAvg: s.wind_speed_kmh,
+      windDirection: s.wind_direction_deg,
+      windGust: s.wind_gust_kmh,
+      windGustDirection: s.wind_gust_direction_deg,
+      temperature: s.temperature_c,
+      timestamp: s.timestamp,
+      lat: s.lat,
+      lon: s.lon,
+      // Arrow: direction is where wind comes FROM, ➤ faces right (90°)
+      wind_arrow_angle:
+        s.wind_direction_deg != null
+          ? (s.wind_direction_deg + 180 - 90 + 360) % 360
+          : -1,
+      windLabel: `${Math.round(s.wind_speed_kmh)}`,
+    },
+  }));
+}
+
 /* ------------------------------------------------------------------ */
 /*  Layer IDs (constants to avoid typos)                              */
 /* ------------------------------------------------------------------ */
@@ -361,12 +400,16 @@ const SRC_GEOSPHERE = 'parawaze-geosphere';
 const LYR_GEOSPHERE_CIRCLES = 'parawaze-geosphere-circles';
 const LYR_GEOSPHERE_LABELS = 'parawaze-geosphere-labels';
 const LYR_GEOSPHERE_ARROWS = 'parawaze-geosphere-arrows';
+const SRC_BRIGHTSKY = 'parawaze-brightsky';
+const LYR_BRIGHTSKY_CIRCLES = 'parawaze-brightsky-circles';
+const LYR_BRIGHTSKY_LABELS = 'parawaze-brightsky-labels';
+const LYR_BRIGHTSKY_ARROWS = 'parawaze-brightsky-arrows';
 
 /* ------------------------------------------------------------------ */
 /*  Component                                                         */
 /* ------------------------------------------------------------------ */
 const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
-  { reports, shuttles = [], pois = [], pioupiouStations = [], ffvlStations = [], windsMobiStations = [], geoSphereStations = [], onReportClick, onShuttleClick, onPoiClick, onMapMove, onMarkerPlaced },
+  { reports, shuttles = [], pois = [], pioupiouStations = [], ffvlStations = [], windsMobiStations = [], geoSphereStations = [], brightSkyStations = [], onReportClick, onShuttleClick, onPoiClick, onMapMove, onMarkerPlaced },
   ref,
 ) {
   const mapContainer = useRef<HTMLDivElement>(null);
@@ -402,6 +445,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   windsMobiRef.current = windsMobiStations;
   const geoSphereRef = useRef<GeoSphereStation[]>(geoSphereStations);
   geoSphereRef.current = geoSphereStations;
+  const brightSkyRef = useRef<BrightSkyStation[]>(brightSkyStations);
+  brightSkyRef.current = brightSkyStations;
   const popupRef = useRef<mapboxgl.Popup | null>(null);
 
   // Expose getCenter and getMarkerPosition to parent via ref
@@ -842,6 +887,14 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       });
     }
 
+    // --- Bright Sky (DWD) source ---
+    if (!map.getSource(SRC_BRIGHTSKY)) {
+      map.addSource(SRC_BRIGHTSKY, {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] },
+      });
+    }
+
     // GeoSphere markers — colored fill with indigo ring, distinct from all other providers
     // Pioupiou: colored+white, FFVL: white+colored, winds.mobi: colored+dark, GeoSphere: colored+indigo
     if (!map.getLayer(LYR_GEOSPHERE_CIRCLES)) {
@@ -855,6 +908,22 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           'circle-stroke-width': 3,
           'circle-stroke-color': '#6366f1', // indigo — identifies GeoSphere Austria
           'circle-opacity': 0.9,
+        },
+      });
+    }
+
+    // Bright Sky markers — sky-blue outer stroke to identify DWD/German data
+    if (!map.getLayer(LYR_BRIGHTSKY_CIRCLES)) {
+      map.addLayer({
+        id: LYR_BRIGHTSKY_CIRCLES,
+        type: 'circle',
+        source: SRC_BRIGHTSKY,
+        paint: {
+          'circle-radius': 10,
+          'circle-color': ['get', 'color'],
+          'circle-stroke-width': 3,
+          'circle-stroke-color': '#0ea5e9',  // sky-blue = DWD / Bright Sky brand
+          'circle-opacity': 0.92,
         },
       });
     }
@@ -882,6 +951,29 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       });
     }
 
+    // Bright Sky wind speed labels
+    if (!map.getLayer(LYR_BRIGHTSKY_LABELS)) {
+      map.addLayer({
+        id: LYR_BRIGHTSKY_LABELS,
+        type: 'symbol',
+        source: SRC_BRIGHTSKY,
+        filter: ['!=', ['get', 'windLabel'], ''],
+        layout: {
+          'text-field': ['get', 'windLabel'],
+          'text-size': 11,
+          'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'],
+          'text-offset': [1.4, 0],
+          'text-anchor': 'left',
+          'text-allow-overlap': false,
+        },
+        paint: {
+          'text-color': ['get', 'color'],
+          'text-halo-color': '#ffffff',
+          'text-halo-width': 1.5,
+        },
+      });
+    }
+
     // GeoSphere wind direction arrows
     if (!map.getLayer(LYR_GEOSPHERE_ARROWS)) {
       map.addLayer({
@@ -892,6 +984,29 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         layout: {
           'text-field': '➤',
           'text-size': 13,
+          'text-rotate': ['get', 'wind_arrow_angle'],
+          'text-allow-overlap': true,
+          'text-ignore-placement': true,
+          'text-rotation-alignment': 'map',
+        },
+        paint: {
+          'text-color': '#ffffff',
+          'text-halo-color': 'rgba(0,0,0,0.5)',
+          'text-halo-width': 1,
+        },
+      });
+    }
+
+    // Bright Sky wind direction arrows
+    if (!map.getLayer(LYR_BRIGHTSKY_ARROWS)) {
+      map.addLayer({
+        id: LYR_BRIGHTSKY_ARROWS,
+        type: 'symbol',
+        source: SRC_BRIGHTSKY,
+        filter: ['!=', ['get', 'wind_arrow_angle'], -1],
+        layout: {
+          'text-field': '➤',
+          'text-size': 14,
           'text-rotate': ['get', 'wind_arrow_angle'],
           'text-allow-overlap': true,
           'text-ignore-placement': true,
@@ -942,6 +1057,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           updateFFVLSource(map, ffvlRef.current);
           updateWindsMobiSource(map, windsMobiRef.current);
           updateGeoSphereSource(map, geoSphereRef.current);
+          updateBrightSkySource(map, brightSkyRef.current);
           setMapLoaded(true);
         };
 
@@ -958,6 +1074,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           updateFFVLSource(map, ffvlRef.current);
           updateWindsMobiSource(map, windsMobiRef.current);
           updateGeoSphereSource(map, geoSphereRef.current);
+          updateBrightSkySource(map, brightSkyRef.current);
           // Re-add shuttle route lines
           addShuttleRouteLines(map, shuttlesRef.current);
         });
@@ -972,6 +1089,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           // Check if the click was on one of our layers
           const layerFeatures = map.queryRenderedFeatures(e.point, {
             layers: [LYR_OBS_CIRCLES, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS, LYR_POI_CIRCLES, LYR_PIOUPIOU_CIRCLES, LYR_FFVL_CIRCLES, LYR_WINDS_MOBI_CIRCLES, LYR_GEOSPHERE_CIRCLES].filter(
+            layers: [LYR_OBS_CIRCLES, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS, LYR_POI_CIRCLES, LYR_PIOUPIOU_CIRCLES, LYR_FFVL_CIRCLES, LYR_WINDS_MOBI_CIRCLES, LYR_BRIGHTSKY_CIRCLES].filter(
               (l) => !!map.getLayer(l),
             ),
           });
@@ -1219,8 +1337,53 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           popupRef.current = popup;
         });
 
+        // Bright Sky (DWD) click → show popup
+        map.on('click', LYR_BRIGHTSKY_CIRCLES, (e) => {
+          if (!e.features || !e.features[0]) return;
+          const props = e.features[0].properties;
+          if (!props) return;
+          const coords = (e.features[0].geometry as any).coordinates.slice() as [number, number];
+
+          if (popupRef.current) {
+            popupRef.current.remove();
+            popupRef.current = null;
+          }
+
+          const dirLabel = props.windDirection != null
+            ? BS_COMPASS[Math.round(Number(props.windDirection) / 22.5) % 16]
+            : '—';
+          const timeLabel = props.timestamp
+            ? new Date(props.timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+            : '';
+          const demoUrl = `https://brightsky.dev/demo/#lat=${props.lat}&lon=${props.lon}&zoom=12`;
+
+          const html = `
+            <div style="font-family:system-ui,-apple-system,sans-serif;font-size:13px;line-height:1.5;min-width:190px">
+              <div style="font-weight:700;font-size:14px;margin-bottom:2px">${props.name}</div>
+              ${props.altitude != null ? `<div style="color:#666;font-size:12px;margin-bottom:6px">⛰️ ${props.altitude} m · DWD via Bright Sky</div>` : ''}
+              <div style="margin-bottom:2px">💨 Vent moy: <b>${Math.round(Number(props.windAvg))} km/h</b></div>
+              <div style="margin-bottom:2px">📈 Rafale: ${props.windGust != null ? Math.round(Number(props.windGust)) + ' km/h' : '—'}</div>
+              <div style="margin-bottom:2px">🧭 Direction: ${dirLabel} · ${props.windDirection != null ? Math.round(Number(props.windDirection)) + '°' : '—'}</div>
+              ${props.temperature != null ? `<div style="margin-bottom:2px">🌡️ Température: ${Number(props.temperature).toFixed(1)} °C</div>` : ''}
+              ${timeLabel ? `<div style="margin-bottom:6px;color:#666">🕐 Obs. ${timeLabel}</div>` : ''}
+              <a href="${demoUrl}" target="_blank" rel="noopener"
+                 style="color:#0ea5e9;text-decoration:underline;font-size:12px">
+                Voir sur Bright Sky ↗
+              </a>
+            </div>
+          `;
+
+          const popup = new mb.Popup({ closeButton: true, maxWidth: '280px', offset: 12 })
+            .setLngLat(coords)
+            .setHTML(html)
+            .addTo(map);
+
+          popup.on('close', () => { popupRef.current = null; });
+          popupRef.current = popup;
+        });
+
         // Pointer cursor on interactive layers
-        const interactiveLayers = [LYR_OBS_CIRCLES, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS, LYR_POI_CIRCLES, LYR_POI_LABELS, LYR_PIOUPIOU_CIRCLES, LYR_PIOUPIOU_LABELS, LYR_FFVL_CIRCLES, LYR_FFVL_LABELS, LYR_WINDS_MOBI_CIRCLES, LYR_WINDS_MOBI_LABELS, LYR_GEOSPHERE_CIRCLES, LYR_GEOSPHERE_LABELS, 'parawaze-shuttle-label', 'parawaze-forecast-label'];
+        const interactiveLayers = [LYR_OBS_CIRCLES, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS, LYR_POI_CIRCLES, LYR_POI_LABELS, LYR_PIOUPIOU_CIRCLES, LYR_PIOUPIOU_LABELS, LYR_FFVL_CIRCLES, LYR_FFVL_LABELS, LYR_WINDS_MOBI_CIRCLES, LYR_WINDS_MOBI_LABELS, LYR_GEOSPHERE_CIRCLES, LYR_GEOSPHERE_LABELS, LYR_BRIGHTSKY_CIRCLES, LYR_BRIGHTSKY_LABELS, 'parawaze-shuttle-label', 'parawaze-forecast-label'];
         interactiveLayers.forEach((layerId) => {
           map.on('mouseenter', layerId, () => { map.getCanvas().style.cursor = 'pointer'; });
           map.on('mouseleave', layerId, () => { map.getCanvas().style.cursor = ''; });
@@ -1295,6 +1458,13 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     const src = map.getSource(SRC_GEOSPHERE) as mapboxgl.GeoJSONSource | undefined;
     if (src) {
       src.setData({ type: 'FeatureCollection', features: buildGeoSphereFeatures(stns) });
+    }
+  }
+
+  function updateBrightSkySource(map: mapboxgl.Map, stns: BrightSkyStation[]) {
+    const src = map.getSource(SRC_BRIGHTSKY) as mapboxgl.GeoJSONSource | undefined;
+    if (src) {
+      src.setData({ type: 'FeatureCollection', features: buildBrightSkyFeatures(stns) });
     }
   }
 
@@ -1453,6 +1623,22 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       map.once('idle', doUpdate);
     }
   }, [geoSphereStations]);
+
+  // Update Bright Sky (DWD) data — always visible regardless of day
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const doUpdate = () => {
+      if (map.getSource(SRC_BRIGHTSKY)) {
+        updateBrightSkySource(map, brightSkyStations);
+      }
+    };
+    if (map.isStyleLoaded()) {
+      doUpdate();
+    } else {
+      map.once('idle', doUpdate);
+    }
+  }, [brightSkyStations]);
 
   /* ---------------------------------------------------------------- */
   /*  Utility callbacks                                               */
