@@ -11,6 +11,7 @@ import {
 } from '@/lib/mapbox';
 import type { WeatherReport, Shuttle, WindDirection, Poi } from '@/lib/types';
 import type { PioupiouStation } from '@/hooks/usePioupiou';
+import type { FFVLStation } from '@/hooks/useFFVL';
 
 // mapbox-gl types only — the actual library is loaded dynamically below
 import type mapboxgl from 'mapbox-gl';
@@ -31,6 +32,7 @@ interface MapViewProps {
   shuttles?: Shuttle[];
   pois?: Poi[];
   pioupiouStations?: PioupiouStation[];
+  ffvlStations?: FFVLStation[];
   onReportClick: (report: WeatherReport) => void;
   onShuttleClick?: (shuttle: Shuttle) => void;
   onPoiClick?: (poi: Poi) => void;
@@ -200,6 +202,50 @@ function buildPioupiouFeatures(stations: PioupiouStation[]): GeoJSON.Feature[] {
 }
 
 /* ------------------------------------------------------------------ */
+/*  FFVL GeoJSON                                                      */
+/* ------------------------------------------------------------------ */
+function getFFVLColor(station: FFVLStation): string {
+  if (station.windAvg == null) return '#9ca3af'; // gray — no data
+  const w = station.windAvg;
+  if (w < 15) return '#22c55e';  // green
+  if (w < 25) return '#eab308';  // yellow
+  if (w < 35) return '#f97316';  // orange
+  return '#ef4444';              // red
+}
+
+function buildFFVLFeatures(stations: FFVLStation[]): GeoJSON.Feature[] {
+  return stations.map((s) => ({
+    type: 'Feature' as const,
+    geometry: {
+      type: 'Point' as const,
+      coordinates: [s.lng, s.lat],
+    },
+    properties: {
+      id: s.id,
+      name: s.name,
+      color: getFFVLColor(s),
+      altitude: s.altitude,
+      departement: s.departement,
+      windAvg: s.windAvg,
+      windMax: s.windMax,
+      windMin: s.windMin,
+      windDirection: s.windDirection,
+      temperature: s.temperature,
+      humidity: s.humidity,
+      pressure: s.pressure,
+      lastUpdate: s.lastUpdate,
+      url: s.url,
+      // Arrow angle: direction is where wind comes FROM, ➤ faces right (90°)
+      wind_arrow_angle:
+        s.windDirection != null && s.windAvg != null
+          ? (s.windDirection + 180 - 90 + 360) % 360
+          : -1,
+      windLabel: s.windAvg != null ? `${Math.round(s.windAvg)}` : '',
+    },
+  }));
+}
+
+/* ------------------------------------------------------------------ */
 /*  Layer IDs (constants to avoid typos)                              */
 /* ------------------------------------------------------------------ */
 const SRC_REPORTS = 'parawaze-reports';
@@ -215,12 +261,16 @@ const SRC_PIOUPIOU = 'parawaze-pioupiou';
 const LYR_PIOUPIOU_CIRCLES = 'parawaze-pioupiou-circles';
 const LYR_PIOUPIOU_LABELS = 'parawaze-pioupiou-labels';
 const LYR_PIOUPIOU_ARROWS = 'parawaze-pioupiou-arrows';
+const SRC_FFVL = 'parawaze-ffvl';
+const LYR_FFVL_CIRCLES = 'parawaze-ffvl-circles';
+const LYR_FFVL_LABELS = 'parawaze-ffvl-labels';
+const LYR_FFVL_ARROWS = 'parawaze-ffvl-arrows';
 
 /* ------------------------------------------------------------------ */
 /*  Component                                                         */
 /* ------------------------------------------------------------------ */
 const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
-  { reports, shuttles = [], pois = [], pioupiouStations = [], onReportClick, onShuttleClick, onPoiClick, onMapMove, onMarkerPlaced },
+  { reports, shuttles = [], pois = [], pioupiouStations = [], ffvlStations = [], onReportClick, onShuttleClick, onPoiClick, onMapMove, onMarkerPlaced },
   ref,
 ) {
   const mapContainer = useRef<HTMLDivElement>(null);
@@ -250,6 +300,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   onPoiClickRef.current = onPoiClick;
   const pioupiouRef = useRef<PioupiouStation[]>(pioupiouStations);
   pioupiouRef.current = pioupiouStations;
+  const ffvlRef = useRef<FFVLStation[]>(ffvlStations);
+  ffvlRef.current = ffvlStations;
   const popupRef = useRef<mapboxgl.Popup | null>(null);
 
   // Expose getCenter and getMarkerPosition to parent via ref
@@ -540,6 +592,76 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         },
       });
     }
+
+    // --- FFVL source ---
+    if (!map.getSource(SRC_FFVL)) {
+      map.addSource(SRC_FFVL, {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] },
+      });
+    }
+
+    // FFVL diamond markers — white fill with colored ring to distinguish from Pioupiou
+    if (!map.getLayer(LYR_FFVL_CIRCLES)) {
+      map.addLayer({
+        id: LYR_FFVL_CIRCLES,
+        type: 'circle',
+        source: SRC_FFVL,
+        paint: {
+          'circle-radius': 9,
+          'circle-color': '#ffffff',
+          'circle-stroke-width': 3,
+          'circle-stroke-color': ['get', 'color'],
+          'circle-opacity': 0.95,
+        },
+      });
+    }
+
+    // FFVL wind speed labels
+    if (!map.getLayer(LYR_FFVL_LABELS)) {
+      map.addLayer({
+        id: LYR_FFVL_LABELS,
+        type: 'symbol',
+        source: SRC_FFVL,
+        filter: ['!=', ['get', 'windLabel'], ''],
+        layout: {
+          'text-field': ['get', 'windLabel'],
+          'text-size': 11,
+          'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'],
+          'text-offset': [1.2, 0],
+          'text-anchor': 'left',
+          'text-allow-overlap': false,
+        },
+        paint: {
+          'text-color': ['get', 'color'],
+          'text-halo-color': '#ffffff',
+          'text-halo-width': 1.5,
+        },
+      });
+    }
+
+    // FFVL wind direction arrows
+    if (!map.getLayer(LYR_FFVL_ARROWS)) {
+      map.addLayer({
+        id: LYR_FFVL_ARROWS,
+        type: 'symbol',
+        source: SRC_FFVL,
+        filter: ['!=', ['get', 'wind_arrow_angle'], -1],
+        layout: {
+          'text-field': '➤',
+          'text-size': 13,
+          'text-rotate': ['get', 'wind_arrow_angle'],
+          'text-allow-overlap': true,
+          'text-ignore-placement': true,
+          'text-rotation-alignment': 'map',
+        },
+        paint: {
+          'text-color': ['get', 'color'],
+          'text-halo-color': 'rgba(255,255,255,0.8)',
+          'text-halo-width': 1,
+        },
+      });
+    }
   }, []);
 
   /* ---------------------------------------------------------------- */
@@ -575,6 +697,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           updateShuttleSource(map, shuttlesRef.current);
           updatePoiSource(map, poisRef.current);
           updatePioupiouSource(map, pioupiouRef.current);
+          updateFFVLSource(map, ffvlRef.current);
           setMapLoaded(true);
         };
 
@@ -588,6 +711,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           updateShuttleSource(map, shuttlesRef.current);
           updatePoiSource(map, poisRef.current);
           updatePioupiouSource(map, pioupiouRef.current);
+          updateFFVLSource(map, ffvlRef.current);
           // Re-add shuttle route lines
           addShuttleRouteLines(map, shuttlesRef.current);
         });
@@ -601,7 +725,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         map.on('click', (e) => {
           // Check if the click was on one of our layers
           const layerFeatures = map.queryRenderedFeatures(e.point, {
-            layers: [LYR_OBS_CIRCLES, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS, LYR_POI_CIRCLES, LYR_PIOUPIOU_CIRCLES].filter(
+            layers: [LYR_OBS_CIRCLES, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS, LYR_POI_CIRCLES, LYR_PIOUPIOU_CIRCLES, LYR_FFVL_CIRCLES].filter(
               (l) => !!map.getLayer(l),
             ),
           });
@@ -692,8 +816,61 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           popupRef.current = popup;
         });
 
+        // FFVL click → show popup
+        map.on('click', LYR_FFVL_CIRCLES, (e) => {
+          if (!e.features || !e.features[0]) return;
+          const props = e.features[0].properties;
+          if (!props) return;
+          const coords = (e.features[0].geometry as any).coordinates.slice() as [number, number];
+
+          if (popupRef.current) {
+            popupRef.current.remove();
+            popupRef.current = null;
+          }
+
+          const windAvg = props.windAvg != null && props.windAvg !== '' ? Number(props.windAvg) : null;
+          const windMin = props.windMin != null && props.windMin !== '' ? Number(props.windMin) : null;
+          const windMax = props.windMax != null && props.windMax !== '' ? Number(props.windMax) : null;
+          const windDir = props.windDirection != null && props.windDirection !== '' ? Number(props.windDirection) : null;
+          const temp = props.temperature != null && props.temperature !== '' ? Number(props.temperature) : null;
+          const humidity = props.humidity != null && props.humidity !== '' ? Number(props.humidity) : null;
+          const alt = props.altitude != null && props.altitude !== '' ? Number(props.altitude) : null;
+
+          const lastUp = props.lastUpdate
+            ? new Date(props.lastUpdate).toLocaleString('fr-FR', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })
+            : '—';
+          const stationUrl = props.url && props.url !== 'null'
+            ? props.url
+            : `https://www.balisemeteo.com/balise.php?idBalise=${props.id}`;
+
+          const html = `
+            <div style="font-family:system-ui,-apple-system,sans-serif;font-size:13px;line-height:1.5;min-width:190px">
+              <div style="font-weight:700;font-size:14px;margin-bottom:2px">${props.name || 'FFVL ' + props.id}</div>
+              ${alt != null ? `<div style="color:#666;font-size:12px;margin-bottom:6px">⛰️ ${alt} m${props.departement && props.departement !== 'null' ? ' · ' + props.departement : ''}</div>` : ''}
+              <div style="margin-bottom:2px">💨 Moy: <b>${windAvg != null ? Math.round(windAvg) + ' km/h' : '—'}</b></div>
+              <div style="margin-bottom:2px">📉 Min: ${windMin != null ? Math.round(windMin) + ' km/h' : '—'} · 📈 Max: ${windMax != null ? Math.round(windMax) + ' km/h' : '—'}</div>
+              <div style="margin-bottom:2px">🧭 Direction: ${windDir != null ? Math.round(windDir) + '°' : '—'}</div>
+              ${temp != null ? `<div style="margin-bottom:2px">🌡️ Température: ${temp.toFixed(1)} °C</div>` : ''}
+              ${humidity != null ? `<div style="margin-bottom:2px">💧 Humidité: ${Math.round(humidity)} %</div>` : ''}
+              <div style="margin-bottom:6px;color:#666">🕐 ${lastUp}</div>
+              <a href="${stationUrl}" target="_blank" rel="noopener"
+                 style="color:#0ea5e9;text-decoration:underline;font-size:12px">
+                Voir sur balisemeteo.com ↗
+              </a>
+            </div>
+          `;
+
+          const popup = new mb.Popup({ closeButton: true, maxWidth: '280px', offset: 12 })
+            .setLngLat(coords)
+            .setHTML(html)
+            .addTo(map);
+
+          popup.on('close', () => { popupRef.current = null; });
+          popupRef.current = popup;
+        });
+
         // Pointer cursor on interactive layers
-        const interactiveLayers = [LYR_OBS_CIRCLES, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS, LYR_POI_CIRCLES, LYR_POI_LABELS, LYR_PIOUPIOU_CIRCLES, LYR_PIOUPIOU_LABELS, 'parawaze-shuttle-label', 'parawaze-forecast-label'];
+        const interactiveLayers = [LYR_OBS_CIRCLES, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS, LYR_POI_CIRCLES, LYR_POI_LABELS, LYR_PIOUPIOU_CIRCLES, LYR_PIOUPIOU_LABELS, LYR_FFVL_CIRCLES, LYR_FFVL_LABELS, 'parawaze-shuttle-label', 'parawaze-forecast-label'];
         interactiveLayers.forEach((layerId) => {
           map.on('mouseenter', layerId, () => { map.getCanvas().style.cursor = 'pointer'; });
           map.on('mouseleave', layerId, () => { map.getCanvas().style.cursor = ''; });
@@ -747,6 +924,13 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     const src = map.getSource(SRC_PIOUPIOU) as mapboxgl.GeoJSONSource | undefined;
     if (src) {
       src.setData({ type: 'FeatureCollection', features: buildPioupiouFeatures(stns) });
+    }
+  }
+
+  function updateFFVLSource(map: mapboxgl.Map, stns: FFVLStation[]) {
+    const src = map.getSource(SRC_FFVL) as mapboxgl.GeoJSONSource | undefined;
+    if (src) {
+      src.setData({ type: 'FeatureCollection', features: buildFFVLFeatures(stns) });
     }
   }
 
@@ -857,6 +1041,22 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       map.once('idle', doUpdate);
     }
   }, [pioupiouStations]);
+
+  // Update FFVL data — always visible regardless of day
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const doUpdate = () => {
+      if (map.getSource(SRC_FFVL)) {
+        updateFFVLSource(map, ffvlStations);
+      }
+    };
+    if (map.isStyleLoaded()) {
+      doUpdate();
+    } else {
+      map.once('idle', doUpdate);
+    }
+  }, [ffvlStations]);
 
   /* ---------------------------------------------------------------- */
   /*  Utility callbacks                                               */

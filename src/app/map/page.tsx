@@ -8,6 +8,7 @@ import { useReports } from '@/hooks/useReports';
 import { useShuttles } from '@/hooks/useShuttles';
 import { usePois } from '@/hooks/usePois';
 import { usePioupiou } from '@/hooks/usePioupiou';
+import { useFFVL } from '@/hooks/useFFVL';
 import type { DayFilter } from '@/hooks/useReports';
 import ReportBottomSheet from '@/components/map/ReportBottomSheet';
 import BottomNav from '@/components/shared/BottomNav';
@@ -37,6 +38,7 @@ export default function MapPage() {
   const { shuttles, fetchShuttles } = useShuttles();
   const { pois, fetchPois } = usePois();
   const { stations: pioupiouStations } = usePioupiou();
+  const { stations: ffvlStations } = useFFVL();
   const [selectedReport, setSelectedReport] = useState<WeatherReport | null>(null);
   const [selectedDay, setSelectedDay] = useState<DayFilter>('today');
   const [toast, setToast] = useState<string | null>(null);
@@ -177,6 +179,7 @@ export default function MapPage() {
           reports={reports}
           pois={pois}
           pioupiouStations={pioupiouStations}
+          ffvlStations={ffvlStations}
           onPoiClick={handlePoiClick}
           shuttles={shuttles.filter(s => {
             if (!s.departure_time) return false;
