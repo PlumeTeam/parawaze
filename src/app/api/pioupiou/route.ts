@@ -2,9 +2,10 @@ import { NextResponse } from 'next/server';
 
 export async function GET() {
   try {
-    const res = await fetch('https://api.pioupiou.fr/1/live-with-meta/all', {
+    const res = await fetch('https://api.pioupiou.fr/v1/live-with-meta/all', {
       headers: { Accept: 'application/json' },
       cache: 'no-store',
+      redirect: 'follow',
     });
 
     if (!res.ok) {
@@ -17,9 +18,8 @@ export async function GET() {
     const data = await res.json();
     return NextResponse.json(data);
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : String(err) },
-      { status: 500 },
-    );
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[pioupiou proxy] fetch failed:', message);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
