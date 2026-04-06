@@ -28,7 +28,7 @@ export function usePioupiou() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('https://api.pioupiou.fr/1/live-with-meta/all');
+      const res = await fetch('/api/pioupiou');
       if (!res.ok) throw new Error(`Pioupiou API error: ${res.status}`);
       const data = await res.json();
 
