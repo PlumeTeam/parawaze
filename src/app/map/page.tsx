@@ -34,7 +34,7 @@ const DAY_LABELS: Record<DayFilter, string> = {
 
 export default function MapPage() {
   const { user, profile, loading: authLoading } = useAuth();
-  const { reports, loading: reportsLoading, fetchReportsByDay } = useReports();
+  const { reports, fetchReportsByDay } = useReports();
   const { shuttles, fetchShuttles } = useShuttles();
   const { stories } = useStories();
   const [selectedReport, setSelectedReport] = useState<WeatherReport | null>(null);
@@ -85,9 +85,8 @@ export default function MapPage() {
     router.push(`/report/${report.id}`);
   };
 
-  const handleMapMove = (center: { lat: number; lng: number }) => {
-    // Optionally fetch reports near new center
-    // fetchReportsInRadius(center.lat, center.lng, 50);
+  const handleMapMove = (_center: { lat: number; lng: number }) => {
+    // Reserved for future use: fetch reports near new center
   };
 
   // Called when user taps on the map to place a marker
