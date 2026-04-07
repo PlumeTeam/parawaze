@@ -1,6 +1,7 @@
 'use client';
 
-import { useRef, useEffect, useState, useCallback } from 'react';
+import { useRef, useEffect, useState, useCallback, useImperativeHandle, forwardRef } from 'react';
+import 'mapbox-gl/dist/mapbox-gl.css';
 import {
   MAPBOX_TOKEN,
   MAP_STYLES,
@@ -9,24 +10,105 @@ import {
   flyabilityColor,
   type MapStyleKey,
 } from '@/lib/mapbox';
-import type { WeatherReport } from '@/lib/types';
+import type { WeatherReport, Shuttle, Story } from '@/lib/types';
 
 // mapbox-gl types only — the actual library is loaded dynamically below
 import type mapboxgl from 'mapbox-gl';
 
-interface MapViewProps {
-  reports: WeatherReport[];
-  onReportClick: (report: WeatherReport) => void;
-  onMapMove?: (center: { lat: number; lng: number }) => void;
+export interface MarkerPosition {
+  lat: number;
+  lng: number;
+  alt: number | null;
 }
 
-export default function MapView({ reports, onReportClick, onMapMove }: MapViewProps) {
+export interface MapViewHandle {
+  getCenter: () => { lat: number; lng: number } | null;
+  getMarkerPosition: () => MarkerPosition | null;
+}
+
+interface MapViewProps {
+  reports: WeatherReport[];
+  shuttles?: Shuttle[];
+  stories?: Story[];
+  onReportClick: (report: WeatherReport) => void;
+  onShuttleClick?: (shuttle: Shuttle) => void;
+  onStoryClick?: (story: Story) => void;
+  onMapMove?: (center: { lat: number; lng: number }) => void;
+  onMarkerPlaced?: (pos: MarkerPosition) => void;
+}
+
+const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
+  { reports, shuttles = [], stories = [], onReportClick, onShuttleClick, onStoryClick, onMapMove, onMarkerPlaced },
+  ref
+) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<mapboxgl.Marker[]>([]);
+  const shuttleMarkersRef = useRef<mapboxgl.Marker[]>([]);
+  const storyMarkersRef = useRef<mapboxgl.Marker[]>([]);
   const mbRef = useRef<typeof mapboxgl | null>(null);
   const [mapStyle, setMapStyle] = useState<MapStyleKey>('outdoors');
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Tap-to-place marker state
+  const placedMarkerRef = useRef<mapboxgl.Marker | null>(null);
+  const markerPositionRef = useRef<MarkerPosition | null>(null);
+  const [markerInfo, setMarkerInfo] = useState<MarkerPosition | null>(null);
+
+  // (tap detection handled by Mapbox GL's built-in click event)
+
+  // Expose getCenter and getMarkerPosition to parent via ref
+  useImperativeHandle(ref, () => ({
+    getCenter: () => {
+      if (!mapRef.current) return null;
+      const c = mapRef.current.getCenter();
+      return { lat: c.lat, lng: c.lng };
+    },
+    getMarkerPosition: () => {
+      return markerPositionRef.current;
+    },
+  }));
+
+  // No custom pin element needed — we use Mapbox's default red marker
+
+  /** Place (or move) the marker at given coordinates */
+  const placeMarker = useCallback((lngLat: { lng: number; lat: number }) => {
+    if (!mapRef.current || !mbRef.current) return;
+    const map = mapRef.current;
+    const mb = mbRef.current;
+
+    // Query terrain elevation (free, uses loaded DEM tiles)
+    let alt: number | null = null;
+    try {
+      const elev = map.queryTerrainElevation([lngLat.lng, lngLat.lat]);
+      if (elev !== null && elev !== undefined) {
+        alt = Math.round(elev);
+      }
+    } catch {
+      // Terrain not available — keep alt as null
+    }
+
+    const pos: MarkerPosition = { lat: lngLat.lat, lng: lngLat.lng, alt };
+    markerPositionRef.current = pos;
+    setMarkerInfo(pos);
+
+    // Remove existing placed marker
+    if (placedMarkerRef.current) {
+      placedMarkerRef.current.remove();
+      placedMarkerRef.current = null;
+    }
+
+    // Create new marker using Mapbox default red pin (simple & reliable)
+    const marker = new mb.Marker({ color: '#EF4444' })
+      .setLngLat([lngLat.lng, lngLat.lat])
+      .addTo(map);
+
+    placedMarkerRef.current = marker;
+
+    // Notify parent so it can store the position
+    onMarkerPlaced?.(pos);
+  }, [onMarkerPlaced]);
 
   // Initialize map — dynamically import mapbox-gl to avoid SSR issues
   useEffect(() => {
@@ -38,14 +120,6 @@ export default function MapView({ reports, onReportClick, onMapMove }: MapViewPr
       try {
         // Dynamic import ensures mapbox-gl is only loaded in the browser
         const mb = (await import('mapbox-gl')).default;
-
-        // Load CSS if not already present
-        if (!document.querySelector('link[href*="mapbox-gl"]')) {
-          const link = document.createElement('link');
-          link.rel = 'stylesheet';
-          link.href = 'https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.css';
-          document.head.appendChild(link);
-        }
 
         if (cancelled) return;
 
@@ -63,7 +137,33 @@ export default function MapView({ reports, onReportClick, onMapMove }: MapViewPr
         map.addControl(new mb.AttributionControl({ compact: true }), 'bottom-left');
 
         map.on('load', () => {
-          if (!cancelled) setMapLoaded(true);
+          if (cancelled) return;
+          setMapLoaded(true);
+
+          // Add terrain DEM source for elevation queries
+          // exaggeration: 0 means no visual 3D but elevation data is available
+          if (!map.getSource('mapbox-dem')) {
+            map.addSource('mapbox-dem', {
+              type: 'raster-dem',
+              url: 'mapbox://mapbox.mapbox-terrain-dem-v1',
+              tileSize: 512,
+              maxzoom: 14,
+            });
+            map.setTerrain({ source: 'mapbox-dem', exaggeration: 0 });
+          }
+        });
+
+        // Re-add terrain after style change
+        map.on('style.load', () => {
+          if (!map.getSource('mapbox-dem')) {
+            map.addSource('mapbox-dem', {
+              type: 'raster-dem',
+              url: 'mapbox://mapbox.mapbox-terrain-dem-v1',
+              tileSize: 512,
+              maxzoom: 14,
+            });
+            map.setTerrain({ source: 'mapbox-dem', exaggeration: 0 });
+          }
         });
 
         map.on('moveend', () => {
@@ -71,9 +171,17 @@ export default function MapView({ reports, onReportClick, onMapMove }: MapViewPr
           onMapMove?.({ lat: center.lat, lng: center.lng });
         });
 
+        // --- Tap-to-place: use Mapbox GL's built-in click event ---
+        // This automatically distinguishes clicks from drags and provides
+        // geographic coordinates directly (no manual pixel→lngLat conversion).
+        map.on('click', (e) => {
+          placeMarker({ lng: e.lngLat.lng, lat: e.lngLat.lat });
+        });
+
         mapRef.current = map;
       } catch (err) {
         console.error('[ParaWaze] Failed to load mapbox-gl:', err);
+        setError(err instanceof Error ? err.message : String(err));
       }
     })();
 
@@ -92,12 +200,12 @@ export default function MapView({ reports, onReportClick, onMapMove }: MapViewPr
     mapRef.current.setStyle(MAP_STYLES[mapStyle]);
   }, [mapStyle]);
 
-  // Update markers
+  // Update report markers
   useEffect(() => {
     if (!mapRef.current || !mbRef.current) return;
     const mb = mbRef.current;
 
-    // Clear existing markers
+    // Clear existing report markers
     markersRef.current.forEach((m) => m.remove());
     markersRef.current = [];
 
@@ -149,6 +257,107 @@ export default function MapView({ reports, onReportClick, onMapMove }: MapViewPr
     });
   }, [reports, onReportClick]);
 
+  // Update shuttle markers
+  useEffect(() => {
+    if (!mapRef.current || !mbRef.current) return;
+    const mb = mbRef.current;
+
+    // Clear existing shuttle markers
+    shuttleMarkersRef.current.forEach((m) => m.remove());
+    shuttleMarkersRef.current = [];
+
+    shuttles.forEach((shuttle) => {
+      if (!shuttle.meeting_point) return;
+      const coords = shuttle.meeting_point.coordinates;
+      if (!coords || coords.length < 2) return;
+
+      const isFull = shuttle.taken_seats >= shuttle.total_seats;
+      const borderColor = isFull ? '#ef4444' : '#22c55e';
+
+      const el = document.createElement('div');
+      el.className = 'parawaze-shuttle-marker';
+      el.style.cssText = `
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: white;
+        border: 3px solid ${borderColor};
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        transition: transform 0.2s;
+      `;
+      el.textContent = '\u{1F690}';
+
+      el.addEventListener('mouseenter', () => { el.style.transform = 'scale(1.2)'; });
+      el.addEventListener('mouseleave', () => { el.style.transform = 'scale(1)'; });
+
+      const marker = new mb.Marker({ element: el })
+        .setLngLat([coords[0], coords[1]])
+        .addTo(mapRef.current!);
+
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        onShuttleClick?.(shuttle);
+      });
+
+      shuttleMarkersRef.current.push(marker);
+    });
+  }, [shuttles, onShuttleClick]);
+
+  // Update story markers
+  useEffect(() => {
+    if (!mapRef.current || !mbRef.current) return;
+    const mb = mbRef.current;
+
+    // Clear existing story markers
+    storyMarkersRef.current.forEach((m) => m.remove());
+    storyMarkersRef.current = [];
+
+    stories.forEach((story) => {
+      if (!story.location) return;
+      const coords = story.location.coordinates;
+      if (!coords || coords.length < 2) return;
+
+      const el = document.createElement('div');
+      el.className = 'parawaze-story-marker';
+      el.style.cssText = `
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #8B5CF6, #EC4899);
+        border: 3px solid white;
+        box-shadow: 0 2px 10px rgba(139,92,246,0.5);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: transform 0.2s;
+        animation: story-pulse 2s ease-in-out infinite;
+      `;
+
+      // Play triangle icon
+      el.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="white"><polygon points="5 3 19 12 5 21 5 3"/></svg>`;
+
+      el.addEventListener('mouseenter', () => { el.style.transform = 'scale(1.15)'; });
+      el.addEventListener('mouseleave', () => { el.style.transform = 'scale(1)'; });
+
+      const marker = new mb.Marker({ element: el })
+        .setLngLat([coords[0], coords[1]])
+        .addTo(mapRef.current!);
+
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        onStoryClick?.(story);
+      });
+
+      storyMarkersRef.current.push(marker);
+    });
+  }, [stories, onStoryClick]);
+
   const flyToLocation = useCallback((lng: number, lat: number, zoom = 13) => {
     mapRef.current?.flyTo({ center: [lng, lat], zoom, duration: 1500 });
   }, []);
@@ -177,9 +386,38 @@ export default function MapView({ reports, onReportClick, onMapMove }: MapViewPr
     standard: 'Plan',
   };
 
+  /** Format coordinates for the floating label */
+  const formatLabel = (pos: MarkerPosition) => {
+    const latDir = pos.lat >= 0 ? 'N' : 'S';
+    const lngDir = pos.lng >= 0 ? 'E' : 'W';
+    const coords = `${Math.abs(pos.lat).toFixed(4)}\u00B0 ${latDir}, ${Math.abs(pos.lng).toFixed(4)}\u00B0 ${lngDir}`;
+    const alt = pos.alt !== null ? ` \u00B7 ${pos.alt}m` : '';
+    return `\u{1F4CD} ${coords}${alt}`;
+  };
+
   return (
     <div className="relative w-full h-full">
-      <div ref={mapContainer} className="absolute inset-0" />
+      {/* Pulse animation for story markers */}
+      <style>{`
+        @keyframes story-pulse {
+          0%, 100% { box-shadow: 0 2px 10px rgba(139,92,246,0.5); }
+          50% { box-shadow: 0 2px 20px rgba(236,72,153,0.7), 0 0 0 6px rgba(139,92,246,0.15); }
+        }
+      `}</style>
+
+      {error && (
+        <div className="absolute top-0 left-0 right-0 bg-red-600 text-white text-sm px-4 py-2 z-50">
+          Map error: {error}
+        </div>
+      )}
+      <div ref={mapContainer} className="absolute inset-0" style={{ height: '100%', width: '100%' }} />
+
+      {/* Marker info label — shown when a marker is placed */}
+      {markerInfo && (
+        <div className="absolute bottom-28 left-1/2 -translate-x-1/2 z-50 bg-gray-900/85 backdrop-blur-sm text-white text-sm px-4 py-2.5 rounded-2xl shadow-lg pointer-events-none whitespace-nowrap font-medium">
+          {formatLabel(markerInfo)}
+        </div>
+      )}
 
       {/* Map controls */}
       <div className="absolute top-4 right-4 flex flex-col gap-2 z-10">
@@ -213,6 +451,10 @@ export default function MapView({ reports, onReportClick, onMapMove }: MapViewPr
           </svg>
         </button>
       </div>
+
+      {/* Pin drop animation removed — using Mapbox default marker */}
     </div>
   );
-}
+});
+
+export default MapView;
