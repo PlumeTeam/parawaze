@@ -24,30 +24,62 @@ export default function StoryRecorder({ onClose, onPublished }: StoryRecorderPro
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const [cameras, setCameras] = useState<MediaDeviceInfo[]>([]);
+  const [selectedCameraIndex, setSelectedCameraIndex] = useState(0);
+
   const { createStory } = useStories();
 
-  // Start camera on mount
+  const stopCamera = () => {
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+  };
+
+  const startStream = useCallback(async (deviceId?: string) => {
+    const constraints: MediaStreamConstraints = {
+      video: deviceId
+        ? { deviceId: { exact: deviceId }, width: { ideal: 720 }, height: { ideal: 1280 }, frameRate: { ideal: 30 } }
+        : { facingMode: 'environment', width: { ideal: 720 }, height: { ideal: 1280 }, frameRate: { ideal: 30 } },
+      audio: false,
+    };
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    streamRef.current = stream;
+    if (videoRef.current) {
+      videoRef.current.srcObject = stream;
+    }
+  }, []);
+
+  // Start camera on mount and enumerate devices
   useEffect(() => {
     let active = true;
 
     (async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: 'environment',
-            width: { ideal: 720 },
-            height: { ideal: 1280 },
-            frameRate: { ideal: 30 },
-          },
-          audio: false,
-        });
+        // First start with default back camera to get permission
+        await startStream();
+
         if (!active) {
-          stream.getTracks().forEach((t) => t.stop());
+          stopCamera();
           return;
         }
-        streamRef.current = stream;
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
+
+        // Enumerate devices after permission is granted
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter((d) => d.kind === 'videoinput');
+        if (!active) return;
+
+        setCameras(videoDevices);
+
+        // Find the first back-facing camera by label heuristic
+        const backIndex = videoDevices.findIndex((d) =>
+          /back|rear|environment|arrière|principal/i.test(d.label)
+        );
+        const initialIndex = backIndex >= 0 ? backIndex : 0;
+        setSelectedCameraIndex(initialIndex);
+
+        // Switch to the identified back camera if it differs from current stream
+        if (videoDevices[initialIndex]?.deviceId) {
+          stopCamera();
+          await startStream(videoDevices[initialIndex].deviceId);
         }
       } catch {
         if (active) {
@@ -63,10 +95,17 @@ export default function StoryRecorder({ onClose, onPublished }: StoryRecorderPro
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const stopCamera = () => {
-    streamRef.current?.getTracks().forEach((t) => t.stop());
-    streamRef.current = null;
-  };
+  const switchCamera = useCallback(async () => {
+    if (cameras.length <= 1 || recording) return;
+    const nextIndex = (selectedCameraIndex + 1) % cameras.length;
+    setSelectedCameraIndex(nextIndex);
+    stopCamera();
+    try {
+      await startStream(cameras[nextIndex].deviceId);
+    } catch {
+      setError('Impossible de changer de caméra.');
+    }
+  }, [cameras, selectedCameraIndex, recording, startStream]);
 
   const getSupportedMimeType = () => {
     const candidates = [
@@ -136,22 +175,9 @@ export default function StoryRecorder({ onClose, onPublished }: StoryRecorderPro
     setRecordedBlob(null);
     setPhase('camera');
 
-    // Restart camera
-    navigator.mediaDevices
-      .getUserMedia({
-        video: {
-          facingMode: 'environment',
-          width: { ideal: 720 },
-          height: { ideal: 1280 },
-          frameRate: { ideal: 30 },
-        },
-        audio: false,
-      })
-      .then((stream) => {
-        streamRef.current = stream;
-        if (videoRef.current) videoRef.current.srcObject = stream;
-      })
-      .catch(() => setError('Impossible de relancer la caméra.'));
+    // Restart camera with the currently selected camera
+    const deviceId = cameras[selectedCameraIndex]?.deviceId;
+    startStream(deviceId).catch(() => setError('Impossible de relancer la caméra.'));
   };
 
   const handlePublish = async () => {
@@ -194,6 +220,11 @@ export default function StoryRecorder({ onClose, onPublished }: StoryRecorderPro
   const circumference = 2 * Math.PI * radius;
   const progress = recording ? ((RECORD_DURATION - countdown) / RECORD_DURATION) * circumference : 0;
 
+  // Friendly camera label from device.label
+  const currentCameraLabel = cameras[selectedCameraIndex]?.label
+    ? cameras[selectedCameraIndex].label.replace(/\s*\(.*?\)\s*/g, '').trim()
+    : '';
+
   return (
     <div className="fixed inset-0 z-[100] bg-black flex flex-col">
       {/* Close button */}
@@ -224,6 +255,44 @@ export default function StoryRecorder({ onClose, onPublished }: StoryRecorderPro
             muted
             className="absolute inset-0 w-full h-full object-cover"
           />
+
+          {/* Camera switch button — top-left */}
+          {cameras.length > 1 && (
+            <div
+              className="absolute z-10 flex flex-col items-center gap-1"
+              style={{ top: 'max(1rem, env(safe-area-inset-top))', left: '1rem' }}
+            >
+              <button
+                onClick={switchCamera}
+                disabled={recording}
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: '50%',
+                  background: 'rgba(255,255,255,0.2)',
+                  border: 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: recording ? 'not-allowed' : 'pointer',
+                  opacity: recording ? 0.4 : 1,
+                }}
+              >
+                {/* Flip / rotate camera icon */}
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2Z" />
+                  <circle cx="12" cy="13" r="3" />
+                  <path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                  <path d="m16 2 2 2-2 2" />
+                </svg>
+              </button>
+              {currentCameraLabel ? (
+                <span style={{ color: 'white', fontSize: 10, textAlign: 'center', textShadow: '0 1px 3px rgba(0,0,0,0.8)', maxWidth: 64, lineHeight: 1.2 }}>
+                  {currentCameraLabel}
+                </span>
+              ) : null}
+            </div>
+          )}
 
           {/* Recording indicator */}
           {recording && (
