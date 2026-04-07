@@ -1,17 +1,20 @@
 import { NextResponse } from 'next/server';
 
+export const dynamic = 'force-dynamic';
+
 const DATASET = 'tawes-v1-10min';
 const BASE = 'https://dataset.api.hub.geosphere.at/v1/station/current';
 const METADATA_URL = `${BASE}/${DATASET}/metadata`;
 const DATA_URL = `${BASE}/${DATASET}`;
 const PARAMS = 'DD,FF,FFX,TL';
+const BATCH_SIZE = 50;
 
 export async function GET() {
   try {
     // Step 1: Fetch station metadata (cached 1 hour — changes rarely)
     const metaRes = await fetch(METADATA_URL, {
       headers: { Accept: 'application/json' },
-      next: { revalidate: 3600 },
+      cache: 'no-store',
     });
 
     if (!metaRes.ok) {
@@ -23,32 +26,46 @@ export async function GET() {
 
     const meta = await metaRes.json();
     const stations: any[] = (meta.stations || []).filter((s: any) => s.is_active !== false);
-    const stationIds = stations.map((s: any) => s.id).join(',');
+    const stationIdList = stations.map((s: any) => s.id);
 
-    if (!stationIds) {
+    if (stationIdList.length === 0) {
       return NextResponse.json([]);
     }
 
-    // Step 2: Fetch current observations for all active stations (cached 5 min)
-    const params = new URLSearchParams({
-      parameters: PARAMS,
-      station_ids: stationIds,
-      output_format: 'geojson',
-    });
-
-    const dataRes = await fetch(`${DATA_URL}?${params}`, {
-      headers: { Accept: 'application/json' },
-      next: { revalidate: 300 },
-    });
-
-    if (!dataRes.ok) {
-      return NextResponse.json(
-        { error: `GeoSphere data error: ${dataRes.status}` },
-        { status: dataRes.status },
-      );
+    // Step 2: Fetch current observations in batches of 50 to avoid URL length limits
+    const batches = [];
+    for (let i = 0; i < stationIdList.length; i += BATCH_SIZE) {
+      batches.push(stationIdList.slice(i, i + BATCH_SIZE));
     }
 
-    const geoData = await dataRes.json();
+    const batchResults = await Promise.all(
+      batches.map(async (batch) => {
+        const params = new URLSearchParams({
+          parameters: PARAMS,
+          station_ids: batch.join(','),
+          output_format: 'geojson',
+        });
+        const res = await fetch(`${DATA_URL}?${params}`, {
+          headers: { Accept: 'application/json' },
+          cache: 'no-store',
+        });
+        if (!res.ok) return null;
+        return res.json();
+      })
+    );
+
+    // Merge features from all batches
+    const allFeatures: any[] = [];
+    let timestamp: string | null = null;
+    for (const geoData of batchResults) {
+      if (!geoData) continue;
+      if (!timestamp && geoData.timestamps?.[0]) {
+        timestamp = geoData.timestamps[0];
+      }
+      if (Array.isArray(geoData.features)) {
+        allFeatures.push(...geoData.features);
+      }
+    }
 
     // Build a lookup map: stationId → metadata
     const metaMap: Record<string, any> = {};
@@ -56,10 +73,8 @@ export async function GET() {
       metaMap[String(s.id)] = s;
     }
 
-    const timestamp: string | null = geoData.timestamps?.[0] ?? null;
-
     // Merge GeoJSON features with metadata and convert units
-    const result = (geoData.features || [])
+    const result = allFeatures
       .map((f: any) => {
         const stationId = String(f.properties?.station ?? '');
         const stationMeta = metaMap[stationId] ?? {};
