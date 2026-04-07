@@ -7,13 +7,19 @@ import { useAuth } from '@/hooks/useAuth';
 import { useReports } from '@/hooks/useReports';
 import { useShuttles } from '@/hooks/useShuttles';
 import { useStories } from '@/hooks/useStories';
+import { usePois } from '@/hooks/usePois';
+import { usePioupiou } from '@/hooks/usePioupiou';
+import { useFFVL } from '@/hooks/useFFVL';
+import { useWindsMobi } from '@/hooks/useWindsMobi';
+import { useGeoSphere } from '@/hooks/useGeoSphere';
+import { useBrightSky } from '@/hooks/useBrightSky';
 import type { DayFilter } from '@/hooks/useReports';
 import ReportBottomSheet from '@/components/map/ReportBottomSheet';
 import BottomNav from '@/components/shared/BottomNav';
 import LoadingSpinner from '@/components/shared/LoadingSpinner';
 import StoryRecorder from '@/components/stories/StoryRecorder';
 import StoryViewer from '@/components/stories/StoryViewer';
-import type { WeatherReport, Shuttle, Story } from '@/lib/types';
+import type { WeatherReport, Shuttle, Poi, Story } from '@/lib/types';
 import type { MapViewHandle } from '@/components/map/MapView';
 
 // Dynamic import MapView to avoid SSR issues with mapbox-gl
@@ -34,9 +40,15 @@ const DAY_LABELS: Record<DayFilter, string> = {
 
 export default function MapPage() {
   const { user, profile, loading: authLoading } = useAuth();
-  const { reports, fetchReportsByDay } = useReports();
+  const { reports, loading: reportsLoading, fetchReportsByDay } = useReports();
   const { shuttles, fetchShuttles } = useShuttles();
   const { stories } = useStories();
+  const { pois, fetchPois } = usePois();
+  const { stations: pioupiouStations } = usePioupiou();
+  const { stations: ffvlStations } = useFFVL();
+  const { stations: windsMobiStations } = useWindsMobi();
+  const { stations: geoSphereStations } = useGeoSphere();
+  const { stations: brightSkyStations } = useBrightSky();
   const [selectedReport, setSelectedReport] = useState<WeatherReport | null>(null);
   const [selectedDay, setSelectedDay] = useState<DayFilter>('today');
   const [toast, setToast] = useState<string | null>(null);
@@ -62,6 +74,11 @@ export default function MapPage() {
     fetchShuttles();
   }, [fetchShuttles]);
 
+  // Fetch POIs once (always visible)
+  useEffect(() => {
+    fetchPois();
+  }, [fetchPois]);
+
   // Auto-hide toast after 3 seconds
   useEffect(() => {
     if (!toast) return;
@@ -77,12 +94,21 @@ export default function MapPage() {
     router.push(`/shuttle/${shuttle.id}`);
   };
 
+  const handlePoiClick = (poi: Poi) => {
+    router.push(`/sites/${poi.id}`);
+  };
+
   const handleStoryClick = (story: Story) => {
     setSelectedStory(story);
   };
 
   const handleViewDetail = (report: WeatherReport) => {
     router.push(`/report/${report.id}`);
+  };
+
+  const handleMapMove = (center: { lat: number; lng: number }) => {
+    // Optionally fetch reports near new center
+    // fetchReportsInRadius(center.lat, center.lng, 50);
   };
 
   // Called when user taps on the map to place a marker
@@ -167,11 +193,31 @@ export default function MapPage() {
         <MapView
           ref={mapRef}
           reports={reports}
-          shuttles={shuttles}
           stories={stories}
+          pois={pois}
+          pioupiouStations={pioupiouStations}
+          ffvlStations={ffvlStations}
+          windsMobiStations={windsMobiStations}
+          geoSphereStations={geoSphereStations}
+          brightSkyStations={brightSkyStations}
+          onPoiClick={handlePoiClick}
+          onStoryClick={handleStoryClick}
+          shuttles={shuttles.filter(s => {
+            if (!s.departure_time) return false;
+            const dep = new Date(s.departure_time);
+            const now = new Date();
+            const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            const tomorrowStart = new Date(todayStart); tomorrowStart.setDate(tomorrowStart.getDate() + 1);
+            const dayAfter = new Date(tomorrowStart); dayAfter.setDate(dayAfter.getDate() + 1);
+            const yesterdayStart = new Date(todayStart); yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+            if (selectedDay === 'today') return dep >= todayStart && dep < tomorrowStart;
+            if (selectedDay === 'tomorrow') return dep >= tomorrowStart && dep < dayAfter;
+            if (selectedDay === 'yesterday') return dep >= yesterdayStart && dep < todayStart;
+            return true;
+          })}
           onReportClick={handleReportClick}
           onShuttleClick={handleShuttleClick}
-          onStoryClick={handleStoryClick}
+          onMapMove={handleMapMove}
           onMarkerPlaced={handleMarkerPlaced}
         />
 
