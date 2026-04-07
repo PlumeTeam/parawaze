@@ -1,3 +1,79 @@
+// POI types
+export type PoiType = 'landing' | 'takeoff' | 'weather_station' | 'webcam';
+export type PoiDifficulty = 'easy' | 'moderate' | 'difficult' | 'expert';
+
+export interface Poi {
+  id: string;
+  author_id: string;
+  poi_type: PoiType;
+  location: { type: 'Point'; coordinates: [number, number] } | null;
+  location_name: string;
+  altitude_m: number | null;
+  description: string | null;
+  wind_orientations: string[];
+  difficulty: PoiDifficulty | null;
+  ffvl_approved: boolean;
+  station_url: string | null;
+  station_provider: string | null;
+  webcam_url: string | null;
+  webcam_orientation: string | null;
+  total_rating_sum: number;
+  total_votes: number;
+  is_active: boolean;
+  average_rating: number;
+  profiles?: Profile;
+}
+
+export interface PoiVote {
+  poi_id: string;
+  user_id: string;
+  rating: number;
+}
+
+export interface PoiEdit {
+  id: string;
+  poi_id: string;
+  editor_id: string;
+  field_name: string;
+  old_value: string | null;
+  new_value: string | null;
+  reason: string | null;
+  upvotes: number;
+  downvotes: number;
+  is_applied: boolean;
+  is_reverted: boolean;
+  created_at: string;
+  profiles?: Profile;
+}
+
+export interface PoiComment {
+  id: string;
+  poi_id: string;
+  author_id: string;
+  content: string;
+  photo_url: string | null;
+  upvotes: number;
+  downvotes: number;
+  created_at: string;
+  profiles?: Profile;
+}
+
+export interface CreatePoiInput {
+  poi_type: PoiType;
+  location_name: string;
+  latitude?: number;
+  longitude?: number;
+  altitude_m?: number;
+  description?: string;
+  wind_orientations?: string[];
+  difficulty?: PoiDifficulty;
+  ffvl_approved?: boolean;
+  station_url?: string;
+  station_provider?: string;
+  webcam_url?: string;
+  webcam_orientation?: string;
+}
+
 export type WindDirection = 'N' | 'NE' | 'E' | 'SE' | 'S' | 'SW' | 'W' | 'NW' | 'variable';
 export type ReportType = 'observation' | 'forecast' | 'image_share';
 export type ReactionType = 'like' | 'genius' | 'doubt';
@@ -5,6 +81,19 @@ export type BadgeLevel = 'beginner' | 'observer' | 'expert' | 'legend';
 export type Gender = 'homme' | 'femme' | 'autre' | 'non_precise';
 export type WingCategory = 'A' | 'B' | 'B+' | 'C' | 'D' | 'CCC' | 'biplace';
 export type PilotLevel = 'debutant' | 'progression' | 'autonome' | 'confirme' | 'expert' | 'competition';
+
+export interface ForecastScenario {
+  id: string;
+  report_id: string;
+  hour_slot: string; // "10:00", "11:00", etc.
+  wind_speed_kmh: number | null;
+  wind_gust_kmh: number | null;
+  wind_direction: WindDirection | null;
+  turbulence_level: number | null;
+  thermal_quality: number | null;
+  flyability_score: number | null;
+  description: string | null;
+}
 
 export interface Profile {
   id: string;
@@ -47,6 +136,7 @@ export interface WeatherReport {
   turbulence_level: number | null;
   flyability_score: number | null;
   tags: string[] | null;
+  forecast_date: string | null;
   likes_count: number;
   genius_count: number;
   doubt_count: number;
@@ -56,6 +146,7 @@ export interface WeatherReport {
   // Joined fields
   profiles?: Profile;
   report_images?: ReportImage[];
+  forecast_scenarios?: ForecastScenario[];
 }
 
 export interface ReportImage {
@@ -93,6 +184,37 @@ export interface CreateReportInput {
   turbulence_level?: number;
   flyability_score?: number;
   tags?: string[];
+  forecast_date?: string;
+  forecast_scenarios?: Omit<ForecastScenario, 'id' | 'report_id'>[];
+}
+
+// Wing types
+export interface Wing {
+  id: string;
+  owner_id: string;
+  brand: string;
+  model: string;
+  size: string | null;
+  category: WingCategory | null;
+  color: string | null;
+  year: number | null;
+  is_current: boolean;
+  serial_number: string | null;
+  notes: string | null;
+}
+
+// Vehicle types
+export interface Vehicle {
+  id: string;
+  owner_id: string;
+  name: string | null;
+  brand: string | null;
+  model: string | null;
+  color: string | null;
+  license_plate: string | null;
+  seats: number;
+  photo_url: string | null;
+  is_default: boolean;
 }
 
 // Shuttle types
@@ -117,15 +239,30 @@ export interface Shuttle {
   description: string | null;
   is_active: boolean;
   expires_at: string;
+  vehicle_id: string | null;
   created_at: string;
   profiles?: Profile;
+  passengers?: ShuttlePassenger[];
+  vehicles?: Vehicle;
 }
+
+export interface UpdateShuttleInput {
+  departure_time?: string;
+  total_seats?: number;
+  price_per_person?: number | null;
+  description?: string | null;
+  return_requested?: boolean;
+  return_time?: string | null;
+}
+
+export type PassengerStatus = 'pending' | 'accepted' | 'rejected';
 
 export interface ShuttlePassenger {
   id: string;
   shuttle_id: string;
   user_id: string;
   seats_taken: number;
+  status: PassengerStatus;
   profiles?: Profile;
 }
 
@@ -149,6 +286,7 @@ export interface CreateShuttleInput {
   dest_lat?: number;
   dest_lng?: number;
   dest_alt?: number;
+  vehicle_id?: string | null;
 }
 
 // Story types
@@ -212,8 +350,8 @@ export interface Database {
     Functions: {
       get_reports_in_radius: {
         Args: { lat: number; lng: number; radius_km: number };
-        Returns: WeatherReport[];
-      };
-    };
-  };
-}
+        Returns: WeatherReport[]; 
+      }; 
+    }; 
+  }; 
+} 
