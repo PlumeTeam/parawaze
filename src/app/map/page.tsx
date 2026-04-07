@@ -207,7 +207,7 @@ export default function MapPage() {
 
       <BottomNav
         onCreateReport={handleCreateReport}
-        onOpenCamera={() => setShowRecorder(true)}
+        onCameraOpen={() => setShowRecorder(true)}
       />
 
       {/* Story Recorder fullscreen */}
