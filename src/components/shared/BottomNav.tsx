@@ -1,95 +1,192 @@
 'use client';
 
 import { usePathname, useRouter } from 'next/navigation';
-import { Map, PlusCircle, Truck, User } from 'lucide-react';
-
-const navItems = [
-  { href: '/map', label: 'Carte', icon: Map },
-  { href: '/report/new', label: 'Observation', icon: PlusCircle },
-  { href: '/shuttle', label: 'Navette', icon: Truck },
-  { href: '/profile', label: 'Profil', icon: User },
-];
+import { Truck, BarChart2 } from 'lucide-react';
 
 interface BottomNavProps {
   /** When provided, the "Observation" button calls this instead of navigating directly */
   onCreateReport?: () => void;
-  /** When provided, shows the camera button next to Observation and calls this on tap */
-  onOpenCamera?: () => void;
+  /** When provided, the camera button calls this to open story recording */
+  onCameraOpen?: () => void;
 }
 
-export default function BottomNav({ onCreateReport, onOpenCamera }: BottomNavProps) {
+export default function BottomNav({ onCreateReport, onCameraOpen }: BottomNavProps) {
   const pathname = usePathname();
   const router = useRouter();
 
-  const handleClick = (href: string, isAdd: boolean) => {
-    if (isAdd && onCreateReport) {
+  const isNavetteActive = pathname.startsWith('/shuttle');
+  const isAnalyseActive = pathname.startsWith('/analyse');
+  const isObservationActive = pathname.startsWith('/report');
+
+  const handleObservation = () => {
+    if (onCreateReport) {
       onCreateReport();
     } else {
-      router.push(href);
+      router.push('/report/new');
+    }
+  };
+
+  const handleCamera = () => {
+    if (onCameraOpen) {
+      onCameraOpen();
     }
   };
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 safe-area-bottom">
-      <div className="flex items-center justify-around h-16 max-w-lg mx-auto">
-        {navItems.map(({ href, label, icon: Icon }) => {
-          const isActive = pathname.startsWith(href);
-          const isAdd = href === '/report/new';
+    <nav
+      className="fixed bottom-0 left-0 right-0 z-50 bg-white safe-area-bottom"
+      style={{ borderTop: '1px solid #F3F4F6' }}
+    >
+      <div
+        className="flex items-center justify-between max-w-lg mx-auto px-4"
+        style={{ height: 82 }}
+      >
 
-          return (
+        {/* LEFT — Navette (secondary) */}
+        <button
+          onClick={() => router.push('/shuttle')}
+          className="flex flex-col items-center justify-center gap-1 w-16 transition-opacity active:opacity-60"
+        >
+          <Truck
+            width={22}
+            height={22}
+            strokeWidth={1.8}
+            stroke={isNavetteActive ? '#1C1C1C' : '#C5C5C5'}
+            fill="none"
+          />
+          <span
+            className="font-medium"
+            style={{
+              fontSize: 10,
+              color: isNavetteActive ? '#1C1C1C' : '#C5C5C5',
+              lineHeight: 1,
+            }}
+          >
+            Navette
+          </span>
+        </button>
+
+        {/* CENTER — Observation + Camera duo in shared dark capsule */}
+        <div className="flex flex-col items-center gap-1">
+          <div
+            className="flex items-center justify-center gap-3 px-5"
+            style={{
+              height: 60,
+              borderRadius: 30,
+              background: '#3A3A3A',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.25)',
+            }}
+          >
+            {/* Observation button */}
             <button
-              key={href}
-              onClick={() => handleClick(href, isAdd)}
-              className={`flex flex-col items-center justify-center flex-1 h-full transition-colors ${
-                isAdd
-                  ? ''
-                  : isActive
-                  ? 'text-sky-500'
-                  : 'text-gray-400 hover:text-gray-600'
-              }`}
+              onClick={handleObservation}
+              className="flex items-center justify-center transition-opacity active:opacity-70"
+              style={{
+                width: 48,
+                height: 48,
+                borderRadius: 24,
+                background: isObservationActive ? 'rgba(255,255,255,0.15)' : 'transparent',
+              }}
+              aria-label="Observation"
             >
-              {isAdd ? (
-                <div className="flex flex-col items-center -mt-4">
-                  <div className="relative flex items-center justify-center">
-                    <div className="flex items-center justify-center w-14 h-14 rounded-full bg-gradient-to-br from-sky-500 to-mountain-500 shadow-lg">
-                      <Icon className="h-7 w-7 text-white" />
-                    </div>
-                    {/* Camera button — shown when onOpenCamera is provided */}
-                    {onOpenCamera && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onOpenCamera();
-                        }}
-                        className="absolute -right-10 bottom-0 w-9 h-9 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 shadow-md flex items-center justify-center"
-                        title="Story vidéo"
-                      >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M23 7 16 12 23 17V7z" />
-                          <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
-                        </svg>
-                      </button>
-                    )}
-                  </div>
-                  <span className="text-[10px] mt-0.5 text-gray-500 font-medium">
-                    {label}
-                  </span>
-                </div>
-              ) : (
-                <>
-                  <Icon className={`h-6 w-6 ${isActive ? 'stroke-[2.5]' : ''}`} />
-                  <span
-                    className={`text-[10px] mt-1 font-medium ${
-                      isActive ? 'text-sky-500' : 'text-gray-400'
-                    }`}
-                  >
-                    {label}
-                  </span>
-                </>
-              )}
+              <svg
+                width={24}
+                height={24}
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="white"
+                strokeWidth={1.8}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
             </button>
-          );
-        })}
+
+            {/* Thin divider */}
+            <div
+              style={{
+                width: 1,
+                height: 28,
+                background: 'rgba(255,255,255,0.18)',
+                borderRadius: 1,
+                flexShrink: 0,
+              }}
+            />
+
+            {/* Camera button */}
+            <button
+              onClick={handleCamera}
+              className="flex items-center justify-center transition-opacity active:opacity-70"
+              style={{
+                width: 48,
+                height: 48,
+                borderRadius: 24,
+                background: 'transparent',
+              }}
+              aria-label="Story / Caméra"
+            >
+              <svg
+                width={24}
+                height={24}
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="white"
+                strokeWidth={1.8}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                <circle cx="12" cy="13" r="4" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Labels under the capsule */}
+          <div
+            className="flex items-center justify-center"
+            style={{ gap: 28 }}
+          >
+            <span
+              className="font-medium"
+              style={{ fontSize: 10, color: isObservationActive ? '#1C1C1C' : '#C5C5C5', lineHeight: 1 }}
+            >
+              Observation
+            </span>
+            <span
+              className="font-medium"
+              style={{ fontSize: 10, color: '#C5C5C5', lineHeight: 1 }}
+            >
+              Story
+            </span>
+          </div>
+        </div>
+
+        {/* RIGHT — Analyse (secondary) */}
+        <button
+          onClick={() => router.push('/analyse')}
+          className="flex flex-col items-center justify-center gap-1 w-16 transition-opacity active:opacity-60"
+        >
+          <BarChart2
+            width={22}
+            height={22}
+            strokeWidth={1.8}
+            stroke={isAnalyseActive ? '#1C1C1C' : '#C5C5C5'}
+            fill="none"
+          />
+          <span
+            className="font-medium"
+            style={{
+              fontSize: 10,
+              color: isAnalyseActive ? '#1C1C1C' : '#C5C5C5',
+              lineHeight: 1,
+            }}
+          >
+            Analyse
+          </span>
+        </button>
+
       </div>
     </nav>
   );
