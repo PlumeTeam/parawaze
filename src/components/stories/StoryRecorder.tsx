@@ -33,7 +33,12 @@ export default function StoryRecorder({ onClose, onPublished }: StoryRecorderPro
     (async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+          video: {
+            facingMode: 'environment',
+            width: { ideal: 720 },
+            height: { ideal: 1280 },
+            frameRate: { ideal: 30 },
+          },
           audio: false,
         });
         if (!active) {
@@ -79,7 +84,12 @@ export default function StoryRecorder({ onClose, onPublished }: StoryRecorderPro
     chunksRef.current = [];
 
     const mimeType = getSupportedMimeType();
-    const recorder = new MediaRecorder(streamRef.current, mimeType ? { mimeType } : undefined);
+    const recorder = new MediaRecorder(
+      streamRef.current,
+      mimeType
+        ? { mimeType, videoBitsPerSecond: 1_000_000 }
+        : { videoBitsPerSecond: 1_000_000 }
+    );
     mediaRecorderRef.current = recorder;
 
     recorder.ondataavailable = (e) => {
@@ -128,7 +138,15 @@ export default function StoryRecorder({ onClose, onPublished }: StoryRecorderPro
 
     // Restart camera
     navigator.mediaDevices
-      .getUserMedia({ video: { facingMode: 'environment' }, audio: false })
+      .getUserMedia({
+        video: {
+          facingMode: 'environment',
+          width: { ideal: 720 },
+          height: { ideal: 1280 },
+          frameRate: { ideal: 30 },
+        },
+        audio: false,
+      })
       .then((stream) => {
         streamRef.current = stream;
         if (videoRef.current) videoRef.current.srcObject = stream;
