@@ -1,4 +1,5 @@
-export const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? '';
+const mapboxToken = 'pk.eyJ1IjoiamJpbnRoZWFpciIsImEiOiJjbWZqczhpcWMweWYxMmxzZnpuNXFxNXF0In0.c1jfb-ZcLUILC2gHpC7ZBA';
+export const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || mapboxToken;
 
 export const MAP_STYLES = {
   satellite: 'mapbox://styles/mapbox/satellite-streets-v12',
