@@ -49,7 +49,7 @@ export default function StoryRecorder({ onClose, onPublished }: StoryRecorderPro
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
         }
-      } catch (e: any) {
+      } catch {
         if (active) {
           setError('Impossible d\'accéder à la caméra. Vérifiez les permissions.');
         }
@@ -175,8 +175,8 @@ export default function StoryRecorder({ onClose, onPublished }: StoryRecorderPro
       if (previewUrl) URL.revokeObjectURL(previewUrl);
       onPublished?.();
       onClose();
-    } catch (e: any) {
-      setError(e.message || 'Erreur lors de la publication.');
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Erreur lors de la publication.');
       setPhase('preview');
     }
   };

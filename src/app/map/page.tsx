@@ -85,10 +85,6 @@ export default function MapPage() {
     router.push(`/report/${report.id}`);
   };
 
-  const handleMapMove = (_center: { lat: number; lng: number }) => {
-    // Reserved for future use: fetch reports near new center
-  };
-
   // Called when user taps on the map to place a marker
   const handleMarkerPlaced = useCallback((pos: {lat: number; lng: number; alt: number | null}) => {
     setLastMarker(pos);
@@ -176,7 +172,6 @@ export default function MapPage() {
           onReportClick={handleReportClick}
           onShuttleClick={handleShuttleClick}
           onStoryClick={handleStoryClick}
-          onMapMove={handleMapMove}
           onMarkerPlaced={handleMarkerPlaced}
         />
 

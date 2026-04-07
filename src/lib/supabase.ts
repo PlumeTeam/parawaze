@@ -21,11 +21,6 @@ export const supabase: SupabaseClient = createClient(
   supabaseAnonKey || 'placeholder-anon-key'
 );
 
-/** @deprecated Use `supabase` directly. Kept for backward-compat. */
-export function getSupabaseClient(): SupabaseClient {
-  return supabase;
-}
-
 export function getStorageUrl(path: string): string {
   return `${supabaseUrl}/storage/v1/object/public/report-images/${path}`;
 }

@@ -31,7 +31,6 @@ function windLabel(dir: string | null): string {
 }
 
 export default function ReportBottomSheet({
-  reports,
   selectedReport,
   onSelectReport,
   onViewDetail,

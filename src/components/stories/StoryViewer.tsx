@@ -40,8 +40,8 @@ export default function StoryViewer({ story, onClose }: StoryViewerProps) {
       setFlagged(true);
       setShowFlagConfirm(false);
       setTimeout(onClose, 1000);
-    } catch (e: any) {
-      setFlagError(e.message || 'Erreur');
+    } catch (e: unknown) {
+      setFlagError(e instanceof Error ? e.message : 'Erreur');
     }
   }, [flagStory, story.id, onClose]);
 

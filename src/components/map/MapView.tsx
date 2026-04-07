@@ -56,8 +56,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   const markerPositionRef = useRef<MarkerPosition | null>(null);
   const [markerInfo, setMarkerInfo] = useState<MarkerPosition | null>(null);
 
-  // (tap detection handled by Mapbox GL's built-in click event)
-
   // Expose getCenter and getMarkerPosition to parent via ref
   useImperativeHandle(ref, () => ({
     getCenter: () => {
@@ -69,8 +67,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       return markerPositionRef.current;
     },
   }));
-
-  // No custom pin element needed — we use Mapbox's default red marker
 
   /** Place (or move) the marker at given coordinates */
   const placeMarker = useCallback((lngLat: { lng: number; lat: number }) => {
@@ -452,7 +448,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         </button>
       </div>
 
-      {/* Pin drop animation removed — using Mapbox default marker */}
     </div>
   );
 });
