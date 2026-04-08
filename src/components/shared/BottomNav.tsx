@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname, useRouter } from 'next/navigation';
-import { Truck } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
 
 interface BottomNavProps {
   /** When provided, the "Observation" button calls this instead of navigating directly */
@@ -13,9 +13,9 @@ interface BottomNavProps {
 export default function BottomNav({ onCreateReport, onCameraOpen }: BottomNavProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
-  const isNavetteActive = pathname.startsWith('/shuttle');
-  const isRdvActive = pathname.startsWith('/meetup');
   const isObservationActive = pathname.startsWith('/report');
 
   const handleObservation = () => {
@@ -32,6 +32,26 @@ export default function BottomNav({ onCreateReport, onCameraOpen }: BottomNavPro
     }
   };
 
+  // Close menu when clicking outside
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [menuOpen]);
+
+  const menuItems = [
+    { label: 'Navette', icon: '🚐', path: '/shuttle/pick-locations' },
+    { label: 'RDV', icon: '📅', path: '/meetup' },
+    { label: 'Site', icon: '📍', path: '/sites/pick-location' },
+  ];
+
   return (
     <nav
       className="fixed bottom-0 left-0 right-0 z-50 bg-white safe-area-bottom"
@@ -42,29 +62,85 @@ export default function BottomNav({ onCreateReport, onCameraOpen }: BottomNavPro
         style={{ height: 82 }}
       >
 
-        {/* LEFT — Navette (secondary) */}
-        <button
-          onClick={() => router.push('/shuttle/pick-locations')}
-          className="flex flex-col items-center justify-center gap-1 w-16 transition-opacity active:opacity-60"
-        >
-          <Truck
-            width={22}
-            height={22}
-            strokeWidth={1.8}
-            stroke={isNavetteActive ? '#1C1C1C' : '#C5C5C5'}
-            fill="none"
-          />
-          <span
-            className="font-medium"
-            style={{
-              fontSize: 10,
-              color: isNavetteActive ? '#1C1C1C' : '#C5C5C5',
-              lineHeight: 1,
-            }}
+        {/* LEFT — Expandable Plus button with menu */}
+        <div className="relative w-16 flex justify-center" ref={menuRef}>
+          <button
+            onClick={() => setMenuOpen(!menuOpen)}
+            className="flex flex-col items-center justify-center gap-1 transition-opacity active:opacity-60"
           >
-            Navette
-          </span>
-        </button>
+            <div
+              className="flex items-center justify-center"
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 22,
+                background: menuOpen ? '#3A3A3A' : '#C5C5C5',
+                color: 'white',
+                fontSize: 24,
+                fontWeight: 'bold',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              +
+            </div>
+            <span
+              className="font-medium"
+              style={{
+                fontSize: 10,
+                color: '#C5C5C5',
+                lineHeight: 1,
+                transition: 'color 0.2s ease',
+              }}
+            >
+              Plus
+            </span>
+          </button>
+
+          {/* Popup menu */}
+          {menuOpen && (
+            <div
+              style={{
+                position: 'absolute',
+                bottom: 80,
+                left: -20,
+                right: -20,
+                background: 'white',
+                borderRadius: 16,
+                boxShadow: '0 -4px 20px rgba(0,0,0,0.15)',
+                padding: 12,
+                animation: 'slideUp 0.2s ease-out',
+              }}
+            >
+              <style>{`
+                @keyframes slideUp {
+                  from {
+                    opacity: 0;
+                    transform: translateY(10px);
+                  }
+                  to {
+                    opacity: 1;
+                    transform: translateY(0);
+                  }
+                }
+              `}</style>
+              <div className="flex flex-col gap-2">
+                {menuItems.map((item) => (
+                  <button
+                    key={item.path}
+                    onClick={() => {
+                      setMenuOpen(false);
+                      router.push(item.path);
+                    }}
+                    className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-50 transition-colors text-left"
+                  >
+                    <span style={{ fontSize: 20 }}>{item.icon}</span>
+                    <span className="font-medium text-sm text-gray-800">{item.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* CENTER — Observation + Camera duo in shared dark capsule */}
         <div className="flex flex-col items-center gap-1">
@@ -163,40 +239,8 @@ export default function BottomNav({ onCreateReport, onCameraOpen }: BottomNavPro
           </div>
         </div>
 
-        {/* RIGHT — RDV (secondary) */}
-        <button
-          onClick={() => router.push('/meetup')}
-          className="flex flex-col items-center justify-center gap-1 w-16 transition-opacity active:opacity-60"
-        >
-          <svg
-            width={22}
-            height={22}
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke={isRdvActive ? '#3A3A3A' : '#C5C5C5'}
-            strokeWidth={1.8}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-            <line x1="16" y1="2" x2="16" y2="6" />
-            <line x1="8" y1="2" x2="8" y2="6" />
-            <line x1="3" y1="10" x2="21" y2="10" />
-            <circle cx="9" cy="16" r="1.5" fill={isRdvActive ? '#3A3A3A' : '#C5C5C5'} stroke="none" />
-            <circle cx="15" cy="16" r="1.5" fill={isRdvActive ? '#3A3A3A' : '#C5C5C5'} stroke="none" />
-            <path d="M9 13.5 Q12 12 15 13.5" />
-          </svg>
-          <span
-            className="font-medium"
-            style={{
-              fontSize: 10,
-              color: isRdvActive ? '#3A3A3A' : '#C5C5C5',
-              lineHeight: 1,
-            }}
-          >
-            RDV
-          </span>
-        </button>
+        {/* RIGHT — Empty space or future button */}
+        <div className="w-16" />
 
       </div>
     </nav>
