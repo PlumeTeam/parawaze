@@ -21,6 +21,7 @@ import LoadingSpinner from '@/components/shared/LoadingSpinner';
 import StoryRecorder from '@/components/stories/StoryRecorder';
 import StoryViewer from '@/components/stories/StoryViewer';
 import ObservationViewer from '@/components/observations/ObservationViewer';
+import MixedContentViewer from '@/components/mixed/MixedContentViewer';
 import GeolocationPermissionScreen from '@/components/map/GeolocationPermissionScreen';
 import type { WeatherReport, Shuttle, Poi, Story, Meetup } from '@/lib/types';
 import type { MapViewHandle } from '@/components/map/MapView';
@@ -55,6 +56,7 @@ export default function MapPage() {
   const { stations: brightSkyStations } = useBrightSky();
   const [selectedReport, setSelectedReport] = useState<WeatherReport | null>(null);
   const [selectedObservations, setSelectedObservations] = useState<WeatherReport[]>([]);
+  const [selectedMixedContent, setSelectedMixedContent] = useState<{ stories: Story[]; observations: WeatherReport[] } | null>(null);
   const [selectedDay, setSelectedDay] = useState<DayFilter>('today');
   const [toast, setToast] = useState<string | null>(null);
   const [lastMarker, setLastMarker] = useState<{lat: number; lng: number; alt: number | null} | null>(null);
@@ -151,6 +153,10 @@ export default function MapPage() {
 
   const handleObservationsClick = (observations: WeatherReport[]) => {
     setSelectedObservations(observations);
+  };
+
+  const handleMixedContentClick = (data: { stories: Story[]; observations: WeatherReport[] }) => {
+    setSelectedMixedContent(data);
   };
 
   const handleMeetupClick = (meetup: Meetup) => {
@@ -282,6 +288,7 @@ export default function MapPage() {
           })}
           onReportClick={handleReportClick}
           onObservationsClick={handleObservationsClick}
+          onMixedContentClick={handleMixedContentClick}
           onShuttleClick={handleShuttleClick}
           onMapMove={handleMapMove}
           onMarkerPlaced={handleMarkerPlaced}
@@ -318,6 +325,15 @@ export default function MapPage() {
           <ObservationViewer
             observations={selectedObservations}
             onClose={() => setSelectedObservations([])}
+          />
+        )}
+
+        {/* Mixed Content Viewer */}
+        {selectedMixedContent && (selectedMixedContent.stories.length > 0 || selectedMixedContent.observations.length > 0) && (
+          <MixedContentViewer
+            stories={selectedMixedContent.stories}
+            observations={selectedMixedContent.observations}
+            onClose={() => setSelectedMixedContent(null)}
           />
         )}
 
