@@ -107,6 +107,33 @@ function PickLocationsContent() {
             });
             map.setTerrain({ source: 'mapbox-dem', exaggeration: 0 });
           }
+
+          // Auto-center on GPS when map loads
+          try {
+            if (navigator?.geolocation) {
+              navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                  try {
+                    if (pos?.coords) {
+                      map.flyTo({
+                        center: [pos.coords.longitude, pos.coords.latitude],
+                        zoom: 11,
+                        duration: 1500,
+                      });
+                    }
+                  } catch (e) {
+                    console.debug('Geolocation: flyTo error', e);
+                  }
+                },
+                (error) => {
+                  console.debug('Geolocation error:', error?.code, error?.message);
+                },
+                { enableHighAccuracy: true, timeout: 10000 }
+              );
+            }
+          } catch (e) {
+            console.debug('Geolocation: getCurrentPosition error', e);
+          }
         });
 
         map.on('style.load', () => {
@@ -228,31 +255,6 @@ function PickLocationsContent() {
           </button>
         </div>
 
-        {/* Mode buttons — top of map, always accessible */}
-        <div className="absolute left-4 right-4 z-20 flex gap-2" style={{ top: '72px' }}>
-          <button
-            onClick={() => setActiveMode(activeMode === 'departure' ? null : 'departure')}
-            style={{ height: '44px' }}
-            className={`flex-1 rounded-xl font-semibold text-sm transition-all shadow ${
-              activeMode === 'departure'
-                ? 'bg-gray-900 text-white'
-                : 'bg-white text-gray-800 border border-gray-300'
-            }`}
-          >
-            &#x1F7E2; D&eacute;part
-          </button>
-          <button
-            onClick={() => setActiveMode(activeMode === 'arrival' ? null : 'arrival')}
-            style={{ height: '44px' }}
-            className={`flex-1 rounded-xl font-semibold text-sm transition-all shadow ${
-              activeMode === 'arrival'
-                ? 'bg-gray-900 text-white'
-                : 'bg-white text-gray-800 border border-gray-300'
-            }`}
-          >
-            &#x1F535; Arriv&eacute;e
-          </button>
-        </div>
       </div>
 
       {/* Bottom panel — pin info only */}
@@ -281,6 +283,32 @@ function PickLocationsContent() {
       >
         {canValidate ? `Valider (${distance !== null ? (distance < 1 ? `${Math.round(distance! * 1000)}m` : `${distance!.toFixed(1)} km`) : ''})` : 'Placez les deux points'}
       </button>
+
+      {/* Mode buttons — fixed below validate button */}
+      <div className="fixed left-4 right-4 z-30 flex gap-2" style={{ bottom: '32px' }}>
+        <button
+          onClick={() => setActiveMode(activeMode === 'departure' ? null : 'departure')}
+          style={{ height: '44px' }}
+          className={`flex-1 rounded-xl font-semibold text-sm transition-all shadow ${
+            activeMode === 'departure'
+              ? 'bg-gray-900 text-white'
+              : 'bg-white text-gray-800 border border-gray-300'
+          }`}
+        >
+          &#x1F7E2; D&eacute;part
+        </button>
+        <button
+          onClick={() => setActiveMode(activeMode === 'arrival' ? null : 'arrival')}
+          style={{ height: '44px' }}
+          className={`flex-1 rounded-xl font-semibold text-sm transition-all shadow ${
+            activeMode === 'arrival'
+              ? 'bg-gray-900 text-white'
+              : 'bg-white text-gray-800 border border-gray-300'
+          }`}
+        >
+          &#x1F535; Arriv&eacute;e
+        </button>
+      </div>
     </div>
   );
 }
