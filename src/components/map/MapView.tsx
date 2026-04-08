@@ -413,8 +413,8 @@ function buildBrightSkyFeatures(stations: BrightSkyStation[]): GeoJSON.Feature[]
   }));
 }
 
-function buildMixedFeatures(stories: Story[], reports: WeatherReport[]): GeoJSON.Feature[] {
-  const storyFeatures = stories
+function buildStoryFeatures(stories: Story[]): GeoJSON.Feature[] {
+  return stories
     .filter((s) => s.location && s.location.coordinates && s.location.coordinates.length >= 2)
     .map((s) => ({
       type: 'Feature' as const,
@@ -425,10 +425,13 @@ function buildMixedFeatures(stories: Story[], reports: WeatherReport[]): GeoJSON
       properties: {
         id: s.id,
         content_type: 'story' as const,
+        point_count_abbreviated: '1',
       },
     }));
+}
 
-  const observationFeatures = reports
+function buildObservationFeatures(reports: WeatherReport[]): GeoJSON.Feature[] {
+  return reports
     .filter(
       (r) =>
         r.location && r.location.coordinates && r.location.coordinates.length >= 2 &&
@@ -443,10 +446,13 @@ function buildMixedFeatures(stories: Story[], reports: WeatherReport[]): GeoJSON
       properties: {
         id: r.id,
         content_type: 'observation' as const,
+        point_count_abbreviated: '1',
       },
     }));
+}
 
-  return [...storyFeatures, ...observationFeatures];
+function buildMixedFeatures(stories: Story[], reports: WeatherReport[]): GeoJSON.Feature[] {
+  return [...buildStoryFeatures(stories), ...buildObservationFeatures(reports)];
 }
 
 /* ------------------------------------------------------------------ */
@@ -487,6 +493,12 @@ const LYR_MEETUP_LABELS = 'parawaze-meetup-labels';
 const SRC_MIXED = 'parawaze-mixed';
 const LYR_MIXED_CLUSTER = 'parawaze-mixed-cluster';
 const LYR_MIXED_CLUSTER_COUNT = 'parawaze-mixed-cluster-count';
+const SRC_STORIES = 'parawaze-stories';
+const LYR_STORIES_CLUSTER = 'parawaze-stories-cluster';
+const LYR_STORIES_CLUSTER_COUNT = 'parawaze-stories-cluster-count';
+const SRC_OBSERVATIONS = 'parawaze-observations';
+const LYR_OBSERVATIONS_CLUSTER = 'parawaze-observations-cluster';
+const LYR_OBSERVATIONS_CLUSTER_COUNT = 'parawaze-observations-cluster-count';
 
 /* ------------------------------------------------------------------ */
 /*  Component                                                         */
@@ -1251,6 +1263,114 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     } catch (e) {
       console.error('[ParaWaze] Failed to add mixed source/layers:', e);
     }
+
+    // --- Stories source with clustering ---
+    try {
+      if (!map.getSource(SRC_STORIES)) {
+        map.addSource(SRC_STORIES, {
+          type: 'geojson',
+          data: { type: 'FeatureCollection', features: [] },
+          cluster: true,
+          clusterRadius: 50,
+          clusterMaxZoom: 14,
+        });
+      }
+
+      // Stories cluster circles (pink)
+      if (!map.getLayer(LYR_STORIES_CLUSTER)) {
+        map.addLayer({
+          id: LYR_STORIES_CLUSTER,
+          type: 'circle',
+          source: SRC_STORIES,
+          filter: ['has', 'point_count'],
+          paint: {
+            'circle-color': '#EC4899',
+            'circle-radius': [
+              'step',
+              ['get', 'point_count'],
+              32, 5, 40, 10, 50,
+            ],
+            'circle-stroke-width': 3,
+            'circle-stroke-color': '#ffffff',
+            'circle-opacity': 0.9,
+          },
+        });
+      }
+
+      // Stories cluster count label
+      if (!map.getLayer(LYR_STORIES_CLUSTER_COUNT)) {
+        map.addLayer({
+          id: LYR_STORIES_CLUSTER_COUNT,
+          type: 'symbol',
+          source: SRC_STORIES,
+          filter: ['has', 'point_count'],
+          layout: {
+            'text-field': ['get', 'point_count_abbreviated'],
+            'text-size': 13,
+            'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+          },
+          paint: {
+            'text-color': '#ffffff',
+          },
+        });
+      }
+    } catch (e) {
+      console.error('[ParaWaze] Failed to add stories source/layers:', e);
+    }
+
+    // --- Observations source with clustering ---
+    try {
+      if (!map.getSource(SRC_OBSERVATIONS)) {
+        map.addSource(SRC_OBSERVATIONS, {
+          type: 'geojson',
+          data: { type: 'FeatureCollection', features: [] },
+          cluster: true,
+          clusterRadius: 50,
+          clusterMaxZoom: 14,
+        });
+      }
+
+      // Observations cluster circles (blue)
+      if (!map.getLayer(LYR_OBSERVATIONS_CLUSTER)) {
+        map.addLayer({
+          id: LYR_OBSERVATIONS_CLUSTER,
+          type: 'circle',
+          source: SRC_OBSERVATIONS,
+          filter: ['has', 'point_count'],
+          paint: {
+            'circle-color': '#3B82F6',
+            'circle-radius': [
+              'step',
+              ['get', 'point_count'],
+              32, 5, 40, 10, 50,
+            ],
+            'circle-stroke-width': 3,
+            'circle-stroke-color': '#ffffff',
+            'circle-opacity': 0.9,
+          },
+        });
+      }
+
+      // Observations cluster count label
+      if (!map.getLayer(LYR_OBSERVATIONS_CLUSTER_COUNT)) {
+        map.addLayer({
+          id: LYR_OBSERVATIONS_CLUSTER_COUNT,
+          type: 'symbol',
+          source: SRC_OBSERVATIONS,
+          filter: ['has', 'point_count'],
+          layout: {
+            'text-field': ['get', 'point_count_abbreviated'],
+            'text-size': 13,
+            'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+          },
+          paint: {
+            'text-color': '#ffffff',
+          },
+        });
+      }
+    } catch (e) {
+      console.error('[ParaWaze] Failed to add observations source/layers:', e);
+    }
   }, []);
 
   /* ---------------------------------------------------------------- */
@@ -1648,7 +1768,63 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           popupRef.current = popup;
         });
 
-        // Mixed cluster click
+        // Stories cluster click
+        map.on('click', LYR_STORIES_CLUSTER, (e) => {
+          if (!e.features || !e.features[0]) return;
+          const clusterId = e.features[0].properties?.cluster_id;
+          if (clusterId === undefined) return;
+
+          const source = map.getSource(SRC_STORIES) as mapboxgl.GeoJSONSource | undefined;
+          if (!source) return;
+
+          source.getClusterLeaves(clusterId, 100, 0, ((err: Error | null | undefined, features: GeoJSON.Feature[] | undefined) => {
+            if (err || !features) return;
+
+            const storyIds = features
+              .map((f) => f.properties?.id)
+              .filter((id) => id);
+
+            const stories = storyIds
+              .map((id) => storiesRef.current.find((s) => s.id === id))
+              .filter((s) => s) as Story[];
+
+            stories.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+            if (stories.length > 0) {
+              onMixedContentClickRef.current?.({ stories, observations: [] });
+            }
+          }) as any);
+        });
+
+        // Observations cluster click
+        map.on('click', LYR_OBSERVATIONS_CLUSTER, (e) => {
+          if (!e.features || !e.features[0]) return;
+          const clusterId = e.features[0].properties?.cluster_id;
+          if (clusterId === undefined) return;
+
+          const source = map.getSource(SRC_OBSERVATIONS) as mapboxgl.GeoJSONSource | undefined;
+          if (!source) return;
+
+          source.getClusterLeaves(clusterId, 100, 0, ((err: Error | null | undefined, features: GeoJSON.Feature[] | undefined) => {
+            if (err || !features) return;
+
+            const observationIds = features
+              .map((f) => f.properties?.id)
+              .filter((id) => id);
+
+            const observations = observationIds
+              .map((id) => reportsRef.current.find((r) => r.id === id))
+              .filter((r) => r) as WeatherReport[];
+
+            observations.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+            if (observations.length > 0) {
+              onMixedContentClickRef.current?.({ stories: [], observations });
+            }
+          }) as any);
+        });
+
+        // Mixed cluster click (legacy - still supported)
         map.on('click', LYR_MIXED_CLUSTER, (e) => {
           if (!e.features || !e.features[0]) return;
           const clusterId = e.features[0].properties?.cluster_id;
@@ -1688,7 +1864,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         });
 
         // Pointer cursor on interactive layers
-        const interactiveLayers = [LYR_OBS_CIRCLES, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS, LYR_POI_CIRCLES, LYR_POI_LABELS, LYR_PIOUPIOU_CIRCLES, LYR_PIOUPIOU_LABELS, LYR_FFVL_CIRCLES, LYR_FFVL_LABELS, LYR_WINDS_MOBI_CIRCLES, LYR_WINDS_MOBI_LABELS, LYR_GEOSPHERE_CIRCLES, LYR_GEOSPHERE_LABELS, LYR_BRIGHTSKY_CIRCLES, LYR_BRIGHTSKY_LABELS, LYR_MEETUP_CIRCLES, LYR_MEETUP_LABELS, LYR_MIXED_CLUSTER, 'parawaze-shuttle-label', 'parawaze-forecast-label'];
+        const interactiveLayers = [LYR_OBS_CIRCLES, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS, LYR_POI_CIRCLES, LYR_POI_LABELS, LYR_PIOUPIOU_CIRCLES, LYR_PIOUPIOU_LABELS, LYR_FFVL_CIRCLES, LYR_FFVL_LABELS, LYR_WINDS_MOBI_CIRCLES, LYR_WINDS_MOBI_LABELS, LYR_GEOSPHERE_CIRCLES, LYR_GEOSPHERE_LABELS, LYR_BRIGHTSKY_CIRCLES, LYR_BRIGHTSKY_LABELS, LYR_MEETUP_CIRCLES, LYR_MEETUP_LABELS, LYR_MIXED_CLUSTER, LYR_STORIES_CLUSTER, LYR_OBSERVATIONS_CLUSTER, 'parawaze-shuttle-label', 'parawaze-forecast-label'];
         interactiveLayers.forEach((layerId) => {
           map.on('mouseenter', layerId, () => { map.getCanvas().style.cursor = 'pointer'; });
           map.on('mouseleave', layerId, () => { map.getCanvas().style.cursor = ''; });
@@ -1720,11 +1896,28 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     }
   }
 
+  function updateStoriesSource(map: mapboxgl.Map, storyList: Story[]) {
+    const src = map.getSource(SRC_STORIES) as mapboxgl.GeoJSONSource | undefined;
+    if (src) {
+      src.setData({ type: 'FeatureCollection', features: buildStoryFeatures(storyList) });
+    }
+  }
+
+  function updateObservationsSource(map: mapboxgl.Map, reportList: WeatherReport[]) {
+    const src = map.getSource(SRC_OBSERVATIONS) as mapboxgl.GeoJSONSource | undefined;
+    if (src) {
+      src.setData({ type: 'FeatureCollection', features: buildObservationFeatures(reportList) });
+    }
+  }
+
   function updateMixedSource(map: mapboxgl.Map, storyList: Story[], reportList: WeatherReport[]) {
     const src = map.getSource(SRC_MIXED) as mapboxgl.GeoJSONSource | undefined;
     if (src) {
       src.setData({ type: 'FeatureCollection', features: buildMixedFeatures(storyList, reportList) });
     }
+    // Also update the separate sources for clustering
+    updateStoriesSource(map, storyList);
+    updateObservationsSource(map, reportList);
   }
 
   function updateShuttleSource(map: mapboxgl.Map, sht: Shuttle[]) {
