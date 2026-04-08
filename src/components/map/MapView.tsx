@@ -1217,8 +1217,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           type: 'geojson',
           data: { type: 'FeatureCollection', features: [] },
           cluster: true,
-          clusterRadius: 50,
-          clusterMaxZoom: 14,
+          clusterRadius: 30,
+          clusterMaxZoom: 20,
         });
       }
 
