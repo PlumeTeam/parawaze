@@ -14,7 +14,7 @@ export default function StoryViewer({ stories, onClose }: StoryViewerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [muted, setMuted] = useState(true);
+  const [muted, setMuted] = useState(false);
   const [showMuteIcon, setShowMuteIcon] = useState(false);
   const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
@@ -142,7 +142,16 @@ export default function StoryViewer({ stories, onClose }: StoryViewerProps) {
   useEffect(() => {
     const video = videoRef.current;
     if (video) {
-      video.play().catch(() => {
+      video.muted = true; // Required for autoplay
+      video.play().then(() => {
+        // Auto-unmute after playback starts
+        setTimeout(() => {
+          if (videoRef.current) {
+            videoRef.current.muted = false;
+            setMuted(false);
+          }
+        }, 100);
+      }).catch(() => {
         // Autoplay blocked, but video will still play when user interacts
       });
     }
