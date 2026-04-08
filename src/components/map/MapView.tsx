@@ -117,6 +117,16 @@ function buildReportFeatures(reports: WeatherReport[]): GeoJSON.Feature[] {
       properties: {
         id: r.id,
         report_type: r.report_type,
+        author: r.profiles?.display_name || r.profiles?.username || 'Anonyme',
+        location_name: r.location_name || undefined,
+        altitude_m: r.altitude_m || undefined,
+        wind_speed_kmh: r.wind_speed_kmh != null ? r.wind_speed_kmh : undefined,
+        wind_gust_kmh: r.wind_gust_kmh != null ? r.wind_gust_kmh : undefined,
+        wind_direction: r.wind_direction || undefined,
+        thermal_quality: r.thermal_quality != null ? r.thermal_quality : undefined,
+        turbulence_level: r.turbulence_level != null ? r.turbulence_level : undefined,
+        description: r.description || undefined,
+        created_at: r.created_at,
         color: getConditionColor(r),
         wind_angle: getWindAngle(r.wind_direction),
         opacity: getAgeOpacity(r.created_at, r.report_type),
@@ -446,6 +456,17 @@ function buildObservationFeatures(reports: WeatherReport[]): GeoJSON.Feature[] {
         id: r.id,
         content_type: 'observation' as const,
         point_count_abbreviated: '1',
+        report_type: r.report_type,
+        author: r.profiles?.display_name || r.profiles?.username || 'Anonyme',
+        location_name: r.location_name || undefined,
+        altitude_m: r.altitude_m || undefined,
+        wind_speed_kmh: r.wind_speed_kmh != null ? r.wind_speed_kmh : undefined,
+        wind_gust_kmh: r.wind_gust_kmh != null ? r.wind_gust_kmh : undefined,
+        wind_direction: r.wind_direction || undefined,
+        thermal_quality: r.thermal_quality != null ? r.thermal_quality : undefined,
+        turbulence_level: r.turbulence_level != null ? r.turbulence_level : undefined,
+        description: r.description || undefined,
+        created_at: r.created_at,
       },
     }));
 }
@@ -1525,28 +1546,31 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           }
 
           const reportType = props.report_type || 'observation';
-          const windAvg = props.windAvg != null ? Number(props.windAvg) : null;
-          const windGust = props.windGust != null ? Number(props.windGust) : null;
-          const windDir = props.windDirection != null ? Number(props.windDirection) : null;
-          const thermal = props.thermal != null ? Number(props.thermal) : null;
+          const windSpeed = props.wind_speed_kmh != null ? Number(props.wind_speed_kmh) : null;
+          const windGust = props.wind_gust_kmh != null ? Number(props.wind_gust_kmh) : null;
+          const windDir = props.wind_direction != null ? props.wind_direction : null;
+          const thermal = props.thermal_quality != null ? Number(props.thermal_quality) : null;
+          const location = props.location_name || '—';
+          const altitude = props.altitude_m ? ` · ${props.altitude_m}m` : '';
           const createdAt = props.created_at
             ? new Date(props.created_at).toLocaleString('fr-FR', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })
             : '—';
 
           const html = `
-            <div style="font-family:system-ui,-apple-system,sans-serif;font-size:13px;line-height:1.5;min-width:200px">
-              <div style="font-weight:700;font-size:14px;margin-bottom:2px">👁️ ${reportType === 'observation' ? 'Observation' : 'Report'}</div>
+            <div style="font-family:system-ui,-apple-system,sans-serif;font-size:13px;line-height:1.5;min-width:220px">
+              <div style="font-weight:700;font-size:14px;margin-bottom:2px">👁️ ${reportType === 'observation' ? 'Observation' : reportType === 'forecast' ? 'Prévision' : 'Partage'}</div>
               ${props.author ? `<div style="color:#666;font-size:12px;margin-bottom:6px">par ${props.author}</div>` : ''}
-              ${windAvg != null ? `<div style="margin-bottom:2px">💨 Vent: <b>${Math.round(windAvg)} km/h</b></div>` : ''}
+              <div style="color:#555;font-size:12px;margin-bottom:4px">${location}${altitude}</div>
+              ${windSpeed != null ? `<div style="margin-bottom:2px">💨 Vent: <b>${Math.round(windSpeed)} km/h</b></div>` : ''}
               ${windGust != null ? `<div style="margin-bottom:2px">🌪️ Rafales: ${Math.round(windGust)} km/h</div>` : ''}
-              ${windDir != null ? `<div style="margin-bottom:2px">🧭 Direction: ${Math.round(windDir)}°</div>` : ''}
+              ${windDir != null ? `<div style="margin-bottom:2px">🧭 Direction: ${windDir}</div>` : ''}
               ${thermal != null ? `<div style="margin-bottom:2px">📈 Thermique: ${thermal.toFixed(1)}m/s</div>` : ''}
-              ${props.description && props.description !== 'null' ? `<div style="margin-bottom:6px;color:#555"><i>${props.description}</i></div>` : ''}
-              <div style="margin-bottom:2px;color:#666;font-size:12px">🕐 ${createdAt}</div>
+              ${props.description && props.description !== 'null' ? `<div style="margin-bottom:6px;color:#555;font-size:12px"><i>${props.description.substring(0, 100)}${props.description.length > 100 ? '…' : ''}</i></div>` : ''}
+              <div style="margin-bottom:2px;color:#666;font-size:11px">🕐 ${createdAt}</div>
             </div>
           `;
 
-          const popup = new mb.Popup({ closeButton: true, maxWidth: '280px', offset: 12 })
+          const popup = new mb.Popup({ closeButton: true, maxWidth: '300px', offset: 12 })
             .setLngLat(coords)
             .setHTML(html)
             .addTo(map);
@@ -1565,24 +1589,28 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
             popupRef.current = null;
           }
 
-          const windAvg = props.windAvg != null ? Number(props.windAvg) : null;
-          const windGust = props.windGust != null ? Number(props.windGust) : null;
-          const windDir = props.windDirection != null ? Number(props.windDirection) : null;
+          const windSpeed = props.wind_speed_kmh != null ? Number(props.wind_speed_kmh) : null;
+          const windGust = props.wind_gust_kmh != null ? Number(props.wind_gust_kmh) : null;
+          const windDir = props.wind_direction != null ? props.wind_direction : null;
+          const location = props.location_name || '—';
+          const altitude = props.altitude_m ? ` · ${props.altitude_m}m` : '';
           const createdAt = props.created_at
             ? new Date(props.created_at).toLocaleString('fr-FR', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })
             : '—';
 
           const html = `
-            <div style="font-family:system-ui,-apple-system,sans-serif;font-size:13px;line-height:1.5;min-width:200px">
+            <div style="font-family:system-ui,-apple-system,sans-serif;font-size:13px;line-height:1.5;min-width:220px">
               <div style="font-weight:700;font-size:14px;margin-bottom:2px">📊 Prévision</div>
-              ${windAvg != null ? `<div style="margin-bottom:2px">💨 Vent: <b>${Math.round(windAvg)} km/h</b></div>` : ''}
+              ${props.author ? `<div style="color:#666;font-size:12px;margin-bottom:6px">par ${props.author}</div>` : ''}
+              <div style="color:#555;font-size:12px;margin-bottom:4px">${location}${altitude}</div>
+              ${windSpeed != null ? `<div style="margin-bottom:2px">💨 Vent: <b>${Math.round(windSpeed)} km/h</b></div>` : ''}
               ${windGust != null ? `<div style="margin-bottom:2px">🌪️ Rafales: ${Math.round(windGust)} km/h</div>` : ''}
-              ${windDir != null ? `<div style="margin-bottom:2px">🧭 Direction: ${Math.round(windDir)}°</div>` : ''}
-              <div style="margin-bottom:2px;color:#666;font-size:12px">🕐 ${createdAt}</div>
+              ${windDir != null ? `<div style="margin-bottom:2px">🧭 Direction: ${windDir}</div>` : ''}
+              <div style="margin-bottom:2px;color:#666;font-size:11px">🕐 ${createdAt}</div>
             </div>
           `;
 
-          const popup = new mb.Popup({ closeButton: true, maxWidth: '280px', offset: 12 })
+          const popup = new mb.Popup({ closeButton: true, maxWidth: '300px', offset: 12 })
             .setLngLat(coords)
             .setHTML(html)
             .addTo(map);
@@ -1888,28 +1916,31 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           }
 
           const reportType = props.report_type || 'observation';
-          const windAvg = props.windAvg != null ? Number(props.windAvg) : null;
-          const windGust = props.windGust != null ? Number(props.windGust) : null;
-          const windDir = props.windDirection != null ? Number(props.windDirection) : null;
-          const thermal = props.thermal != null ? Number(props.thermal) : null;
+          const windSpeed = props.wind_speed_kmh != null ? Number(props.wind_speed_kmh) : null;
+          const windGust = props.wind_gust_kmh != null ? Number(props.wind_gust_kmh) : null;
+          const windDir = props.wind_direction != null ? props.wind_direction : null;
+          const thermal = props.thermal_quality != null ? Number(props.thermal_quality) : null;
+          const location = props.location_name || '—';
+          const altitude = props.altitude_m ? ` · ${props.altitude_m}m` : '';
           const createdAt = props.created_at
             ? new Date(props.created_at).toLocaleString('fr-FR', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })
             : '—';
 
           const html = `
-            <div style="font-family:system-ui,-apple-system,sans-serif;font-size:13px;line-height:1.5;min-width:200px">
-              <div style="font-weight:700;font-size:14px;margin-bottom:2px">👁️ Observation</div>
+            <div style="font-family:system-ui,-apple-system,sans-serif;font-size:13px;line-height:1.5;min-width:220px">
+              <div style="font-weight:700;font-size:14px;margin-bottom:2px">👁️ ${reportType === 'observation' ? 'Observation' : reportType === 'forecast' ? 'Prévision' : 'Partage'}</div>
               ${props.author ? `<div style="color:#666;font-size:12px;margin-bottom:6px">par ${props.author}</div>` : ''}
-              ${windAvg != null ? `<div style="margin-bottom:2px">💨 Vent: <b>${Math.round(windAvg)} km/h</b></div>` : ''}
+              <div style="color:#555;font-size:12px;margin-bottom:4px">${location}${altitude}</div>
+              ${windSpeed != null ? `<div style="margin-bottom:2px">💨 Vent: <b>${Math.round(windSpeed)} km/h</b></div>` : ''}
               ${windGust != null ? `<div style="margin-bottom:2px">🌪️ Rafales: ${Math.round(windGust)} km/h</div>` : ''}
-              ${windDir != null ? `<div style="margin-bottom:2px">🧭 Direction: ${Math.round(windDir)}°</div>` : ''}
+              ${windDir != null ? `<div style="margin-bottom:2px">🧭 Direction: ${windDir}</div>` : ''}
               ${thermal != null ? `<div style="margin-bottom:2px">📈 Thermique: ${thermal.toFixed(1)}m/s</div>` : ''}
-              ${props.description && props.description !== 'null' ? `<div style="margin-bottom:6px;color:#555"><i>${props.description}</i></div>` : ''}
-              <div style="margin-bottom:2px;color:#666;font-size:12px">🕐 ${createdAt}</div>
+              ${props.description && props.description !== 'null' ? `<div style="margin-bottom:6px;color:#555;font-size:12px"><i>${props.description.substring(0, 100)}${props.description.length > 100 ? '…' : ''}</i></div>` : ''}
+              <div style="margin-bottom:2px;color:#666;font-size:11px">🕐 ${createdAt}</div>
             </div>
           `;
 
-          const popup = new mb.Popup({ closeButton: true, maxWidth: '280px', offset: 12 })
+          const popup = new mb.Popup({ closeButton: true, maxWidth: '300px', offset: 12 })
             .setLngLat(coords)
             .setHTML(html)
             .addTo(map);
