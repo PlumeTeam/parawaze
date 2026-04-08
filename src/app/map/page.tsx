@@ -101,8 +101,10 @@ export default function MapPage() {
     router.push(`/sites/${poi.id}`);
   };
 
-  const handleStoryClick = (story: Story) => {
-    setSelectedStory(story);
+  const handleStoryClick = (stories: Story[]) => {
+    if (stories.length > 0) {
+      setSelectedStory(stories[0]);
+    }
   };
 
   const handleMeetupClick = (meetup: Meetup) => {

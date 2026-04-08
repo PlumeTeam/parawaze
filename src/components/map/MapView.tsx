@@ -42,12 +42,16 @@ interface MapViewProps {
   stories?: Story[];
   meetups?: Meetup[];
   onReportClick: (report: WeatherReport) => void;
+  onObservationsClick?: (reports: WeatherReport[]) => void;
+  onMixedContentClick?: (data: { stories: Story[]; observations: WeatherReport[] }) => void;
   onMeetupClick?: (meetup: Meetup) => void;
   onShuttleClick?: (shuttle: Shuttle) => void;
   onPoiClick?: (poi: Poi) => void;
-  onStoryClick?: (story: Story) => void;
+  onStoryClick?: (stories: Story[]) => void;
   onMapMove?: (center: { lat: number; lng: number }) => void;
   onMarkerPlaced?: (pos: MarkerPosition) => void;
+  enableAutocenter?: boolean;
+  onMapLoaded?: () => void;
 }
 
 /* ------------------------------------------------------------------ */
@@ -449,7 +453,7 @@ const LYR_MEETUP_LABELS = 'parawaze-meetup-labels';
 /*  Component                                                         */
 /* ------------------------------------------------------------------ */
 const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
-  { reports, shuttles = [], stories = [], pois = [], pioupiouStations = [], ffvlStations = [], windsMobiStations = [], geoSphereStations = [], brightSkyStations = [], meetups = [], onReportClick, onShuttleClick, onPoiClick, onStoryClick, onMeetupClick, onMapMove, onMarkerPlaced },
+  { reports, shuttles = [], stories = [], pois = [], pioupiouStations = [], ffvlStations = [], windsMobiStations = [], geoSphereStations = [], brightSkyStations = [], meetups = [], onReportClick, onShuttleClick, onPoiClick, onStoryClick, onMeetupClick, onMapMove, onMarkerPlaced, onObservationsClick, onMixedContentClick, onMapLoaded, enableAutocenter = true },
   ref,
 ) {
   const mapContainer = useRef<HTMLDivElement>(null);
@@ -496,6 +500,12 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   meetupsRef.current = meetups;
   const onMeetupClickRef = useRef(onMeetupClick);
   onMeetupClickRef.current = onMeetupClick;
+  const onObservationsClickRef = useRef(onObservationsClick);
+  onObservationsClickRef.current = onObservationsClick;
+  const onMixedContentClickRef = useRef(onMixedContentClick);
+  onMixedContentClickRef.current = onMixedContentClick;
+  const onMapLoadedRef = useRef(onMapLoaded);
+  onMapLoadedRef.current = onMapLoaded;
   const popupRef = useRef<mapboxgl.Popup | null>(null);
 
   // Expose getCenter and getMarkerPosition to parent via ref
@@ -1147,6 +1157,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           updateBrightSkySource(map, brightSkyRef.current);
           updateMeetupSource(map, meetupsRef.current);
           setMapLoaded(true);
+          // Call onMapLoaded callback to notify parent that map is ready
+          onMapLoadedRef.current?.();
         };
 
         map.on('load', onStyleReady);
@@ -1166,6 +1178,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           updateMeetupSource(map, meetupsRef.current);
           // Re-add shuttle route lines
           addShuttleRouteLines(map, shuttlesRef.current);
+          // Call onMapLoaded callback to notify parent that map is ready
+          onMapLoadedRef.current?.();
         });
 
         map.on('moveend', () => {
@@ -1801,7 +1815,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
 
       el.addEventListener('click', (e) => {
         e.stopPropagation();
-        onStoryClickRef.current?.(story);
+        onStoryClickRef.current?.([story]);
       });
 
       storyMarkersRef.current.push(marker);
