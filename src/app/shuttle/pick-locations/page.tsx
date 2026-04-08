@@ -227,6 +227,32 @@ function PickLocationsContent() {
             </svg>
           </button>
         </div>
+
+        {/* Mode buttons — top of map, always accessible */}
+        <div className="absolute left-4 right-4 z-20 flex gap-2" style={{ top: '72px' }}>
+          <button
+            onClick={() => setActiveMode(activeMode === 'departure' ? null : 'departure')}
+            style={{ height: '44px' }}
+            className={`flex-1 rounded-xl font-semibold text-sm transition-all shadow ${
+              activeMode === 'departure'
+                ? 'bg-gray-900 text-white'
+                : 'bg-white text-gray-800 border border-gray-300'
+            }`}
+          >
+            &#x1F7E2; D&eacute;part
+          </button>
+          <button
+            onClick={() => setActiveMode(activeMode === 'arrival' ? null : 'arrival')}
+            style={{ height: '44px' }}
+            className={`flex-1 rounded-xl font-semibold text-sm transition-all shadow ${
+              activeMode === 'arrival'
+                ? 'bg-gray-900 text-white'
+                : 'bg-white text-gray-800 border border-gray-300'
+            }`}
+          >
+            &#x1F535; Arriv&eacute;e
+          </button>
+        </div>
       </div>
 
       {/* Bottom panel */}
@@ -239,30 +265,6 @@ function PickLocationsContent() {
           <div className={`flex-1 text-xs px-3 py-2 rounded-xl ${arrival ? 'bg-blue-50 text-blue-700' : 'bg-gray-50 text-gray-400'}`}>
             &#x1F535; {arrival ? formatCoord(arrival) : 'Arriv\u00e9e non plac\u00e9e'}
           </div>
-        </div>
-
-        {/* Mode buttons */}
-        <div className="flex gap-2">
-          <button
-            onClick={() => setActiveMode(activeMode === 'departure' ? null : 'departure')}
-            className={`flex-1 py-3 rounded-xl font-semibold text-sm transition-all ${
-              activeMode === 'departure'
-                ? 'bg-green-500 text-white shadow-lg'
-                : 'bg-green-50 text-green-700 border border-green-200'
-            }`}
-          >
-            &#x1F7E2; D&eacute;part
-          </button>
-          <button
-            onClick={() => setActiveMode(activeMode === 'arrival' ? null : 'arrival')}
-            className={`flex-1 py-3 rounded-xl font-semibold text-sm transition-all ${
-              activeMode === 'arrival'
-                ? 'bg-blue-500 text-white shadow-lg'
-                : 'bg-blue-50 text-blue-700 border border-blue-200'
-            }`}
-          >
-            &#x1F535; Arriv&eacute;e
-          </button>
         </div>
 
         {/* Validate */}

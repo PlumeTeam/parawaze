@@ -175,8 +175,9 @@ function getPioupiouColor(station: PioupiouStation): string {
   if (!station.isOnline || station.windAvg == null) return '#9ca3af'; // gray
   const w = station.windAvg;
   if (w < 15) return '#22c55e';  // green
-  if (w < 25) return '#eab308';  // yellow
-  if (w < 35) return '#f97316';  // orange
+  if (w < 25) return '#84cc16';  // yellow-green
+  if (w < 35) return '#eab308';  // yellow
+  if (w < 45) return '#f97316';  // orange
   return '#ef4444';              // red
 }
 
@@ -216,8 +217,9 @@ function getFFVLColor(station: FFVLStation): string {
   if (station.windAvg == null) return '#9ca3af'; // gray — no data
   const w = station.windAvg;
   if (w < 15) return '#22c55e';  // green
-  if (w < 25) return '#eab308';  // yellow
-  if (w < 35) return '#f97316';  // orange
+  if (w < 25) return '#84cc16';  // yellow-green
+  if (w < 35) return '#eab308';  // yellow
+  if (w < 45) return '#f97316';  // orange
   return '#ef4444';              // red
 }
 
@@ -260,8 +262,9 @@ function getWindsMobiColor(station: WindsMobiStation): string {
   if (station.status === 'red' || station.windAvg == null) return '#9ca3af'; // gray
   const w = station.windAvg;
   if (w < 15) return '#22c55e';  // green
-  if (w < 25) return '#eab308';  // yellow
-  if (w < 35) return '#f97316';  // orange
+  if (w < 25) return '#84cc16';  // yellow-green
+  if (w < 35) return '#eab308';  // yellow
+  if (w < 45) return '#f97316';  // orange
   return '#ef4444';              // red
 }
 
@@ -304,8 +307,9 @@ function getGeoSphereColor(station: GeoSphereStation): string {
   if (station.windAvg == null) return '#9ca3af'; // gray — no data
   const w = station.windAvg;
   if (w < 15) return '#22c55e';  // green
-  if (w < 25) return '#eab308';  // yellow
-  if (w < 35) return '#f97316';  // orange
+  if (w < 25) return '#84cc16';  // yellow-green
+  if (w < 35) return '#eab308';  // yellow
+  if (w < 45) return '#f97316';  // orange
   return '#ef4444';              // red
 }
 
@@ -314,10 +318,12 @@ function getGeoSphereColor(station: GeoSphereStation): string {
 const BS_COMPASS = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
 
 function getBrightSkyColor(station: BrightSkyStation): string {
+  if (station.wind_speed_kmh == null) return '#9ca3af'; // gray
   const w = station.wind_speed_kmh;
   if (w < 15) return '#22c55e';  // green
-  if (w < 25) return '#eab308';  // yellow
-  if (w < 35) return '#f97316';  // orange
+  if (w < 25) return '#84cc16';  // yellow-green
+  if (w < 35) return '#eab308';  // yellow
+  if (w < 45) return '#f97316';  // orange
   return '#ef4444';              // red
 }
 
@@ -689,18 +695,17 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       });
     }
 
-    // Pioupiou circles — small wind station markers
+    // Pioupiou circles
     if (!map.getLayer(LYR_PIOUPIOU_CIRCLES)) {
       map.addLayer({
         id: LYR_PIOUPIOU_CIRCLES,
         type: 'circle',
         source: SRC_PIOUPIOU,
         paint: {
-          'circle-radius': 8,
+          'circle-radius': 6,
           'circle-color': ['get', 'color'],
           'circle-stroke-width': 2,
           'circle-stroke-color': '#ffffff',
-          'circle-opacity': 0.9,
         },
       });
     }
@@ -759,18 +764,17 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       });
     }
 
-    // FFVL diamond markers — white fill with colored ring to distinguish from Pioupiou
+    // FFVL circles
     if (!map.getLayer(LYR_FFVL_CIRCLES)) {
       map.addLayer({
         id: LYR_FFVL_CIRCLES,
         type: 'circle',
         source: SRC_FFVL,
         paint: {
-          'circle-radius': 9,
-          'circle-color': '#ffffff',
-          'circle-stroke-width': 3,
-          'circle-stroke-color': ['get', 'color'],
-          'circle-opacity': 0.95,
+          'circle-radius': 6,
+          'circle-color': ['get', 'color'],
+          'circle-stroke-width': 2,
+          'circle-stroke-color': '#ffffff',
         },
       });
     }
@@ -814,8 +818,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           'text-rotation-alignment': 'map',
         },
         paint: {
-          'text-color': ['get', 'color'],
-          'text-halo-color': 'rgba(255,255,255,0.8)',
+          'text-color': '#ffffff',
+          'text-halo-color': 'rgba(0,0,0,0.5)',
           'text-halo-width': 1,
         },
       });
@@ -829,19 +833,17 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       });
     }
 
-    // winds.mobi markers — colored fill with dark border, distinct from Pioupiou (white border)
-    // and FFVL (white fill + colored border)
+    // winds.mobi circles
     if (!map.getLayer(LYR_WINDS_MOBI_CIRCLES)) {
       map.addLayer({
         id: LYR_WINDS_MOBI_CIRCLES,
         type: 'circle',
         source: SRC_WINDS_MOBI,
         paint: {
-          'circle-radius': 9,
+          'circle-radius': 6,
           'circle-color': ['get', 'color'],
           'circle-stroke-width': 2,
-          'circle-stroke-color': 'rgba(0,0,0,0.55)',
-          'circle-opacity': 0.9,
+          'circle-stroke-color': '#ffffff',
         },
       });
     }
@@ -908,35 +910,32 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       });
     }
 
-    // GeoSphere markers — colored fill with indigo ring, distinct from all other providers
-    // Pioupiou: colored+white, FFVL: white+colored, winds.mobi: colored+dark, GeoSphere: colored+indigo
+    // GeoSphere circles
     if (!map.getLayer(LYR_GEOSPHERE_CIRCLES)) {
       map.addLayer({
         id: LYR_GEOSPHERE_CIRCLES,
         type: 'circle',
         source: SRC_GEOSPHERE,
         paint: {
-          'circle-radius': 10,
+          'circle-radius': 6,
           'circle-color': ['get', 'color'],
-          'circle-stroke-width': 3,
-          'circle-stroke-color': '#6366f1', // indigo — identifies GeoSphere Austria
-          'circle-opacity': 0.9,
+          'circle-stroke-width': 2,
+          'circle-stroke-color': '#ffffff',
         },
       });
     }
 
-    // Bright Sky markers — sky-blue outer stroke to identify DWD/German data
+    // Bright Sky circles
     if (!map.getLayer(LYR_BRIGHTSKY_CIRCLES)) {
       map.addLayer({
         id: LYR_BRIGHTSKY_CIRCLES,
         type: 'circle',
         source: SRC_BRIGHTSKY,
         paint: {
-          'circle-radius': 10,
+          'circle-radius': 6,
           'circle-color': ['get', 'color'],
-          'circle-stroke-width': 3,
-          'circle-stroke-color': '#0ea5e9',  // sky-blue = DWD / Bright Sky brand
-          'circle-opacity': 0.92,
+          'circle-stroke-width': 2,
+          'circle-stroke-color': '#ffffff',
         },
       });
     }
@@ -952,7 +951,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           'text-field': ['get', 'windLabel'],
           'text-size': 11,
           'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'],
-          'text-offset': [1.3, 0],
+          'text-offset': [1.2, 0],
           'text-anchor': 'left',
           'text-allow-overlap': false,
         },
@@ -975,7 +974,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           'text-field': ['get', 'windLabel'],
           'text-size': 11,
           'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'],
-          'text-offset': [1.4, 0],
+          'text-offset': [1.2, 0],
           'text-anchor': 'left',
           'text-allow-overlap': false,
         },
@@ -1019,7 +1018,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         filter: ['!=', ['get', 'wind_arrow_angle'], -1],
         layout: {
           'text-field': '➤',
-          'text-size': 14,
+          'text-size': 13,
           'text-rotate': ['get', 'wind_arrow_angle'],
           'text-allow-overlap': true,
           'text-ignore-placement': true,
