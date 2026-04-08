@@ -20,6 +20,7 @@ import BottomNav from '@/components/shared/BottomNav';
 import LoadingSpinner from '@/components/shared/LoadingSpinner';
 import StoryRecorder from '@/components/stories/StoryRecorder';
 import StoryViewer from '@/components/stories/StoryViewer';
+import ObservationViewer from '@/components/observations/ObservationViewer';
 import GeolocationPermissionScreen from '@/components/map/GeolocationPermissionScreen';
 import type { WeatherReport, Shuttle, Poi, Story, Meetup } from '@/lib/types';
 import type { MapViewHandle } from '@/components/map/MapView';
@@ -53,6 +54,7 @@ export default function MapPage() {
   const { stations: geoSphereStations } = useGeoSphere();
   const { stations: brightSkyStations } = useBrightSky();
   const [selectedReport, setSelectedReport] = useState<WeatherReport | null>(null);
+  const [selectedObservations, setSelectedObservations] = useState<WeatherReport[]>([]);
   const [selectedDay, setSelectedDay] = useState<DayFilter>('today');
   const [toast, setToast] = useState<string | null>(null);
   const [lastMarker, setLastMarker] = useState<{lat: number; lng: number; alt: number | null} | null>(null);
@@ -145,6 +147,10 @@ export default function MapPage() {
 
   const handleStoryClick = (stories: Story[]) => {
     setSelectedStories(stories);
+  };
+
+  const handleObservationsClick = (observations: WeatherReport[]) => {
+    setSelectedObservations(observations);
   };
 
   const handleMeetupClick = (meetup: Meetup) => {
@@ -275,6 +281,7 @@ export default function MapPage() {
             return true;
           })}
           onReportClick={handleReportClick}
+          onObservationsClick={handleObservationsClick}
           onShuttleClick={handleShuttleClick}
           onMapMove={handleMapMove}
           onMarkerPlaced={handleMarkerPlaced}
@@ -303,6 +310,14 @@ export default function MapPage() {
           <StoryViewer
             stories={selectedStories}
             onClose={() => setSelectedStories([])}
+          />
+        )}
+
+        {/* Observation Viewer */}
+        {selectedObservations.length > 0 && (
+          <ObservationViewer
+            observations={selectedObservations}
+            onClose={() => setSelectedObservations([])}
           />
         )}
 

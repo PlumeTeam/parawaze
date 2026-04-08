@@ -42,6 +42,7 @@ interface MapViewProps {
   stories?: Story[];
   meetups?: Meetup[];
   onReportClick: (report: WeatherReport) => void;
+  onObservationsClick?: (reports: WeatherReport[]) => void;
   onMeetupClick?: (meetup: Meetup) => void;
   onShuttleClick?: (shuttle: Shuttle) => void;
   onPoiClick?: (poi: Poi) => void;
@@ -434,6 +435,8 @@ function buildBrightSkyFeatures(stations: BrightSkyStation[]): GeoJSON.Feature[]
 /* ------------------------------------------------------------------ */
 const SRC_REPORTS = 'parawaze-reports';
 const LYR_OBS_CIRCLES = 'parawaze-obs-circles';
+const LYR_OBS_CLUSTER = 'parawaze-obs-cluster';
+const LYR_OBS_CLUSTER_COUNT = 'parawaze-obs-cluster-count';
 const LYR_FORECAST_CIRCLES = 'parawaze-forecast-circles';
 const LYR_WIND_ARROWS = 'parawaze-wind-arrows';
 const SRC_SHUTTLES = 'parawaze-shuttles';
@@ -473,7 +476,7 @@ const LYR_MEETUP_LABELS = 'parawaze-meetup-labels';
 /*  Component                                                         */
 /* ------------------------------------------------------------------ */
 const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
-  { reports, shuttles = [], stories = [], pois = [], pioupiouStations = [], ffvlStations = [], windsMobiStations = [], geoSphereStations = [], brightSkyStations = [], meetups = [], onReportClick, onShuttleClick, onPoiClick, onStoryClick, onMeetupClick, onMapMove, onMarkerPlaced, enableAutocenter = true, onMapLoaded },
+  { reports, shuttles = [], stories = [], pois = [], pioupiouStations = [], ffvlStations = [], windsMobiStations = [], geoSphereStations = [], brightSkyStations = [], meetups = [], onReportClick, onObservationsClick, onShuttleClick, onPoiClick, onStoryClick, onMeetupClick, onMapMove, onMarkerPlaced, enableAutocenter = true, onMapLoaded },
   ref,
 ) {
   const mapContainer = useRef<HTMLDivElement>(null);
@@ -520,6 +523,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   meetupsRef.current = meetups;
   const onMeetupClickRef = useRef(onMeetupClick);
   onMeetupClickRef.current = onMeetupClick;
+  const onObservationsClickRef = useRef(onObservationsClick);
+  onObservationsClickRef.current = onObservationsClick;
   const popupRef = useRef<mapboxgl.Popup | null>(null);
 
   // Expose getCenter and getMarkerPosition to parent via ref
@@ -563,11 +568,14 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   /* ---------------------------------------------------------------- */
   const addLayersToMap = useCallback((map: mapboxgl.Map) => {
     try {
-      // --- Reports source ---
+      // --- Reports source with clustering ---
       if (!map.getSource(SRC_REPORTS)) {
         map.addSource(SRC_REPORTS, {
           type: 'geojson',
           data: { type: 'FeatureCollection', features: [] },
+          cluster: true,
+          clusterMaxZoom: 14,
+          clusterRadius: 50,
         });
       }
     } catch (e) {
@@ -575,16 +583,69 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     }
 
     try {
+      // Clustered observations — blue-themed circles
+      if (!map.getLayer(LYR_OBS_CLUSTER)) {
+        map.addLayer({
+          id: LYR_OBS_CLUSTER,
+          type: 'circle',
+          source: SRC_REPORTS,
+          filter: ['has', 'point_count'],
+          paint: {
+            'circle-color': [
+              'step',
+              ['get', 'point_count'],
+              '#3B82F6', // blue for 2-4
+              5,
+              '#2563EB', // darker blue for 5-9
+              10,
+              '#1E40AF', // dark blue for 10+
+            ],
+            'circle-radius': [
+              'step',
+              ['get', 'point_count'],
+              25,
+              5,
+              30,
+              10,
+              35,
+            ],
+            'circle-stroke-width': 3,
+            'circle-stroke-color': '#ffffff',
+            'circle-opacity': 0.95,
+          },
+        });
+      }
 
-    // Observation circles (report_type = 'observation' or 'image_share')
+      // Cluster count labels
+      if (!map.getLayer(LYR_OBS_CLUSTER_COUNT)) {
+        map.addLayer({
+          id: LYR_OBS_CLUSTER_COUNT,
+          type: 'symbol',
+          source: SRC_REPORTS,
+          filter: ['has', 'point_count'],
+          layout: {
+            'text-field': '{point_count_abbreviated}',
+            'text-size': 14,
+            'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'],
+          },
+          paint: {
+            'text-color': '#ffffff',
+          },
+        });
+      }
+
+    // Observation circles (report_type = 'observation' or 'image_share') — unclustered
     if (!map.getLayer(LYR_OBS_CIRCLES)) {
       map.addLayer({
         id: LYR_OBS_CIRCLES,
         type: 'circle',
         source: SRC_REPORTS,
-        filter: ['any',
-          ['==', ['get', 'report_type'], 'observation'],
-          ['==', ['get', 'report_type'], 'image_share'],
+        filter: ['all',
+          ['!', ['has', 'point_count']],
+          ['any',
+            ['==', ['get', 'report_type'], 'observation'],
+            ['==', ['get', 'report_type'], 'image_share'],
+          ],
         ],
         paint: {
           'circle-radius': 14,
@@ -1379,67 +1440,13 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         });
 
         // --- Click handlers for GeoJSON layers ---
-        // Observation click → show popup
+        // Unclustered observation click
         map.on('click', LYR_OBS_CIRCLES, (e) => {
-          if (!e.features || !e.features[0]) return;
-          const props = e.features[0].properties;
-          if (!props) return;
-          const coords = (e.features[0].geometry as any).coordinates.slice() as [number, number];
-
-          const reportId = props.id;
-          const report = reportsRef.current.find((r) => r.id === reportId);
-          if (!report) return;
-
-          // Close previous popup
-          if (popupRef.current) {
-            popupRef.current.remove();
-            popupRef.current = null;
+          if (e.features && e.features[0]) {
+            const reportId = e.features[0].properties?.id;
+            const report = reportsRef.current.find((r) => r.id === reportId);
+            if (report) onObservationsClickRef.current?.([report]); // Pass as array for consistency
           }
-
-          // Format report type label
-          const typeLabels: Record<string, string> = {
-            observation: '🔍 Observation',
-            forecast: '🔮 Prévision',
-            image_share: '📸 Partage photo',
-          };
-          const typeLabel = typeLabels[report.report_type] || 'Observation';
-
-          // Format wind info
-          const windAvg = report.wind_speed_kmh != null ? Number(report.wind_speed_kmh) : null;
-          const windGust = report.wind_gust_kmh != null ? Number(report.wind_gust_kmh) : null;
-          const windDir = report.wind_direction != null ? report.wind_direction : null;
-          const dirLabel = windDir ? windDir : '—';
-
-          // Format timestamp
-          const created = report.created_at
-            ? new Date(report.created_at).toLocaleString('fr-FR', {
-                hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit',
-              })
-            : '—';
-
-          // Build HTML
-          const author = report.profiles?.display_name || report.profiles?.username || 'Anonyme';
-          const html = `
-            <div style="font-family:system-ui,-apple-system,sans-serif;font-size:13px;line-height:1.5;min-width:200px">
-              <div style="font-weight:700;font-size:14px;margin-bottom:2px">${typeLabel}</div>
-              <div style="color:#666;font-size:12px;margin-bottom:6px">👤 ${author}</div>
-              ${report.location_name ? `<div style="color:#666;font-size:12px;margin-bottom:6px">📍 ${report.location_name}</div>` : ''}
-              ${report.altitude_m != null ? `<div style="margin-bottom:2px">⛰️ ${report.altitude_m} m</div>` : ''}
-              ${windAvg != null ? `<div style="margin-bottom:2px">💨 Moy: <b>${Math.round(windAvg)} km/h</b></div>` : ''}
-              ${windGust != null ? `<div style="margin-bottom:2px">📈 Rafales: ${Math.round(windGust)} km/h</div>` : ''}
-              ${windDir != null ? `<div style="margin-bottom:2px">🧭 Direction: ${dirLabel}</div>` : ''}
-              ${report.description ? `<div style="margin:6px 0;padding:6px;background:#f5f5f5;border-radius:4px;font-size:12px;line-height:1.4">${report.description.substring(0, 100)}${report.description.length > 100 ? '...' : ''}</div>` : ''}
-              <div style="margin-bottom:6px;color:#666;font-size:11px">🕐 ${created}</div>
-            </div>
-          `;
-
-          const popup = new mb.Popup({ closeButton: true, maxWidth: '280px', offset: 12 })
-            .setLngLat(coords)
-            .setHTML(html)
-            .addTo(map);
-
-          popup.on('close', () => { popupRef.current = null; });
-          popupRef.current = popup;
         });
         // Forecast click → show popup
         map.on('click', LYR_FORECAST_CIRCLES, (e) => {
@@ -1543,6 +1550,44 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
 
               if (stories.length > 0) {
                 onStoryClickRef.current?.(stories);
+              }
+            }) as any
+          );
+        });
+
+        // Clustered observation click
+        map.on('click', LYR_OBS_CLUSTER, (e) => {
+          if (!e.features || !e.features[0]) return;
+          const clusterId = e.features[0].properties?.cluster_id;
+          if (clusterId === undefined) return;
+
+          const source = map.getSource(SRC_REPORTS) as mapboxgl.GeoJSONSource | undefined;
+          if (!source) return;
+
+          // Get all observations in this cluster
+          source.getClusterLeaves(
+            clusterId,
+            100, // limit to 100 observations per cluster
+            0, // offset
+            ((err: Error | null | undefined, features: GeoJSON.Feature[] | undefined) => {
+              if (err || !features) return;
+
+              // Extract report IDs and get full report objects
+              const reportIds = features
+                .map((f) => f.properties?.id)
+                .filter((id) => id);
+
+              const reports = reportIds
+                .map((id) => reportsRef.current.find((r) => r.id === id))
+                .filter((r) => r) as WeatherReport[];
+
+              // Sort by created_at DESC (newest first)
+              reports.sort((a, b) =>
+                new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+              );
+
+              if (reports.length > 0) {
+                onObservationsClickRef.current?.(reports);
               }
             }) as any
           );
@@ -1817,7 +1862,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         });
 
         // Pointer cursor on interactive layers
-        const interactiveLayers = [LYR_OBS_CIRCLES, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS, LYR_POI_CIRCLES, LYR_POI_LABELS, LYR_PIOUPIOU_CIRCLES, LYR_PIOUPIOU_LABELS, LYR_FFVL_CIRCLES, LYR_FFVL_LABELS, LYR_WINDS_MOBI_CIRCLES, LYR_WINDS_MOBI_LABELS, LYR_GEOSPHERE_CIRCLES, LYR_GEOSPHERE_LABELS, LYR_BRIGHTSKY_CIRCLES, LYR_BRIGHTSKY_LABELS, LYR_STORIES, LYR_STORIES_CLUSTER, LYR_MEETUP_CIRCLES, LYR_MEETUP_LABELS, 'parawaze-shuttle-label', 'parawaze-forecast-label'];
+        const interactiveLayers = [LYR_OBS_CIRCLES, LYR_OBS_CLUSTER, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS, LYR_POI_CIRCLES, LYR_POI_LABELS, LYR_PIOUPIOU_CIRCLES, LYR_PIOUPIOU_LABELS, LYR_FFVL_CIRCLES, LYR_FFVL_LABELS, LYR_WINDS_MOBI_CIRCLES, LYR_WINDS_MOBI_LABELS, LYR_GEOSPHERE_CIRCLES, LYR_GEOSPHERE_LABELS, LYR_BRIGHTSKY_CIRCLES, LYR_BRIGHTSKY_LABELS, LYR_STORIES, LYR_STORIES_CLUSTER, LYR_MEETUP_CIRCLES, LYR_MEETUP_LABELS, 'parawaze-shuttle-label', 'parawaze-forecast-label'];
         interactiveLayers.forEach((layerId) => {
           map.on('mouseenter', layerId, () => { map.getCanvas().style.cursor = 'pointer'; });
           map.on('mouseleave', layerId, () => { map.getCanvas().style.cursor = ''; });
