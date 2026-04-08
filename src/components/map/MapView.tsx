@@ -507,12 +507,8 @@ const LYR_MEETUP_CIRCLES = 'parawaze-meetup-circles';
 const LYR_MEETUP_LABELS = 'parawaze-meetup-labels';
 const SRC_STORIES = 'parawaze-stories';
 const LYR_STORIES_CIRCLES = 'parawaze-stories-circles';
-const LYR_STORIES_CLUSTER = 'parawaze-stories-cluster';
-const LYR_STORIES_CLUSTER_COUNT = 'parawaze-stories-cluster-count';
 const SRC_OBSERVATIONS = 'parawaze-observations';
 const LYR_OBSERVATIONS_CIRCLES = 'parawaze-observations-circles';
-const LYR_OBSERVATIONS_CLUSTER = 'parawaze-observations-cluster';
-const LYR_OBSERVATIONS_CLUSTER_COUNT = 'parawaze-observations-cluster-count';
 
 /* ------------------------------------------------------------------ */
 /*  Component                                                         */
@@ -1218,19 +1214,15 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         map.addSource(SRC_STORIES, {
           type: 'geojson',
           data: { type: 'FeatureCollection', features: [] },
-          cluster: true,
-          clusterRadius: 50,
-          clusterMaxZoom: 14,
         });
       }
 
-      // Story individual circles (non-clustered, pink)
+      // Story circles (pink)
       if (!map.getLayer(LYR_STORIES_CIRCLES)) {
         map.addLayer({
           id: LYR_STORIES_CIRCLES,
           type: 'circle',
           source: SRC_STORIES,
-          filter: ['!', ['has', 'point_count']],
           paint: {
             'circle-color': '#EC4899',
             'circle-radius': 10,
@@ -1242,39 +1234,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       }
 
       // Stories cluster circles (pink) — fixed size 20
-      if (!map.getLayer(LYR_STORIES_CLUSTER)) {
-        map.addLayer({
-          id: LYR_STORIES_CLUSTER,
-          type: 'circle',
-          source: SRC_STORIES,
-          filter: ['has', 'point_count'],
-          paint: {
-            'circle-color': '#EC4899',
-            'circle-radius': 20,
-            'circle-stroke-width': 2,
-            'circle-stroke-color': '#ffffff',
-            'circle-opacity': 0.9,
-          },
-        });
-      }
-
-      // Stories cluster count label
-      if (!map.getLayer(LYR_STORIES_CLUSTER_COUNT)) {
-        map.addLayer({
-          id: LYR_STORIES_CLUSTER_COUNT,
-          type: 'symbol',
-          source: SRC_STORIES,
-          filter: ['has', 'point_count'],
-          layout: {
-            'text-field': ['get', 'point_count_abbreviated'],
-            'text-size': 13,
-            'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
-          },
-          paint: {
-            'text-color': '#ffffff',
-          },
-        });
-      }
     } catch (e) {
       console.error('[ParaWaze] Failed to add stories source/layers:', e);
     }
@@ -1285,19 +1244,15 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         map.addSource(SRC_OBSERVATIONS, {
           type: 'geojson',
           data: { type: 'FeatureCollection', features: [] },
-          cluster: true,
-          clusterRadius: 50,
-          clusterMaxZoom: 14,
         });
       }
 
-      // Observation individual circles (non-clustered, colored by wind speed)
+      // Observation circles (colored by wind speed)
       if (!map.getLayer(LYR_OBSERVATIONS_CIRCLES)) {
         map.addLayer({
           id: LYR_OBSERVATIONS_CIRCLES,
           type: 'circle',
           source: SRC_OBSERVATIONS,
-          filter: ['!', ['has', 'point_count']],
           paint: {
             'circle-color': [
               'step',
@@ -1363,39 +1318,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       }
 
       // Observations cluster circles (blue) — fixed size 20
-      if (!map.getLayer(LYR_OBSERVATIONS_CLUSTER)) {
-        map.addLayer({
-          id: LYR_OBSERVATIONS_CLUSTER,
-          type: 'circle',
-          source: SRC_OBSERVATIONS,
-          filter: ['has', 'point_count'],
-          paint: {
-            'circle-color': '#3B82F6',
-            'circle-radius': 20,
-            'circle-stroke-width': 2,
-            'circle-stroke-color': '#ffffff',
-            'circle-opacity': 0.9,
-          },
-        });
-      }
-
-      // Observations cluster count label
-      if (!map.getLayer(LYR_OBSERVATIONS_CLUSTER_COUNT)) {
-        map.addLayer({
-          id: LYR_OBSERVATIONS_CLUSTER_COUNT,
-          type: 'symbol',
-          source: SRC_OBSERVATIONS,
-          filter: ['has', 'point_count'],
-          layout: {
-            'text-field': ['get', 'point_count_abbreviated'],
-            'text-size': 13,
-            'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
-          },
-          paint: {
-            'text-color': '#ffffff',
-          },
-        });
-      }
     } catch (e) {
       console.error('[ParaWaze] Failed to add observations source/layers:', e);
     }
@@ -1926,63 +1848,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         });
 
         // Stories cluster click
-        map.on('click', LYR_STORIES_CLUSTER, (e) => {
-          if (!e.features || !e.features[0]) return;
-          const clusterId = e.features[0].properties?.cluster_id;
-          if (clusterId === undefined) return;
-
-          const source = map.getSource(SRC_STORIES) as mapboxgl.GeoJSONSource | undefined;
-          if (!source) return;
-
-          source.getClusterLeaves(clusterId, 100, 0, ((err: Error | null | undefined, features: GeoJSON.Feature[] | undefined) => {
-            if (err || !features) return;
-
-            const storyIds = features
-              .map((f) => f.properties?.id)
-              .filter((id) => id);
-
-            const stories = storyIds
-              .map((id) => storiesRef.current.find((s) => s.id === id))
-              .filter((s) => s) as Story[];
-
-            stories.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-
-            if (stories.length > 0) {
-              onStoryClickRef.current?.(stories);
-            }
-          }) as any);
-        });
-
-        // Observations cluster click
-        map.on('click', LYR_OBSERVATIONS_CLUSTER, (e) => {
-          if (!e.features || !e.features[0]) return;
-          const clusterId = e.features[0].properties?.cluster_id;
-          if (clusterId === undefined) return;
-
-          const source = map.getSource(SRC_OBSERVATIONS) as mapboxgl.GeoJSONSource | undefined;
-          if (!source) return;
-
-          source.getClusterLeaves(clusterId, 100, 0, ((err: Error | null | undefined, features: GeoJSON.Feature[] | undefined) => {
-            if (err || !features) return;
-
-            const observationIds = features
-              .map((f) => f.properties?.id)
-              .filter((id) => id);
-
-            const observations = observationIds
-              .map((id) => reportsRef.current.find((r) => r.id === id))
-              .filter((r) => r) as WeatherReport[];
-
-            observations.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-
-            if (observations.length > 0) {
-              onObservationsClickRef.current?.(observations);
-            }
-          }) as any);
-        });
-
         // Pointer cursor on interactive layers
-        const interactiveLayers = [LYR_OBS_CIRCLES, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS, LYR_POI_CIRCLES, LYR_POI_LABELS, LYR_PIOUPIOU_CIRCLES, LYR_PIOUPIOU_LABELS, LYR_FFVL_CIRCLES, LYR_FFVL_LABELS, LYR_WINDS_MOBI_CIRCLES, LYR_WINDS_MOBI_LABELS, LYR_GEOSPHERE_CIRCLES, LYR_GEOSPHERE_LABELS, LYR_BRIGHTSKY_CIRCLES, LYR_BRIGHTSKY_LABELS, LYR_MEETUP_CIRCLES, LYR_MEETUP_LABELS, LYR_STORIES_CIRCLES, LYR_STORIES_CLUSTER, LYR_OBSERVATIONS_CIRCLES, LYR_OBSERVATIONS_CLUSTER, 'parawaze-shuttle-label', 'parawaze-forecast-label'];
+        const interactiveLayers = [LYR_OBS_CIRCLES, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS, LYR_POI_CIRCLES, LYR_POI_LABELS, LYR_PIOUPIOU_CIRCLES, LYR_PIOUPIOU_LABELS, LYR_FFVL_CIRCLES, LYR_FFVL_LABELS, LYR_WINDS_MOBI_CIRCLES, LYR_WINDS_MOBI_LABELS, LYR_GEOSPHERE_CIRCLES, LYR_GEOSPHERE_LABELS, LYR_BRIGHTSKY_CIRCLES, LYR_BRIGHTSKY_LABELS, LYR_MEETUP_CIRCLES, LYR_MEETUP_LABELS, LYR_STORIES_CIRCLES, LYR_OBSERVATIONS_CIRCLES, 'parawaze-shuttle-label', 'parawaze-forecast-label'];
         interactiveLayers.forEach((layerId) => {
           map.on('mouseenter', layerId, () => { map.getCanvas().style.cursor = 'pointer'; });
           map.on('mouseleave', layerId, () => { map.getCanvas().style.cursor = ''; });
@@ -2007,6 +1874,27 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   /* ---------------------------------------------------------------- */
   /*  Source data update helpers                                       */
   /* ---------------------------------------------------------------- */
+
+  function deduplicateObservations(features: GeoJSON.Feature[]): GeoJSON.Feature[] {
+    // Sort newest first
+    const sorted = [...features].sort((a, b) => {
+      const ta = new Date(a.properties?.created_at || 0).getTime();
+      const tb = new Date(b.properties?.created_at || 0).getTime();
+      return tb - ta;
+    });
+
+    const kept: GeoJSON.Feature[] = [];
+    for (const f of sorted) {
+      const [lng, lat] = (f.geometry as any).coordinates;
+      const tooClose = kept.some(k => {
+        const [klng, klat] = (k.geometry as any).coordinates;
+        return Math.abs(lng - klng) < 0.002 && Math.abs(lat - klat) < 0.002;
+      });
+      if (!tooClose) kept.push(f);
+    }
+    return kept;
+  }
+
   function updateReportSource(map: mapboxgl.Map, rpts: WeatherReport[]) {
     const src = map.getSource(SRC_REPORTS) as mapboxgl.GeoJSONSource | undefined;
     if (src) {
@@ -2024,7 +1912,9 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   function updateObservationsSource(map: mapboxgl.Map, reportList: WeatherReport[]) {
     const src = map.getSource(SRC_OBSERVATIONS) as mapboxgl.GeoJSONSource | undefined;
     if (src) {
-      src.setData({ type: 'FeatureCollection', features: buildObservationFeatures(reportList) });
+      const allFeatures = buildObservationFeatures(reportList);
+      const deduplicatedFeatures = deduplicateObservations(allFeatures);
+      src.setData({ type: 'FeatureCollection', features: deduplicatedFeatures });
     }
   }
 
