@@ -215,16 +215,24 @@ function buildMeetupFeatures(meetups: Meetup[]): GeoJSON.Feature[] {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Pioupiou GeoJSON                                                  */
+/*  Generic wind speed to color mapping                               */
 /* ------------------------------------------------------------------ */
-function getPioupiouColor(station: PioupiouStation): string {
-  if (!station.isOnline || station.windAvg == null) return '#9ca3af'; // gray
-  const w = station.windAvg;
+function getWindSpeedColor(windSpeed: number | null | undefined): string {
+  if (windSpeed == null) return '#9ca3af'; // gray — no data
+  const w = windSpeed;
   if (w < 15) return '#22c55e';  // green
   if (w < 25) return '#84cc16';  // yellow-green
   if (w < 35) return '#eab308';  // yellow
   if (w < 45) return '#f97316';  // orange
   return '#ef4444';              // red
+}
+
+/* ------------------------------------------------------------------ */
+/*  Pioupiou GeoJSON                                                  */
+/* ------------------------------------------------------------------ */
+function getPioupiouColor(station: PioupiouStation): string {
+  if (!station.isOnline || station.windAvg == null) return '#9ca3af'; // gray
+  return getWindSpeedColor(station.windAvg);
 }
 
 function buildPioupiouFeatures(stations: PioupiouStation[]): GeoJSON.Feature[] {
@@ -260,13 +268,7 @@ function buildPioupiouFeatures(stations: PioupiouStation[]): GeoJSON.Feature[] {
 /*  FFVL GeoJSON                                                      */
 /* ------------------------------------------------------------------ */
 function getFFVLColor(station: FFVLStation): string {
-  if (station.windAvg == null) return '#9ca3af'; // gray — no data
-  const w = station.windAvg;
-  if (w < 15) return '#22c55e';  // green
-  if (w < 25) return '#84cc16';  // yellow-green
-  if (w < 35) return '#eab308';  // yellow
-  if (w < 45) return '#f97316';  // orange
-  return '#ef4444';              // red
+  return getWindSpeedColor(station.windAvg);
 }
 
 function buildFFVLFeatures(stations: FFVLStation[]): GeoJSON.Feature[] {
@@ -433,6 +435,106 @@ function buildBrightSkyFeatures(stations: BrightSkyStation[]): GeoJSON.Feature[]
 }
 
 /* ------------------------------------------------------------------ */
+/*  Unified Station GeoJSON (clustering all 5 APIs)                   */
+/* ------------------------------------------------------------------ */
+function buildUnifiedStationFeatures(
+  pioupiou: PioupiouStation[],
+  ffvl: FFVLStation[],
+  windsMobi: WindsMobiStation[],
+  geosphere: GeoSphereStation[],
+  brightSky: BrightSkyStation[]
+): GeoJSON.Feature[] {
+  const features: GeoJSON.Feature[] = [];
+
+  // Pioupiou stations
+  pioupiou.forEach((s) => {
+    if (s.isOnline && s.windAvg != null) {
+      features.push({
+        type: 'Feature' as const,
+        geometry: { type: 'Point' as const, coordinates: [s.lng, s.lat] },
+        properties: {
+          id: s.id,
+          name: s.name,
+          source: 'pioupiou',
+          wind_speed: s.windAvg,
+          color: getWindSpeedColor(s.windAvg),
+        },
+      });
+    }
+  });
+
+  // FFVL stations
+  ffvl.forEach((s) => {
+    if (s.windAvg != null) {
+      features.push({
+        type: 'Feature' as const,
+        geometry: { type: 'Point' as const, coordinates: [s.lng, s.lat] },
+        properties: {
+          id: s.id,
+          name: s.name,
+          source: 'ffvl',
+          wind_speed: s.windAvg,
+          color: getWindSpeedColor(s.windAvg),
+        },
+      });
+    }
+  });
+
+  // winds.mobi stations
+  windsMobi.forEach((s) => {
+    if (s.windAvg != null) {
+      features.push({
+        type: 'Feature' as const,
+        geometry: { type: 'Point' as const, coordinates: [s.lng, s.lat] },
+        properties: {
+          id: s.id,
+          name: s.name,
+          source: 'windsMobi',
+          wind_speed: s.windAvg,
+          color: getWindSpeedColor(s.windAvg),
+        },
+      });
+    }
+  });
+
+  // GeoSphere stations
+  geosphere.forEach((s) => {
+    if (s.windAvg != null) {
+      features.push({
+        type: 'Feature' as const,
+        geometry: { type: 'Point' as const, coordinates: [s.lng, s.lat] },
+        properties: {
+          id: s.id,
+          name: s.name,
+          source: 'geosphere',
+          wind_speed: s.windAvg,
+          color: getWindSpeedColor(s.windAvg),
+        },
+      });
+    }
+  });
+
+  // BrightSky stations
+  brightSky.forEach((s) => {
+    if (s.wind_speed_kmh != null) {
+      features.push({
+        type: 'Feature' as const,
+        geometry: { type: 'Point' as const, coordinates: [s.lon, s.lat] },
+        properties: {
+          id: s.id,
+          name: s.name,
+          source: 'brightsky',
+          wind_speed: s.wind_speed_kmh,
+          color: getWindSpeedColor(s.wind_speed_kmh),
+        },
+      });
+    }
+  });
+
+  return features;
+}
+
+/* ------------------------------------------------------------------ */
 /*  Mixed GeoJSON (Stories + Observations for unified clustering)     */
 /* ------------------------------------------------------------------ */
 function buildMixedFeatures(stories: Story[], reports: WeatherReport[]): GeoJSON.Feature[] {
@@ -489,6 +591,12 @@ const LYR_SHUTTLE_ICONS = 'parawaze-shuttle-icons';
 const SRC_POIS = 'parawaze-pois';
 const LYR_POI_CIRCLES = 'parawaze-poi-circles';
 const LYR_POI_LABELS = 'parawaze-poi-labels';
+const SRC_STATIONS = 'parawaze-stations';
+const LYR_STATIONS_CLUSTER = 'parawaze-stations-cluster';
+const LYR_STATIONS_CLUSTER_COUNT = 'parawaze-stations-cluster-count';
+const LYR_STATIONS_UNCLUSTERED = 'parawaze-stations-unclustered';
+const LYR_STATIONS_ARROWS = 'parawaze-stations-arrows';
+const LYR_STATIONS_LABELS = 'parawaze-stations-labels';
 const SRC_PIOUPIOU = 'parawaze-pioupiou';
 const LYR_PIOUPIOU_CIRCLES = 'parawaze-pioupiou-circles';
 const LYR_PIOUPIOU_LABELS = 'parawaze-pioupiou-labels';
@@ -857,6 +965,86 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         },
         paint: {
           'text-color': '#ffffff',
+        },
+      });
+    }
+
+    // --- Unified Station source (clustering all 5 APIs) ---
+    if (!map.getSource(SRC_STATIONS)) {
+      map.addSource(SRC_STATIONS, {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] },
+        cluster: true,
+        clusterMaxZoom: 12,
+        clusterRadius: 60,
+        clusterProperties: {
+          max_wind_speed: ['max', ['get', 'wind_speed']],
+        },
+      });
+    }
+
+    // Clustered stations — color by worst wind condition
+    if (!map.getLayer(LYR_STATIONS_CLUSTER)) {
+      map.addLayer({
+        id: LYR_STATIONS_CLUSTER,
+        type: 'circle',
+        source: SRC_STATIONS,
+        filter: ['has', 'point_count'],
+        paint: {
+          'circle-color': [
+            'case',
+            ['>=', ['get', 'max_wind_speed'], 45],
+            '#ef4444', // red — danger
+            ['>=', ['get', 'max_wind_speed'], 35],
+            '#f97316', // orange — caution
+            ['>=', ['get', 'max_wind_speed'], 25],
+            '#eab308', // yellow
+            ['>=', ['get', 'max_wind_speed'], 15],
+            '#84cc16', // yellow-green
+            '#22c55e', // green — calm
+          ],
+          'circle-radius': [
+            'step',
+            ['get', 'point_count'],
+            20, 5, 28, 10, 36,
+          ],
+          'circle-stroke-width': 2,
+          'circle-stroke-color': '#ffffff',
+          'circle-opacity': 0.9,
+        },
+      });
+    }
+
+    // Cluster count label
+    if (!map.getLayer(LYR_STATIONS_CLUSTER_COUNT)) {
+      map.addLayer({
+        id: LYR_STATIONS_CLUSTER_COUNT,
+        type: 'symbol',
+        source: SRC_STATIONS,
+        filter: ['has', 'point_count'],
+        layout: {
+          'text-field': ['get', 'point_count_abbreviated'],
+          'text-size': 12,
+          'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'],
+        },
+        paint: {
+          'text-color': '#ffffff',
+        },
+      });
+    }
+
+    // Unclustered stations
+    if (!map.getLayer(LYR_STATIONS_UNCLUSTERED)) {
+      map.addLayer({
+        id: LYR_STATIONS_UNCLUSTERED,
+        type: 'circle',
+        source: SRC_STATIONS,
+        filter: ['!', ['has', 'point_count']],
+        paint: {
+          'circle-radius': 6,
+          'circle-color': ['get', 'color'],
+          'circle-stroke-width': 2,
+          'circle-stroke-color': '#ffffff',
         },
       });
     }
@@ -1476,6 +1664,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           updateReportSource(map, reportsRef.current);
           updateShuttleSource(map, shuttlesRef.current);
           updatePoiSource(map, poisRef.current);
+          updateStationSource(map, pioupiouRef.current, ffvlRef.current, windsMobiRef.current, geoSphereRef.current, brightSkyRef.current);
           updatePioupiouSource(map, pioupiouRef.current);
           updateFFVLSource(map, ffvlRef.current);
           updateWindsMobiSource(map, windsMobiRef.current);
@@ -1493,6 +1682,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
               const bounds = map.getBounds();
               // Skip stations if bounds unavailable or zoomed out too far (zoom < 7)
               if (!bounds || zoom < 7) {
+                updateStationSource(map, [], [], [], [], []);
                 updatePioupiouSource(map, []);
                 updateFFVLSource(map, []);
                 updateWindsMobiSource(map, []);
@@ -1507,6 +1697,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
                     return bounds.contains([lng, lat]);
                   });
                 };
+                updateStationSource(map, pioupiouRef.current, ffvlRef.current, windsMobiRef.current, geoSphereRef.current, brightSkyRef.current);
                 updatePioupiouSource(map, pioupiouRef.current);
                 updateFFVLSource(map, ffvlRef.current);
                 updateWindsMobiSource(map, windsMobiRef.current);
@@ -1785,6 +1976,66 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           }
         });
 
+        // Unified stations — cluster click to zoom in
+        map.on('click', LYR_STATIONS_CLUSTER, (e) => {
+          if (!e.features || !e.features[0]) return;
+          const clusterId = e.features[0].properties?.cluster_id;
+          if (clusterId === undefined) return;
+
+          const source = map.getSource(SRC_STATIONS) as mapboxgl.GeoJSONSource | undefined;
+          if (!source) return;
+
+          source.getClusterExpansionZoom(
+            clusterId,
+            ((err: Error | null | undefined, zoom: number | undefined) => {
+              if (err || zoom === undefined) return;
+
+              const lng = (e.features![0].geometry as any).coordinates[0];
+              const lat = (e.features![0].geometry as any).coordinates[1];
+
+              map.flyTo({
+                center: [lng, lat],
+                zoom,
+                duration: 400,
+              });
+            }) as any
+          );
+        });
+
+        // Unified stations — individual station click
+        map.on('click', LYR_STATIONS_UNCLUSTERED, (e) => {
+          if (!e.features || !e.features[0]) return;
+          const props = e.features[0].properties;
+          if (!props) return;
+          const coords = (e.features[0].geometry as any).coordinates.slice() as [number, number];
+
+          // Close previous popup
+          if (popupRef.current) {
+            popupRef.current.remove();
+            popupRef.current = null;
+          }
+
+          const windSpeed = props.wind_speed != null ? Number(props.wind_speed) : null;
+          const speedLabel = windSpeed != null ? `${Math.round(windSpeed)} km/h` : '—';
+          const sourceLabel = (props.source || 'station').toUpperCase();
+
+          const html = `
+            <div style="font-family:system-ui,-apple-system,sans-serif;font-size:13px;line-height:1.5;min-width:180px">
+              <div style="font-weight:700;font-size:14px;margin-bottom:6px">${props.name || 'Station'}</div>
+              <div style="margin-bottom:2px">💨 Vent: <b>${speedLabel}</b></div>
+              <div style="color:#666;font-size:12px;margin-bottom:6px">📡 ${sourceLabel}</div>
+            </div>
+          `;
+
+          const popup = new mb.Popup({ closeButton: true, maxWidth: '200px', offset: 12 })
+            .setLngLat(coords)
+            .setHTML(html)
+            .addTo(map);
+
+          popup.on('close', () => { popupRef.current = null; });
+          popupRef.current = popup;
+        });
+
         // Pioupiou click → show popup
         map.on('click', LYR_PIOUPIOU_CIRCLES, (e) => {
           if (!e.features || !e.features[0]) return;
@@ -2037,7 +2288,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         });
 
         // Pointer cursor on interactive layers
-        const interactiveLayers = [LYR_OBS_CIRCLES, LYR_OBS_CLUSTER, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS, LYR_POI_CIRCLES, LYR_POI_LABELS, LYR_PIOUPIOU_CIRCLES, LYR_PIOUPIOU_LABELS, LYR_FFVL_CIRCLES, LYR_FFVL_LABELS, LYR_WINDS_MOBI_CIRCLES, LYR_WINDS_MOBI_LABELS, LYR_GEOSPHERE_CIRCLES, LYR_GEOSPHERE_LABELS, LYR_BRIGHTSKY_CIRCLES, LYR_BRIGHTSKY_LABELS, LYR_STORIES, LYR_STORIES_CLUSTER, LYR_MIXED_CLUSTER, LYR_MEETUP_CIRCLES, LYR_MEETUP_LABELS, 'parawaze-shuttle-label', 'parawaze-forecast-label'];
+        const interactiveLayers = [LYR_OBS_CIRCLES, LYR_OBS_CLUSTER, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS, LYR_POI_CIRCLES, LYR_POI_LABELS, LYR_STATIONS_CLUSTER, LYR_STATIONS_UNCLUSTERED, LYR_PIOUPIOU_CIRCLES, LYR_PIOUPIOU_LABELS, LYR_FFVL_CIRCLES, LYR_FFVL_LABELS, LYR_WINDS_MOBI_CIRCLES, LYR_WINDS_MOBI_LABELS, LYR_GEOSPHERE_CIRCLES, LYR_GEOSPHERE_LABELS, LYR_BRIGHTSKY_CIRCLES, LYR_BRIGHTSKY_LABELS, LYR_STORIES, LYR_STORIES_CLUSTER, LYR_MIXED_CLUSTER, LYR_MEETUP_CIRCLES, LYR_MEETUP_LABELS, 'parawaze-shuttle-label', 'parawaze-forecast-label'];
         interactiveLayers.forEach((layerId) => {
           map.on('mouseenter', layerId, () => { map.getCanvas().style.cursor = 'pointer'; });
           map.on('mouseleave', layerId, () => { map.getCanvas().style.cursor = ''; });
@@ -2062,6 +2313,21 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   /* ---------------------------------------------------------------- */
   /*  Source data update helpers                                       */
   /* ---------------------------------------------------------------- */
+  function updateStationSource(
+    map: mapboxgl.Map,
+    pioupiouList: PioupiouStation[],
+    ffvlList: FFVLStation[],
+    windsMobiList: WindsMobiStation[],
+    geosphereList: GeoSphereStation[],
+    brightSkyList: BrightSkyStation[]
+  ) {
+    const src = map.getSource(SRC_STATIONS) as mapboxgl.GeoJSONSource | undefined;
+    if (src) {
+      const features = buildUnifiedStationFeatures(pioupiouList, ffvlList, windsMobiList, geosphereList, brightSkyList);
+      src.setData({ type: 'FeatureCollection', features });
+    }
+  }
+
   function updateReportSource(map: mapboxgl.Map, rpts: WeatherReport[]) {
     const src = map.getSource(SRC_REPORTS) as mapboxgl.GeoJSONSource | undefined;
     if (src) {
