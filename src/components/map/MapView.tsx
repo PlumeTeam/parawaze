@@ -494,9 +494,11 @@ const SRC_MIXED = 'parawaze-mixed';
 const LYR_MIXED_CLUSTER = 'parawaze-mixed-cluster';
 const LYR_MIXED_CLUSTER_COUNT = 'parawaze-mixed-cluster-count';
 const SRC_STORIES = 'parawaze-stories';
+const LYR_STORIES_CIRCLES = 'parawaze-stories-circles';
 const LYR_STORIES_CLUSTER = 'parawaze-stories-cluster';
 const LYR_STORIES_CLUSTER_COUNT = 'parawaze-stories-cluster-count';
 const SRC_OBSERVATIONS = 'parawaze-observations';
+const LYR_OBSERVATIONS_CIRCLES = 'parawaze-observations-circles';
 const LYR_OBSERVATIONS_CLUSTER = 'parawaze-observations-cluster';
 const LYR_OBSERVATIONS_CLUSTER_COUNT = 'parawaze-observations-cluster-count';
 
@@ -1276,6 +1278,23 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         });
       }
 
+      // Story individual circles (non-clustered, pink)
+      if (!map.getLayer(LYR_STORIES_CIRCLES)) {
+        map.addLayer({
+          id: LYR_STORIES_CIRCLES,
+          type: 'circle',
+          source: SRC_STORIES,
+          filter: ['!', ['has', 'point_count']],
+          paint: {
+            'circle-color': '#EC4899',
+            'circle-radius': 8,
+            'circle-stroke-width': 2,
+            'circle-stroke-color': '#ffffff',
+            'circle-opacity': 0.9,
+          },
+        });
+      }
+
       // Stories cluster circles (pink)
       if (!map.getLayer(LYR_STORIES_CLUSTER)) {
         map.addLayer({
@@ -1327,6 +1346,23 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           cluster: true,
           clusterRadius: 50,
           clusterMaxZoom: 14,
+        });
+      }
+
+      // Observation individual circles (non-clustered, blue)
+      if (!map.getLayer(LYR_OBSERVATIONS_CIRCLES)) {
+        map.addLayer({
+          id: LYR_OBSERVATIONS_CIRCLES,
+          type: 'circle',
+          source: SRC_OBSERVATIONS,
+          filter: ['!', ['has', 'point_count']],
+          paint: {
+            'circle-color': '#3B82F6',
+            'circle-radius': 8,
+            'circle-stroke-width': 2,
+            'circle-stroke-color': '#ffffff',
+            'circle-opacity': 0.9,
+          },
         });
       }
 
@@ -1768,6 +1804,28 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           popupRef.current = popup;
         });
 
+        // Individual story click
+        map.on('click', LYR_STORIES_CIRCLES, (e) => {
+          if (!e.features || !e.features[0]) return;
+          const storyId = e.features[0].properties?.id;
+          if (!storyId) return;
+          const story = storiesRef.current.find((s) => s.id === storyId);
+          if (story) {
+            onStoryClickRef.current?.([story]);
+          }
+        });
+
+        // Individual observation click
+        map.on('click', LYR_OBSERVATIONS_CIRCLES, (e) => {
+          if (!e.features || !e.features[0]) return;
+          const reportId = e.features[0].properties?.id;
+          if (!reportId) return;
+          const report = reportsRef.current.find((r) => r.id === reportId);
+          if (report) {
+            onReportClickRef.current(report);
+          }
+        });
+
         // Stories cluster click
         map.on('click', LYR_STORIES_CLUSTER, (e) => {
           if (!e.features || !e.features[0]) return;
@@ -1864,7 +1922,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         });
 
         // Pointer cursor on interactive layers
-        const interactiveLayers = [LYR_OBS_CIRCLES, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS, LYR_POI_CIRCLES, LYR_POI_LABELS, LYR_PIOUPIOU_CIRCLES, LYR_PIOUPIOU_LABELS, LYR_FFVL_CIRCLES, LYR_FFVL_LABELS, LYR_WINDS_MOBI_CIRCLES, LYR_WINDS_MOBI_LABELS, LYR_GEOSPHERE_CIRCLES, LYR_GEOSPHERE_LABELS, LYR_BRIGHTSKY_CIRCLES, LYR_BRIGHTSKY_LABELS, LYR_MEETUP_CIRCLES, LYR_MEETUP_LABELS, LYR_MIXED_CLUSTER, LYR_STORIES_CLUSTER, LYR_OBSERVATIONS_CLUSTER, 'parawaze-shuttle-label', 'parawaze-forecast-label'];
+        const interactiveLayers = [LYR_OBS_CIRCLES, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS, LYR_POI_CIRCLES, LYR_POI_LABELS, LYR_PIOUPIOU_CIRCLES, LYR_PIOUPIOU_LABELS, LYR_FFVL_CIRCLES, LYR_FFVL_LABELS, LYR_WINDS_MOBI_CIRCLES, LYR_WINDS_MOBI_LABELS, LYR_GEOSPHERE_CIRCLES, LYR_GEOSPHERE_LABELS, LYR_BRIGHTSKY_CIRCLES, LYR_BRIGHTSKY_LABELS, LYR_MEETUP_CIRCLES, LYR_MEETUP_LABELS, LYR_MIXED_CLUSTER, LYR_STORIES_CIRCLES, LYR_STORIES_CLUSTER, LYR_OBSERVATIONS_CIRCLES, LYR_OBSERVATIONS_CLUSTER, 'parawaze-shuttle-label', 'parawaze-forecast-label'];
         interactiveLayers.forEach((layerId) => {
           map.on('mouseenter', layerId, () => { map.getCanvas().style.cursor = 'pointer'; });
           map.on('mouseleave', layerId, () => { map.getCanvas().style.cursor = ''; });
@@ -2192,56 +2250,22 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   }, [meetups]);
 
   /* ---------------------------------------------------------------- */
-  /*  Story DOM markers                                               */
+  /*  Update stories GeoJSON source (clustering)                       */
   /* ---------------------------------------------------------------- */
-  // Create a stable string of story IDs to use as dependency
-  const storyIdsStr = useMemo(() => stories.map(s => s.id).join(','), [stories]);
-
   useEffect(() => {
-    if (!mapRef.current || !mbRef.current) return;
-    const mb = mbRef.current;
-
-    storyMarkersRef.current.forEach((m) => m.remove());
-    storyMarkersRef.current = [];
-
-    stories.forEach((story) => {
-      if (!story.location) return;
-      const coords = story.location.coordinates;
-      if (!coords || coords.length < 2) return;
-
-      const el = document.createElement('div');
-      el.className = 'parawaze-story-marker';
-      el.style.cssText = `
-        width: 38px;
-        height: 38px;
-        border-radius: 50%;
-        background: linear-gradient(135deg, #8B5CF6, #EC4899);
-        border: 3px solid white;
-        box-shadow: 0 2px 10px rgba(139,92,246,0.5);
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: transform 0.2s;
-        animation: story-pulse 2s ease-in-out infinite;
-      `;
-      el.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="white"><polygon points="5 3 19 12 5 21 5 3"/></svg>`;
-
-      el.addEventListener('mouseenter', () => { el.style.transform = 'scale(1.15)'; });
-      el.addEventListener('mouseleave', () => { el.style.transform = 'scale(1)'; });
-
-      const marker = new mb.Marker({ element: el })
-        .setLngLat([coords[0], coords[1]])
-        .addTo(mapRef.current!);
-
-      el.addEventListener('click', (e) => {
-        e.stopPropagation();
-        onStoryClickRef.current?.([story]);
-      });
-
-      storyMarkersRef.current.push(marker);
-    });
-  }, [storyIdsStr]); // Depend on story IDs string to prevent unnecessary recreations when stories array reference changes
+    const map = mapRef.current;
+    if (!map) return;
+    const doUpdate = () => {
+      if (map.getSource(SRC_STORIES)) {
+        updateStoriesSource(map, stories);
+      }
+    };
+    if (map.isStyleLoaded()) {
+      doUpdate();
+    } else {
+      map.once('idle', doUpdate);
+    }
+  }, [stories]); // Only update when stories array changes
 
   // Update mixed source (stories + observations clustering) when stories change
   useEffect(() => {
