@@ -809,7 +809,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         type: 'circle',
         source: SRC_PIOUPIOU,
         paint: {
-          'circle-radius': 10,
+          'circle-radius': 12,
           'circle-color': ['get', 'color'],
           'circle-stroke-width': 2,
           'circle-stroke-color': '#ffffff',
@@ -849,8 +849,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         source: SRC_PIOUPIOU,
         filter: ['!=', ['get', 'wind_arrow_angle'], -1],
         layout: {
-          'text-field': '▲',
-          'text-size': 12,
+          'text-field': '➤',
+          'text-size': 15,
           'text-rotate': ['get', 'wind_arrow_angle'],
           'text-allow-overlap': true,
           'text-ignore-placement': true,
@@ -883,7 +883,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         type: 'circle',
         source: SRC_FFVL,
         paint: {
-          'circle-radius': 10,
+          'circle-radius': 12,
           'circle-color': ['get', 'color'],
           'circle-stroke-width': 2,
           'circle-stroke-color': '#ffffff',
@@ -923,8 +923,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         source: SRC_FFVL,
         filter: ['!=', ['get', 'wind_arrow_angle'], -1],
         layout: {
-          'text-field': '▲',
-          'text-size': 12,
+          'text-field': '➤',
+          'text-size': 15,
           'text-rotate': ['get', 'wind_arrow_angle'],
           'text-allow-overlap': true,
           'text-ignore-placement': true,
@@ -957,7 +957,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         type: 'circle',
         source: SRC_WINDS_MOBI,
         paint: {
-          'circle-radius': 10,
+          'circle-radius': 12,
           'circle-color': ['get', 'color'],
           'circle-stroke-width': 2,
           'circle-stroke-color': '#ffffff',
@@ -997,8 +997,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         source: SRC_WINDS_MOBI,
         filter: ['!=', ['get', 'wind_arrow_angle'], -1],
         layout: {
-          'text-field': '▲',
-          'text-size': 12,
+          'text-field': '➤',
+          'text-size': 15,
           'text-rotate': ['get', 'wind_arrow_angle'],
           'text-allow-overlap': true,
           'text-ignore-placement': true,
@@ -1039,7 +1039,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         type: 'circle',
         source: SRC_GEOSPHERE,
         paint: {
-          'circle-radius': 10,
+          'circle-radius': 12,
           'circle-color': ['get', 'color'],
           'circle-stroke-width': 2,
           'circle-stroke-color': '#ffffff',
@@ -1055,7 +1055,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         type: 'circle',
         source: SRC_BRIGHTSKY,
         paint: {
-          'circle-radius': 10,
+          'circle-radius': 12,
           'circle-color': ['get', 'color'],
           'circle-stroke-width': 2,
           'circle-stroke-color': '#ffffff',
@@ -1118,8 +1118,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         source: SRC_GEOSPHERE,
         filter: ['!=', ['get', 'wind_arrow_angle'], -1],
         layout: {
-          'text-field': '▲',
-          'text-size': 12,
+          'text-field': '➤',
+          'text-size': 15,
           'text-rotate': ['get', 'wind_arrow_angle'],
           'text-allow-overlap': true,
           'text-ignore-placement': true,
@@ -1141,8 +1141,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         source: SRC_BRIGHTSKY,
         filter: ['!=', ['get', 'wind_arrow_angle'], -1],
         layout: {
-          'text-field': '▲',
-          'text-size': 12,
+          'text-field': '➤',
+          'text-size': 15,
           'text-rotate': ['get', 'wind_arrow_angle'],
           'text-allow-overlap': true,
           'text-ignore-placement': true,
