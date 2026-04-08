@@ -5,8 +5,9 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { useAuth } from '@/hooks/useAuth';
 import { useMeetups } from '@/hooks/useMeetups';
+import { useFriends } from '@/hooks/useFriends';
 import LoadingSpinner from '@/components/shared/LoadingSpinner';
-import { ArrowLeft, MapPin, Users, Globe, Lock, Calendar } from 'lucide-react';
+import { ArrowLeft, MapPin, Users, Globe, Lock, Calendar, Search, X } from 'lucide-react';
 import {
   MAPBOX_TOKEN,
   MAP_STYLES,
@@ -22,6 +23,7 @@ const MapPicker = dynamic(() => import('./MapPicker'), { ssr: false });
 function NewMeetupForm() {
   const { user, loading: authLoading } = useAuth();
   const { createMeetup } = useMeetups();
+  const { friends, loading: friendsLoading } = useFriends();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -35,6 +37,8 @@ function NewMeetupForm() {
   const [meetingTime, setMeetingTime] = useState('');
   const [visibility, setVisibility] = useState<'public' | 'friends_only'>('public');
   const [maxParticipants, setMaxParticipants] = useState(10);
+  const [selectedFriends, setSelectedFriends] = useState<string[]>([]);
+  const [friendSearch, setFriendSearch] = useState('');
   const [showMap, setShowMap] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -245,7 +249,10 @@ function NewMeetupForm() {
           <div className="flex gap-3">
             <button
               type="button"
-              onClick={() => setVisibility('public')}
+              onClick={() => {
+                setVisibility('public');
+                setSelectedFriends([]);
+              }}
               className="flex-1 py-3 rounded-xl border-2 flex items-center justify-center gap-2 text-sm font-semibold transition-all"
               style={{
                 borderColor: visibility === 'public' ? '#3A3A3A' : '#E5E7EB',
@@ -271,6 +278,85 @@ function NewMeetupForm() {
             </button>
           </div>
         </div>
+
+        {/* Friends selection — only show when friends_only */}
+        {visibility === 'friends_only' && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              <Users size={14} className="inline mr-1 text-purple-500" />
+              Inviter des amis
+            </label>
+
+            {/* Search friends */}
+            <div className="relative mb-3">
+              <Search size={16} className="absolute left-3 top-3 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Chercher des amis..."
+                value={friendSearch}
+                onChange={(e) => setFriendSearch(e.target.value.toLowerCase())}
+                className="w-full pl-10 pr-4 py-2.5 bg-white rounded-xl border border-gray-200 text-gray-900 placeholder-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-gray-300"
+              />
+            </div>
+
+            {/* Friends list */}
+            <div className="space-y-2 max-h-48 overflow-y-auto">
+              {friendsLoading ? (
+                <div className="text-xs text-gray-500 text-center py-4">Chargement des amis...</div>
+              ) : friends.length === 0 ? (
+                <div className="text-xs text-gray-500 text-center py-4">Aucun ami trouvé</div>
+              ) : (
+                friends
+                  .filter(f => !friendSearch || f.profiles?.display_name?.toLowerCase().includes(friendSearch) || f.profiles?.username?.toLowerCase().includes(friendSearch))
+                  .map((friend) => (
+                    <label key={friend.id} className="flex items-center gap-3 p-2.5 rounded-lg bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={selectedFriends.includes(friend.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedFriends([...selectedFriends, friend.id]);
+                          } else {
+                            setSelectedFriends(selectedFriends.filter(id => id !== friend.id));
+                          }
+                        }}
+                        className="w-4 h-4 rounded cursor-pointer"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">
+                          {friend.profiles?.display_name || friend.profiles?.username || 'Utilisateur'}
+                        </p>
+                        <p className="text-xs text-gray-500 truncate">
+                          @{friend.profiles?.username}
+                        </p>
+                      </div>
+                    </label>
+                  ))
+              )}
+            </div>
+
+            {/* Selected friends display */}
+            {selectedFriends.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {selectedFriends.map((friendId) => {
+                  const friend = friends.find(f => f.id === friendId);
+                  return friend ? (
+                    <div key={friendId} className="flex items-center gap-1.5 bg-purple-100 text-purple-700 px-3 py-1.5 rounded-full text-xs font-medium">
+                      <span>{friend.profiles?.display_name || friend.profiles?.username}</span>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedFriends(selectedFriends.filter(id => id !== friendId))}
+                        className="hover:opacity-60"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ) : null;
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Error */}
         {error && (

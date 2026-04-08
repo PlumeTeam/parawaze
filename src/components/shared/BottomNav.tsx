@@ -162,7 +162,7 @@ export default function BottomNav({ onCreateReport, onCameraOpen }: BottomNavPro
               <button
                 onClick={() => {
                   setCommunauteMenuOpen(false);
-                  router.push('/meetup');
+                  router.push('/meetup/pick-location');
                 }}
                 className="flex-1 flex flex-col items-center gap-1 px-2 py-1.5 rounded-lg hover:bg-gray-50 transition-colors"
               >
