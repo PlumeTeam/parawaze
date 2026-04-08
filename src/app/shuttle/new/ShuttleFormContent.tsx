@@ -144,7 +144,7 @@ export default function ShuttleFormContent() {
   if (!user) return null;
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20 overflow-y-auto">
+    <div className="min-h-screen bg-gray-50 pb-28 overflow-y-auto">
       {/* Header */}
       <header className="bg-white shadow-sm sticky top-0 z-30 safe-area-top">
         <div className="flex items-center gap-3 px-4 py-3">

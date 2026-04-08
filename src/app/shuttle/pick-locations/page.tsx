@@ -198,7 +198,7 @@ function PickLocationsContent() {
   const canValidate = departure !== null && arrival !== null;
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden flex flex-col">
+    <div className="relative w-screen h-screen overflow-y-auto flex flex-col">
       {/* Map */}
       <div className="flex-1 relative" style={{ minHeight: 0 }}>
         <div ref={mapContainer} className="absolute inset-0" style={{ height: '100%', width: '100%' }} />
