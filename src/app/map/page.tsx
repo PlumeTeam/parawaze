@@ -274,15 +274,28 @@ export default function MapPage() {
 
         <MapView
           ref={mapRef}
+          dayFilter={selectedDay}
           reports={reports}
-          stories={stories}
+          stories={selectedDay === 'today' ? stories : []}
           pois={pois}
           pioupiouStations={pioupiouStations}
           ffvlStations={ffvlStations}
           windsMobiStations={windsMobiStations}
           geoSphereStations={geoSphereStations}
           brightSkyStations={brightSkyStations}
-          meetups={meetups}
+          meetups={meetups.filter(m => {
+            if (!m.meeting_time) return false;
+            const meetTime = new Date(m.meeting_time);
+            const now = new Date();
+            const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            const tomorrowStart = new Date(todayStart); tomorrowStart.setDate(tomorrowStart.getDate() + 1);
+            const dayAfter = new Date(tomorrowStart); dayAfter.setDate(dayAfter.getDate() + 1);
+            const yesterdayStart = new Date(todayStart); yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+            if (selectedDay === 'today') return meetTime >= todayStart && meetTime < tomorrowStart;
+            if (selectedDay === 'tomorrow') return meetTime >= tomorrowStart && meetTime < dayAfter;
+            if (selectedDay === 'yesterday') return meetTime >= yesterdayStart && meetTime < todayStart;
+            return true;
+          })}
           onPoiClick={handlePoiClick}
           onStoryClick={handleStoryClick}
           onMeetupClick={handleMeetupClick}

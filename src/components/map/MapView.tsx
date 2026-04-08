@@ -31,6 +31,7 @@ export interface MapViewHandle {
 }
 
 interface MapViewProps {
+  dayFilter?: 'yesterday' | 'today' | 'tomorrow';
   reports: WeatherReport[];
   shuttles?: Shuttle[];
   pois?: Poi[];
@@ -516,7 +517,7 @@ const LYR_OBSERVATIONS_CIRCLES = 'parawaze-observations-circles';
 /*  Component                                                         */
 /* ------------------------------------------------------------------ */
 const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
-  { reports, shuttles = [], stories = [], pois = [], pioupiouStations = [], ffvlStations = [], windsMobiStations = [], geoSphereStations = [], brightSkyStations = [], meetups = [], onShuttleClick, onPoiClick, onStoryClick, onMeetupClick, onMapMove, onMarkerPlaced, onObservationsClick, onMapLoaded, enableAutocenter = true },
+  { dayFilter = 'today', reports, shuttles = [], stories = [], pois = [], pioupiouStations = [], ffvlStations = [], windsMobiStations = [], geoSphereStations = [], brightSkyStations = [], meetups = [], onShuttleClick, onPoiClick, onStoryClick, onMeetupClick, onMapMove, onMarkerPlaced, onObservationsClick, onMapLoaded, enableAutocenter = true },
   ref,
 ) {
   const mapContainer = useRef<HTMLDivElement>(null);
@@ -566,6 +567,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   onObservationsClickRef.current = onObservationsClick;
   const onMapLoadedRef = useRef(onMapLoaded);
   onMapLoadedRef.current = onMapLoaded;
+  const dayFilterRef = useRef<'yesterday' | 'today' | 'tomorrow'>(dayFilter);
+  dayFilterRef.current = dayFilter;
   const popupRef = useRef<mapboxgl.Popup | null>(null);
 
   // Expose getCenter and getMarkerPosition to parent via ref
@@ -1364,6 +1367,78 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   }, []);
 
   /* ---------------------------------------------------------------- */
+  /*  Apply day filter styling to layers                              */
+  /* ---------------------------------------------------------------- */
+  const applyDayFilter = useCallback((map: mapboxgl.Map) => {
+    const filter = dayFilterRef.current;
+
+    // Hide stories and observations when not showing today
+    const hideStories = filter !== 'today';
+    const hideObservations = filter !== 'today';
+
+    // Set visibility for story layers
+    [LYR_STORIES_CIRCLES, LYR_STORIES_CLUSTERS, LYR_STORIES_CLUSTER_COUNT].forEach((layer) => {
+      try {
+        if (map.getLayer(layer)) {
+          map.setLayoutProperty(layer, 'visibility', hideStories ? 'none' : 'visible');
+        }
+      } catch (e) {
+        // Layer might not exist yet
+      }
+    });
+
+    // Set visibility for observation layers
+    [LYR_OBSERVATIONS_CIRCLES, 'parawaze-observations-wind-arrows'].forEach((layer) => {
+      try {
+        if (map.getLayer(layer)) {
+          map.setLayoutProperty(layer, 'visibility', hideObservations ? 'none' : 'visible');
+        }
+      } catch (e) {
+        // Layer might not exist yet
+      }
+    });
+
+    // Gray out stations when not showing today
+    const shouldGrayStations = filter !== 'today';
+    const grayColor = '#cccccc';
+    const stationLayers = [
+      { circles: LYR_PIOUPIOU_CIRCLES, labels: LYR_PIOUPIOU_LABELS, arrows: LYR_PIOUPIOU_ARROWS },
+      { circles: 'parawaze-ffvl-circles', labels: 'parawaze-ffvl-labels', arrows: 'parawaze-ffvl-arrows' },
+      { circles: 'parawaze-winds-mobi-circles', labels: 'parawaze-winds-mobi-labels', arrows: 'parawaze-winds-mobi-arrows' },
+      { circles: 'parawaze-geosphere-circles', labels: 'parawaze-geosphere-labels', arrows: 'parawaze-geosphere-arrows' },
+      { circles: 'parawaze-brightsky-circles', labels: 'parawaze-brightsky-labels', arrows: 'parawaze-brightsky-arrows' },
+    ];
+
+    stationLayers.forEach(({ circles, labels, arrows }) => {
+      try {
+        if (map.getLayer(circles)) {
+          if (shouldGrayStations) {
+            map.setPaintProperty(circles, 'circle-color', grayColor);
+            // Hide labels and arrows when grayed out
+            if (map.getLayer(labels)) {
+              map.setLayoutProperty(labels, 'visibility', 'none');
+            }
+            if (map.getLayer(arrows)) {
+              map.setLayoutProperty(arrows, 'visibility', 'none');
+            }
+          } else {
+            // Restore original colors by updating the data
+            // For now, we'll just show them — the actual colors are set by updateSource functions
+            if (map.getLayer(labels)) {
+              map.setLayoutProperty(labels, 'visibility', 'visible');
+            }
+            if (map.getLayer(arrows)) {
+              map.setLayoutProperty(arrows, 'visibility', 'visible');
+            }
+          }
+        }
+      } catch (e) {
+        // Layer might not exist yet
+      }
+    });
+  }, []);
+
+  /* ---------------------------------------------------------------- */
   /*  Initialize map                                                  */
   /* ---------------------------------------------------------------- */
   useEffect(() => {
@@ -1422,6 +1497,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           updateGeoSphereSource(map, geoSphereRef.current);
           updateBrightSkySource(map, brightSkyRef.current);
           updateMeetupSource(map, meetupsRef.current);
+          // Apply day filter styling
+          applyDayFilter(map);
           setMapLoaded(true);
           // Call onMapLoaded callback to notify parent that map is ready
           onMapLoadedRef.current?.();
@@ -1444,6 +1521,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           updateGeoSphereSource(map, geoSphereRef.current);
           updateBrightSkySource(map, brightSkyRef.current);
           updateMeetupSource(map, meetupsRef.current);
+          // Apply day filter styling
+          applyDayFilter(map);
           // Re-add shuttle route lines
           addShuttleRouteLines(map, shuttlesRef.current);
           // Call onMapLoaded callback to notify parent that map is ready
@@ -2278,6 +2357,20 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       map.once('idle', doUpdate);
     }
   }, [stories]);
+
+  // Apply day filter styling when dayFilter changes
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const doUpdate = () => {
+      applyDayFilter(map);
+    };
+    if (map.isStyleLoaded()) {
+      doUpdate();
+    } else {
+      map.once('idle', doUpdate);
+    }
+  }, [dayFilter, applyDayFilter]);
 
   /* ---------------------------------------------------------------- */
   /*  Utility callbacks                                               */
