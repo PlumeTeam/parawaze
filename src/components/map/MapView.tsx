@@ -1327,7 +1327,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
               ${report.altitude_m != null ? `<div style="margin-bottom:2px">⛰️ ${report.altitude_m} m</div>` : ''}
               ${windAvg != null ? `<div style="margin-bottom:2px">💨 Moy: <b>${Math.round(windAvg)} km/h</b></div>` : ''}
               ${windGust != null ? `<div style="margin-bottom:2px">📈 Rafales: ${Math.round(windGust)} km/h</div>` : ''}
-              ${windDir !== '—' ? `<div style="margin-bottom:2px">🧭 Direction: ${dirLabel}</div>` : ''}
+              ${windDir != null ? `<div style="margin-bottom:2px">🧭 Direction: ${dirLabel}</div>` : ''}
               ${report.description ? `<div style="margin:6px 0;padding:6px;background:#f5f5f5;border-radius:4px;font-size:12px;line-height:1.4">${report.description.substring(0, 100)}${report.description.length > 100 ? '...' : ''}</div>` : ''}
               <div style="margin-bottom:6px;color:#666;font-size:11px">🕐 ${created}</div>
             </div>
@@ -1384,7 +1384,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
               ${report.altitude_m != null ? `<div style="margin-bottom:2px">⛰️ ${report.altitude_m} m</div>` : ''}
               ${windAvg != null ? `<div style="margin-bottom:2px">💨 Moy: <b>${Math.round(windAvg)} km/h</b></div>` : ''}
               ${windGust != null ? `<div style="margin-bottom:2px">📈 Rafales: ${Math.round(windGust)} km/h</div>` : ''}
-              ${windDir !== '—' ? `<div style="margin-bottom:2px">🧭 Direction: ${dirLabel}</div>` : ''}
+              ${windDir != null ? `<div style="margin-bottom:2px">🧭 Direction: ${dirLabel}</div>` : ''}
               ${report.description ? `<div style="margin:6px 0;padding:6px;background:#f5f5f5;border-radius:4px;font-size:12px;line-height:1.4">${report.description.substring(0, 100)}${report.description.length > 100 ? '...' : ''}</div>` : ''}
               <div style="margin-bottom:6px;color:#666;font-size:11px">🕐 ${created}</div>
             </div>
