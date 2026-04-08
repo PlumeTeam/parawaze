@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname, useRouter } from 'next/navigation';
-import { Truck, BarChart2 } from 'lucide-react';
+import { Truck } from 'lucide-react';
 
 interface BottomNavProps {
   /** When provided, the "Observation" button calls this instead of navigating directly */
@@ -15,7 +15,7 @@ export default function BottomNav({ onCreateReport, onCameraOpen }: BottomNavPro
   const router = useRouter();
 
   const isNavetteActive = pathname.startsWith('/shuttle');
-  const isAnalyseActive = pathname.startsWith('/analyse');
+  const isRdvActive = pathname.startsWith('/meetup');
   const isObservationActive = pathname.startsWith('/report');
 
   const handleObservation = () => {
@@ -163,27 +163,38 @@ export default function BottomNav({ onCreateReport, onCameraOpen }: BottomNavPro
           </div>
         </div>
 
-        {/* RIGHT — Analyse (secondary) */}
+        {/* RIGHT — RDV (secondary) */}
         <button
-          onClick={() => router.push('/analyse')}
+          onClick={() => router.push('/meetup')}
           className="flex flex-col items-center justify-center gap-1 w-16 transition-opacity active:opacity-60"
         >
-          <BarChart2
+          <svg
             width={22}
             height={22}
-            strokeWidth={1.8}
-            stroke={isAnalyseActive ? '#1C1C1C' : '#C5C5C5'}
+            viewBox="0 0 24 24"
             fill="none"
-          />
+            stroke={isRdvActive ? '#3A3A3A' : '#C5C5C5'}
+            strokeWidth={1.8}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+            <line x1="16" y1="2" x2="16" y2="6" />
+            <line x1="8" y1="2" x2="8" y2="6" />
+            <line x1="3" y1="10" x2="21" y2="10" />
+            <circle cx="9" cy="16" r="1.5" fill={isRdvActive ? '#3A3A3A' : '#C5C5C5'} stroke="none" />
+            <circle cx="15" cy="16" r="1.5" fill={isRdvActive ? '#3A3A3A' : '#C5C5C5'} stroke="none" />
+            <path d="M9 13.5 Q12 12 15 13.5" />
+          </svg>
           <span
             className="font-medium"
             style={{
               fontSize: 10,
-              color: isAnalyseActive ? '#1C1C1C' : '#C5C5C5',
+              color: isRdvActive ? '#3A3A3A' : '#C5C5C5',
               lineHeight: 1,
             }}
           >
-            Analyse
+            RDV
           </span>
         </button>
 
