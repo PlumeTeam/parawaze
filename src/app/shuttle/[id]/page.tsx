@@ -158,7 +158,7 @@ export default function ShuttleDetailPage() {
     setError(null);
     try {
       await cancelShuttle(shuttle.id);
-      router.push('/shuttle');
+      router.push('/shuttle/pick-locations');
     } catch (err: any) {
       setError(err.message);
       setActionLoading(false);

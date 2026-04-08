@@ -44,7 +44,7 @@ export default function BottomNav({ onCreateReport, onCameraOpen }: BottomNavPro
 
         {/* LEFT — Navette (secondary) */}
         <button
-          onClick={() => router.push('/shuttle')}
+          onClick={() => router.push('/shuttle/pick-locations')}
           className="flex flex-col items-center justify-center gap-1 w-16 transition-opacity active:opacity-60"
         >
           <Truck
