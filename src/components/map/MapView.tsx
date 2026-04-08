@@ -436,168 +436,6 @@ function buildBrightSkyFeatures(stations: BrightSkyStation[]): GeoJSON.Feature[]
 }
 
 /* ------------------------------------------------------------------ */
-/*  Station deduplication (remove duplicates from multiple API sources) */
-/* ------------------------------------------------------------------ */
-function deduplicateStations(features: GeoJSON.Feature[]): GeoJSON.Feature[] {
-  // Source priority: FFVL > winds.mobi > Pioupiou > GeoSphere > BrightSky
-  const sourcePriority: Record<string, number> = {
-    ffvl: 5,
-    'windsMobi': 4,
-    pioupiou: 3,
-    geosphere: 2,
-    brightsky: 1,
-  };
-
-  // Sort by source priority (higher priority first)
-  const sorted = [...features].sort((a, b) => {
-    const priorityA = sourcePriority[a.properties?.source as string] ?? 0;
-    const priorityB = sourcePriority[b.properties?.source as string] ?? 0;
-    return priorityB - priorityA;
-  });
-
-  const kept: GeoJSON.Feature[] = [];
-  const threshold = 0.0015; // ~150 meters in degrees
-
-  for (const feature of sorted) {
-    const coords = (feature.geometry as any).coordinates as [number, number];
-    const [lng, lat] = coords;
-    const name = (feature.properties?.name as string || '').toLowerCase().trim();
-
-    // Check if this is a duplicate of an already-kept feature
-    const isDuplicate = kept.some((keptFeature) => {
-      const kCoords = (keptFeature.geometry as any).coordinates as [number, number];
-      const [kLng, kLat] = kCoords;
-      const kName = (keptFeature.properties?.name as string || '').toLowerCase().trim();
-
-      // Duplicate if coordinates are close
-      const coordinateMatch = Math.abs(lng - kLng) < threshold && Math.abs(lat - kLat) < threshold;
-
-      // Also check for name similarity (same or very close)
-      const nameMatch = name && kName && (name === kName || name.includes(kName) || kName.includes(name));
-
-      return coordinateMatch || nameMatch;
-    });
-
-    if (!isDuplicate) {
-      kept.push(feature);
-    }
-  }
-
-  return kept;
-}
-
-/* ------------------------------------------------------------------ */
-/*  Unified Station GeoJSON (clustering all 5 APIs)                   */
-/* ------------------------------------------------------------------ */
-function buildUnifiedStationFeatures(
-  pioupiou: PioupiouStation[],
-  ffvl: FFVLStation[],
-  windsMobi: WindsMobiStation[],
-  geosphere: GeoSphereStation[],
-  brightSky: BrightSkyStation[]
-): GeoJSON.Feature[] {
-  const features: GeoJSON.Feature[] = [];
-
-  // Pioupiou stations
-  pioupiou.forEach((s) => {
-    if (s.isOnline && s.windAvg != null) {
-      features.push({
-        type: 'Feature' as const,
-        geometry: { type: 'Point' as const, coordinates: [s.lng, s.lat] },
-        properties: {
-          id: s.id,
-          name: s.name,
-          source: 'pioupiou',
-          wind_speed: s.windAvg,
-          speed: Math.round(s.windAvg),
-          wind_direction: s.windHeading ?? null,
-          color: getWindSpeedColor(s.windAvg),
-        },
-      });
-    }
-  });
-
-  // FFVL stations
-  ffvl.forEach((s) => {
-    if (s.windAvg != null) {
-      features.push({
-        type: 'Feature' as const,
-        geometry: { type: 'Point' as const, coordinates: [s.lng, s.lat] },
-        properties: {
-          id: s.id,
-          name: s.name,
-          source: 'ffvl',
-          wind_speed: s.windAvg,
-          speed: Math.round(s.windAvg),
-          wind_direction: s.windDirection ?? null,
-          color: getWindSpeedColor(s.windAvg),
-        },
-      });
-    }
-  });
-
-  // winds.mobi stations
-  windsMobi.forEach((s) => {
-    if (s.windAvg != null) {
-      features.push({
-        type: 'Feature' as const,
-        geometry: { type: 'Point' as const, coordinates: [s.lng, s.lat] },
-        properties: {
-          id: s.id,
-          name: s.name,
-          source: 'windsMobi',
-          wind_speed: s.windAvg,
-          speed: Math.round(s.windAvg),
-          wind_direction: s.windDirection ?? null,
-          color: getWindSpeedColor(s.windAvg),
-        },
-      });
-    }
-  });
-
-  // GeoSphere stations
-  geosphere.forEach((s) => {
-    if (s.windAvg != null) {
-      features.push({
-        type: 'Feature' as const,
-        geometry: { type: 'Point' as const, coordinates: [s.lng, s.lat] },
-        properties: {
-          id: s.id,
-          name: s.name,
-          source: 'geosphere',
-          wind_speed: s.windAvg,
-          speed: Math.round(s.windAvg),
-          wind_direction: s.windDirection ?? null,
-          color: getWindSpeedColor(s.windAvg),
-        },
-      });
-    }
-  });
-
-  // BrightSky stations
-  brightSky.forEach((s) => {
-    if (s.wind_speed_kmh != null) {
-      features.push({
-        type: 'Feature' as const,
-        geometry: { type: 'Point' as const, coordinates: [s.lon, s.lat] },
-        properties: {
-          id: s.id,
-          name: s.name,
-          source: 'brightsky',
-          wind_speed: s.wind_speed_kmh,
-          speed: Math.round(s.wind_speed_kmh),
-          wind_direction: s.wind_direction_deg ?? null,
-          color: getWindSpeedColor(s.wind_speed_kmh),
-        },
-      });
-    }
-  });
-
-  // Deduplicate stations that appear in multiple sources
-  return deduplicateStations(features);
-}
-
-/* ------------------------------------------------------------------ */
 /*  Mixed GeoJSON (Stories + Observations for unified clustering)     */
 /* ------------------------------------------------------------------ */
 function buildMixedFeatures(stories: Story[], reports: WeatherReport[]): GeoJSON.Feature[] {
@@ -1037,132 +875,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       });
     }
 
-    // --- Unified Station source (clustering all 5 APIs) ---
-    if (!map.getSource(SRC_STATIONS)) {
-      map.addSource(SRC_STATIONS, {
-        type: 'geojson',
-        data: { type: 'FeatureCollection', features: [] },
-        cluster: true,
-        clusterMaxZoom: 10,
-        clusterRadius: 30,
-        clusterProperties: {
-          max_wind_speed: ['max', ['get', 'wind_speed']],
-        },
-      });
-    }
-
-    // Clustered stations — color by worst wind condition
-    if (!map.getLayer(LYR_STATIONS_CLUSTER)) {
-      map.addLayer({
-        id: LYR_STATIONS_CLUSTER,
-        type: 'circle',
-        source: SRC_STATIONS,
-        filter: ['has', 'point_count'],
-        paint: {
-          'circle-color': [
-            'case',
-            ['>=', ['get', 'max_wind_speed'], 45],
-            '#ef4444', // red — danger
-            ['>=', ['get', 'max_wind_speed'], 35],
-            '#f97316', // orange — caution
-            ['>=', ['get', 'max_wind_speed'], 25],
-            '#eab308', // yellow
-            ['>=', ['get', 'max_wind_speed'], 15],
-            '#84cc16', // yellow-green
-            '#22c55e', // green — calm
-          ],
-          'circle-radius': [
-            'step',
-            ['get', 'point_count'],
-            20, 5, 28, 10, 36,
-          ],
-          'circle-stroke-width': 2,
-          'circle-stroke-color': '#ffffff',
-          'circle-opacity': 0.9,
-        },
-      });
-    }
-
-    // Cluster count label
-    if (!map.getLayer(LYR_STATIONS_CLUSTER_COUNT)) {
-      map.addLayer({
-        id: LYR_STATIONS_CLUSTER_COUNT,
-        type: 'symbol',
-        source: SRC_STATIONS,
-        filter: ['has', 'point_count'],
-        layout: {
-          'text-field': ['get', 'point_count_abbreviated'],
-          'text-size': 12,
-          'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'],
-        },
-        paint: {
-          'text-color': '#ffffff',
-        },
-      });
-    }
-
-    // Unclustered stations
-    if (!map.getLayer(LYR_STATIONS_UNCLUSTERED)) {
-      map.addLayer({
-        id: LYR_STATIONS_UNCLUSTERED,
-        type: 'circle',
-        source: SRC_STATIONS,
-        filter: ['!', ['has', 'point_count']],
-        paint: {
-          'circle-radius': 6,
-          'circle-color': ['get', 'color'],
-          'circle-stroke-width': 2,
-          'circle-stroke-color': '#ffffff',
-        },
-      });
-    }
-
-    // Station wind direction arrows
-    if (!map.getLayer(LYR_STATIONS_ARROWS)) {
-      map.addLayer({
-        id: LYR_STATIONS_ARROWS,
-        type: 'symbol',
-        source: SRC_STATIONS,
-        filter: ['all', ['!', ['has', 'point_count']], ['!=', ['get', 'wind_direction'], null]],
-        layout: {
-          'text-field': '➤',
-          'text-size': 13,
-          'text-rotate': ['get', 'wind_direction'],
-          'text-allow-overlap': true,
-          'text-ignore-placement': true,
-          'text-rotation-alignment': 'map',
-        },
-        paint: {
-          'text-color': '#ffffff',
-          'text-halo-color': 'rgba(0,0,0,0.5)',
-          'text-halo-width': 1,
-        },
-      });
-    }
-
-    // Station wind speed labels
-    if (!map.getLayer(LYR_STATIONS_LABELS)) {
-      map.addLayer({
-        id: LYR_STATIONS_LABELS,
-        type: 'symbol',
-        source: SRC_STATIONS,
-        filter: ['all', ['!', ['has', 'point_count']], ['!=', ['get', 'speed'], null]],
-        layout: {
-          'text-field': ['get', 'speed'],
-          'text-size': 11,
-          'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'],
-          'text-offset': [1.2, 0],
-          'text-anchor': 'left',
-          'text-allow-overlap': false,
-        },
-        paint: {
-          'text-color': ['get', 'color'],
-          'text-halo-color': '#ffffff',
-          'text-halo-width': 1.5,
-        },
-      });
-    }
-
     // --- Pioupiou source ---
     try {
       if (!map.getSource(SRC_PIOUPIOU)) {
@@ -1178,14 +890,17 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         id: LYR_PIOUPIOU_CIRCLES,
         type: 'circle',
         source: SRC_PIOUPIOU,
-        layout: {
-          visibility: 'none',
-        },
         paint: {
           'circle-radius': 6,
           'circle-color': ['get', 'color'],
           'circle-stroke-width': 2,
           'circle-stroke-color': '#ffffff',
+          'circle-opacity': [
+            'interpolate', ['linear'], ['zoom'],
+            7, 1,      // fully visible at zoom 7+
+            6.5, 0.5,  // 50% opacity at zoom 6.5
+            6, 0       // completely invisible at zoom 6 and below
+          ],
         },
       });
     }
@@ -1198,7 +913,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         source: SRC_PIOUPIOU,
         filter: ['!=', ['get', 'windLabel'], ''],
         layout: {
-          visibility: 'none',
           'text-field': ['get', 'windLabel'],
           'text-size': 11,
           'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'],
@@ -1210,6 +924,12 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           'text-color': ['get', 'color'],
           'text-halo-color': '#ffffff',
           'text-halo-width': 1.5,
+          'text-opacity': [
+            'interpolate', ['linear'], ['zoom'],
+            7, 1,      // fully visible at zoom 7+
+            6.5, 0.5,  // 50% opacity at zoom 6.5
+            6, 0       // completely invisible at zoom 6 and below
+          ],
         },
       });
     }
@@ -1222,7 +942,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         source: SRC_PIOUPIOU,
         filter: ['!=', ['get', 'wind_arrow_angle'], -1],
         layout: {
-          visibility: 'none',
           'text-field': '➤',
           'text-size': 14,
           'text-rotate': ['get', 'wind_arrow_angle'],
@@ -1234,6 +953,12 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           'text-color': '#ffffff',
           'text-halo-color': 'rgba(0,0,0,0.5)',
           'text-halo-width': 1,
+          'text-opacity': [
+            'interpolate', ['linear'], ['zoom'],
+            7, 1,      // fully visible at zoom 7+
+            6.5, 0.5,  // 50% opacity at zoom 6.5
+            6, 0       // completely invisible at zoom 6 and below
+          ],
         },
       });
     }
@@ -1256,14 +981,17 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         id: LYR_FFVL_CIRCLES,
         type: 'circle',
         source: SRC_FFVL,
-        layout: {
-          visibility: 'none',
-        },
         paint: {
           'circle-radius': 6,
           'circle-color': ['get', 'color'],
           'circle-stroke-width': 2,
           'circle-stroke-color': '#ffffff',
+          'circle-opacity': [
+            'interpolate', ['linear'], ['zoom'],
+            7, 1,      // fully visible at zoom 7+
+            6.5, 0.5,  // 50% opacity at zoom 6.5
+            6, 0       // completely invisible at zoom 6 and below
+          ],
         },
       });
     }
@@ -1282,12 +1010,17 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           'text-offset': [1.2, 0],
           'text-anchor': 'left',
           'text-allow-overlap': false,
-          'visibility': 'none',
         },
         paint: {
           'text-color': ['get', 'color'],
           'text-halo-color': '#ffffff',
           'text-halo-width': 1.5,
+          'text-opacity': [
+            'interpolate', ['linear'], ['zoom'],
+            7, 1,      // fully visible at zoom 7+
+            6.5, 0.5,  // 50% opacity at zoom 6.5
+            6, 0       // completely invisible at zoom 6 and below
+          ],
         },
       });
     }
@@ -1306,12 +1039,17 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           'text-allow-overlap': true,
           'text-ignore-placement': true,
           'text-rotation-alignment': 'map',
-          'visibility': 'none',
         },
         paint: {
           'text-color': '#ffffff',
           'text-halo-color': 'rgba(0,0,0,0.5)',
           'text-halo-width': 1,
+          'text-opacity': [
+            'interpolate', ['linear'], ['zoom'],
+            7, 1,      // fully visible at zoom 7+
+            6.5, 0.5,  // 50% opacity at zoom 6.5
+            6, 0       // completely invisible at zoom 6 and below
+          ],
         },
       });
     }
@@ -1334,14 +1072,17 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         id: LYR_WINDS_MOBI_CIRCLES,
         type: 'circle',
         source: SRC_WINDS_MOBI,
-        layout: {
-          'visibility': 'none',
-        },
         paint: {
           'circle-radius': 6,
           'circle-color': ['get', 'color'],
           'circle-stroke-width': 2,
           'circle-stroke-color': '#ffffff',
+          'circle-opacity': [
+            'interpolate', ['linear'], ['zoom'],
+            7, 1,      // fully visible at zoom 7+
+            6.5, 0.5,  // 50% opacity at zoom 6.5
+            6, 0       // completely invisible at zoom 6 and below
+          ],
         },
       });
     }
@@ -1360,12 +1101,17 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           'text-offset': [1.2, 0],
           'text-anchor': 'left',
           'text-allow-overlap': false,
-          'visibility': 'none',
         },
         paint: {
           'text-color': ['get', 'color'],
           'text-halo-color': '#ffffff',
           'text-halo-width': 1.5,
+          'text-opacity': [
+            'interpolate', ['linear'], ['zoom'],
+            7, 1,      // fully visible at zoom 7+
+            6.5, 0.5,  // 50% opacity at zoom 6.5
+            6, 0       // completely invisible at zoom 6 and below
+          ],
         },
       });
     }
@@ -1384,12 +1130,17 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           'text-allow-overlap': true,
           'text-ignore-placement': true,
           'text-rotation-alignment': 'map',
-          'visibility': 'none',
         },
         paint: {
           'text-color': '#ffffff',
           'text-halo-color': 'rgba(0,0,0,0.5)',
           'text-halo-width': 1,
+          'text-opacity': [
+            'interpolate', ['linear'], ['zoom'],
+            7, 1,      // fully visible at zoom 7+
+            6.5, 0.5,  // 50% opacity at zoom 6.5
+            6, 0       // completely invisible at zoom 6 and below
+          ],
         },
       });
     }
@@ -1420,14 +1171,17 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         id: LYR_GEOSPHERE_CIRCLES,
         type: 'circle',
         source: SRC_GEOSPHERE,
-        layout: {
-          'visibility': 'none',
-        },
         paint: {
           'circle-radius': 6,
           'circle-color': ['get', 'color'],
           'circle-stroke-width': 2,
           'circle-stroke-color': '#ffffff',
+          'circle-opacity': [
+            'interpolate', ['linear'], ['zoom'],
+            7, 1,      // fully visible at zoom 7+
+            6.5, 0.5,  // 50% opacity at zoom 6.5
+            6, 0       // completely invisible at zoom 6 and below
+          ],
         },
       });
     }
@@ -1438,14 +1192,17 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         id: LYR_BRIGHTSKY_CIRCLES,
         type: 'circle',
         source: SRC_BRIGHTSKY,
-        layout: {
-          'visibility': 'none',
-        },
         paint: {
           'circle-radius': 6,
           'circle-color': ['get', 'color'],
           'circle-stroke-width': 2,
           'circle-stroke-color': '#ffffff',
+          'circle-opacity': [
+            'interpolate', ['linear'], ['zoom'],
+            7, 1,      // fully visible at zoom 7+
+            6.5, 0.5,  // 50% opacity at zoom 6.5
+            6, 0       // completely invisible at zoom 6 and below
+          ],
         },
       });
     }
@@ -1464,12 +1221,17 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           'text-offset': [1.2, 0],
           'text-anchor': 'left',
           'text-allow-overlap': false,
-          'visibility': 'none',
         },
         paint: {
           'text-color': ['get', 'color'],
           'text-halo-color': '#ffffff',
           'text-halo-width': 1.5,
+          'text-opacity': [
+            'interpolate', ['linear'], ['zoom'],
+            7, 1,      // fully visible at zoom 7+
+            6.5, 0.5,  // 50% opacity at zoom 6.5
+            6, 0       // completely invisible at zoom 6 and below
+          ],
         },
       });
     }
@@ -1488,12 +1250,17 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           'text-offset': [1.2, 0],
           'text-anchor': 'left',
           'text-allow-overlap': false,
-          'visibility': 'none',
         },
         paint: {
           'text-color': ['get', 'color'],
           'text-halo-color': '#ffffff',
           'text-halo-width': 1.5,
+          'text-opacity': [
+            'interpolate', ['linear'], ['zoom'],
+            7, 1,      // fully visible at zoom 7+
+            6.5, 0.5,  // 50% opacity at zoom 6.5
+            6, 0       // completely invisible at zoom 6 and below
+          ],
         },
       });
     }
@@ -1512,12 +1279,17 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           'text-allow-overlap': true,
           'text-ignore-placement': true,
           'text-rotation-alignment': 'map',
-          'visibility': 'none',
         },
         paint: {
           'text-color': '#ffffff',
           'text-halo-color': 'rgba(0,0,0,0.5)',
           'text-halo-width': 1,
+          'text-opacity': [
+            'interpolate', ['linear'], ['zoom'],
+            7, 1,      // fully visible at zoom 7+
+            6.5, 0.5,  // 50% opacity at zoom 6.5
+            6, 0       // completely invisible at zoom 6 and below
+          ],
         },
       });
     }
@@ -1536,12 +1308,17 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           'text-allow-overlap': true,
           'text-ignore-placement': true,
           'text-rotation-alignment': 'map',
-          'visibility': 'none',
         },
         paint: {
           'text-color': '#ffffff',
           'text-halo-color': 'rgba(0,0,0,0.5)',
           'text-halo-width': 1,
+          'text-opacity': [
+            'interpolate', ['linear'], ['zoom'],
+            7, 1,      // fully visible at zoom 7+
+            6.5, 0.5,  // 50% opacity at zoom 6.5
+            6, 0       // completely invisible at zoom 6 and below
+          ],
         },
       });
     }
@@ -1803,7 +1580,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           updateReportSource(map, reportsRef.current);
           updateShuttleSource(map, shuttlesRef.current);
           updatePoiSource(map, poisRef.current);
-          updateStationSource(map, pioupiouRef.current, ffvlRef.current, windsMobiRef.current, geoSphereRef.current, brightSkyRef.current);
           updatePioupiouSource(map, pioupiouRef.current);
           updateFFVLSource(map, ffvlRef.current);
           updateWindsMobiSource(map, windsMobiRef.current);
@@ -1821,7 +1597,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
               const bounds = map.getBounds();
               // Skip stations if bounds unavailable or zoomed out too far (zoom < 7)
               if (!bounds || zoom < 7) {
-                updateStationSource(map, [], [], [], [], []);
                 updatePioupiouSource(map, []);
                 updateFFVLSource(map, []);
                 updateWindsMobiSource(map, []);
@@ -1836,7 +1611,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
                     return bounds.contains([lng, lat]);
                   });
                 };
-                updateStationSource(map, pioupiouRef.current, ffvlRef.current, windsMobiRef.current, geoSphereRef.current, brightSkyRef.current);
                 updatePioupiouSource(map, pioupiouRef.current);
                 updateFFVLSource(map, ffvlRef.current);
                 updateWindsMobiSource(map, windsMobiRef.current);
@@ -2452,21 +2226,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   /* ---------------------------------------------------------------- */
   /*  Source data update helpers                                       */
   /* ---------------------------------------------------------------- */
-  function updateStationSource(
-    map: mapboxgl.Map,
-    pioupiouList: PioupiouStation[],
-    ffvlList: FFVLStation[],
-    windsMobiList: WindsMobiStation[],
-    geosphereList: GeoSphereStation[],
-    brightSkyList: BrightSkyStation[]
-  ) {
-    const src = map.getSource(SRC_STATIONS) as mapboxgl.GeoJSONSource | undefined;
-    if (src) {
-      const features = buildUnifiedStationFeatures(pioupiouList, ffvlList, windsMobiList, geosphereList, brightSkyList);
-      src.setData({ type: 'FeatureCollection', features });
-    }
-  }
-
   function updateReportSource(map: mapboxgl.Map, rpts: WeatherReport[]) {
     const src = map.getSource(SRC_REPORTS) as mapboxgl.GeoJSONSource | undefined;
     if (src) {
