@@ -1817,19 +1817,41 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   }, []);
 
   const locateMe = useCallback(() => {
-    if (!navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition(
-      (pos) => flyToLocation(pos.coords.longitude, pos.coords.latitude, 12),
-      () => {},
-      { enableHighAccuracy: true, timeout: 10000 },
-    );
+    try {
+      if (!navigator?.geolocation) return;
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          try {
+            if (pos?.coords) {
+              flyToLocation(pos.coords.longitude, pos.coords.latitude, 12);
+            }
+          } catch (e) {
+            // Silently fail if flyToLocation throws
+            console.debug('Geolocation: flyToLocation error', e);
+          }
+        },
+        (error) => {
+          // Silently handle permission denied, timeout, or other errors
+          console.debug('Geolocation error:', error?.code, error?.message);
+        },
+        { enableHighAccuracy: true, timeout: 10000 },
+      );
+    } catch (e) {
+      // Silently fail if getCurrentPosition throws
+      console.debug('Geolocation: getCurrentPosition error', e);
+    }
   }, [flyToLocation]);
 
   // Auto-center on GPS when map first loads (only once, on initial load)
   useEffect(() => {
     if (mapLoaded && !autoCenteredRef.current) {
       autoCenteredRef.current = true;
-      locateMe();
+      try {
+        locateMe();
+      } catch (e) {
+        // Silently fail if locateMe throws
+        console.debug('Auto-center geolocation error:', e);
+      }
     }
   }, [mapLoaded, locateMe]);
 
