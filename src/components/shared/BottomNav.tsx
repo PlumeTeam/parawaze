@@ -106,14 +106,14 @@ export default function BottomNav({ onCreateReport, onCameraOpen }: BottomNavPro
               style={{
                 position: 'absolute',
                 bottom: 80,
-                left: -40,
-                right: -40,
+                left: -30,
+                right: -30,
                 background: 'white',
-                borderRadius: 16,
+                borderRadius: 12,
                 boxShadow: '0 -4px 20px rgba(0,0,0,0.15)',
-                padding: 12,
+                padding: 8,
                 display: 'flex',
-                gap: 8,
+                gap: 4,
                 animation: 'slideUp 0.2s ease-out',
               }}
             >
@@ -136,11 +136,11 @@ export default function BottomNav({ onCreateReport, onCameraOpen }: BottomNavPro
                   setCommunauteMenuOpen(false);
                   router.push('/shuttle/pick-locations');
                 }}
-                className="flex-1 flex flex-col items-center gap-2 px-3 py-3 rounded-lg hover:bg-gray-50 transition-colors"
+                className="flex-1 flex flex-col items-center gap-1 px-2 py-1.5 rounded-lg hover:bg-gray-50 transition-colors"
               >
                 <svg
-                  width={28}
-                  height={28}
+                  width={20}
+                  height={20}
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="#3A3A3A"
@@ -164,11 +164,11 @@ export default function BottomNav({ onCreateReport, onCameraOpen }: BottomNavPro
                   setCommunauteMenuOpen(false);
                   router.push('/meetup');
                 }}
-                className="flex-1 flex flex-col items-center gap-2 px-3 py-3 rounded-lg hover:bg-gray-50 transition-colors"
+                className="flex-1 flex flex-col items-center gap-1 px-2 py-1.5 rounded-lg hover:bg-gray-50 transition-colors"
               >
                 <svg
-                  width={28}
-                  height={28}
+                  width={20}
+                  height={20}
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="#3A3A3A"
