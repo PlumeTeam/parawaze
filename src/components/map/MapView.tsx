@@ -757,12 +757,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           'circle-color': ['get', 'color'],
           'circle-stroke-width': 2,
           'circle-stroke-color': '#ffffff',
-          'circle-opacity': [
-            'interpolate', ['linear'], ['zoom'],
-            6, 1,      // fully visible at zoom 6+
-            5.5, 0.5,  // 50% opacity at zoom 5.5
-            5, 0       // completely invisible at zoom 5 and below
-          ],
+          'circle-opacity': 0.9,
         },
       });
     }
@@ -836,12 +831,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           'circle-color': ['get', 'color'],
           'circle-stroke-width': 2,
           'circle-stroke-color': '#ffffff',
-          'circle-opacity': [
-            'interpolate', ['linear'], ['zoom'],
-            6, 1,      // fully visible at zoom 6+
-            5.5, 0.5,  // 50% opacity at zoom 5.5
-            5, 0       // completely invisible at zoom 5 and below
-          ],
+          'circle-opacity': 0.9,
         },
       });
     }
@@ -915,12 +905,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           'circle-color': ['get', 'color'],
           'circle-stroke-width': 2,
           'circle-stroke-color': '#ffffff',
-          'circle-opacity': [
-            'interpolate', ['linear'], ['zoom'],
-            6, 1,      // fully visible at zoom 6+
-            5.5, 0.5,  // 50% opacity at zoom 5.5
-            5, 0       // completely invisible at zoom 5 and below
-          ],
+          'circle-opacity': 0.9,
         },
       });
     }
@@ -1002,12 +987,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           'circle-color': ['get', 'color'],
           'circle-stroke-width': 2,
           'circle-stroke-color': '#ffffff',
-          'circle-opacity': [
-            'interpolate', ['linear'], ['zoom'],
-            6, 1,      // fully visible at zoom 6+
-            5.5, 0.5,  // 50% opacity at zoom 5.5
-            5, 0       // completely invisible at zoom 5 and below
-          ],
+          'circle-opacity': 0.9,
         },
       });
     }
@@ -1023,12 +1003,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           'circle-color': ['get', 'color'],
           'circle-stroke-width': 2,
           'circle-stroke-color': '#ffffff',
-          'circle-opacity': [
-            'interpolate', ['linear'], ['zoom'],
-            6, 1,      // fully visible at zoom 6+
-            5.5, 0.5,  // 50% opacity at zoom 5.5
-            5, 0       // completely invisible at zoom 5 and below
-          ],
+          'circle-opacity': 0.9,
         },
       });
     }
