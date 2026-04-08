@@ -59,7 +59,7 @@ export default function MapPage() {
   const [showRecorder, setShowRecorder] = useState(false);
   const [selectedStory, setSelectedStory] = useState<Story | null>(null);
   const [selectedMeetup, setSelectedMeetup] = useState<Meetup | null>(null);
-  const [showGeolocationScreen, setShowGeolocationScreen] = useState<boolean | null>(null);
+  const [showGeolocationScreen, setShowGeolocationScreen] = useState(false);
   const [mapLoading, setMapLoading] = useState(true);
   const router = useRouter();
   const mapRef = useRef<MapViewHandle>(null);
@@ -187,16 +187,6 @@ export default function MapPage() {
   }
 
   if (!user) return null;
-
-  // Show geolocation permission screen if needed
-  if (showGeolocationScreen === null) {
-    // Still loading permission status
-    return (
-      <div className="h-screen flex items-center justify-center bg-white">
-        <LoadingSpinner size="lg" />
-      </div>
-    );
-  }
 
   return (
     <div className="h-screen flex flex-col bg-gray-100">
