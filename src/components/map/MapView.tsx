@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect, useState, useCallback, useImperativeHandle, forwardRef } from 'react';
+import { useRef, useEffect, useState, useCallback, useImperativeHandle, forwardRef, useMemo } from 'react';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import {
   MAPBOX_TOKEN,
@@ -413,6 +413,42 @@ function buildBrightSkyFeatures(stations: BrightSkyStation[]): GeoJSON.Feature[]
   }));
 }
 
+function buildMixedFeatures(stories: Story[], reports: WeatherReport[]): GeoJSON.Feature[] {
+  const storyFeatures = stories
+    .filter((s) => s.location && s.location.coordinates && s.location.coordinates.length >= 2)
+    .map((s) => ({
+      type: 'Feature' as const,
+      geometry: {
+        type: 'Point' as const,
+        coordinates: s.location!.coordinates,
+      },
+      properties: {
+        id: s.id,
+        content_type: 'story' as const,
+      },
+    }));
+
+  const observationFeatures = reports
+    .filter(
+      (r) =>
+        r.location && r.location.coordinates && r.location.coordinates.length >= 2 &&
+        (r.report_type === 'observation' || r.report_type === 'image_share')
+    )
+    .map((r) => ({
+      type: 'Feature' as const,
+      geometry: {
+        type: 'Point' as const,
+        coordinates: r.location!.coordinates,
+      },
+      properties: {
+        id: r.id,
+        content_type: 'observation' as const,
+      },
+    }));
+
+  return [...storyFeatures, ...observationFeatures];
+}
+
 /* ------------------------------------------------------------------ */
 /*  Layer IDs (constants to avoid typos)                              */
 /* ------------------------------------------------------------------ */
@@ -448,6 +484,9 @@ const LYR_BRIGHTSKY_ARROWS = 'parawaze-brightsky-arrows';
 const SRC_MEETUPS = 'parawaze-meetups';
 const LYR_MEETUP_CIRCLES = 'parawaze-meetup-circles';
 const LYR_MEETUP_LABELS = 'parawaze-meetup-labels';
+const SRC_MIXED = 'parawaze-mixed';
+const LYR_MIXED_CLUSTER = 'parawaze-mixed-cluster';
+const LYR_MIXED_CLUSTER_COUNT = 'parawaze-mixed-cluster-count';
 
 /* ------------------------------------------------------------------ */
 /*  Component                                                         */
@@ -555,6 +594,9 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         map.addSource(SRC_REPORTS, {
           type: 'geojson',
           data: { type: 'FeatureCollection', features: [] },
+          cluster: true,
+          clusterMaxZoom: 14,
+          clusterRadius: 50,
         });
       }
     } catch (e) {
@@ -1147,6 +1189,68 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         },
       });
     }
+
+    // --- Mixed source (stories + observations clustering) ---
+    try {
+      if (!map.getSource(SRC_MIXED)) {
+        map.addSource(SRC_MIXED, {
+          type: 'geojson',
+          data: { type: 'FeatureCollection', features: [] },
+          cluster: true,
+          clusterMaxZoom: 14,
+          clusterRadius: 50,
+        });
+      }
+
+      // Mixed cluster circles (purple gradient)
+      if (!map.getLayer(LYR_MIXED_CLUSTER)) {
+        map.addLayer({
+          id: LYR_MIXED_CLUSTER,
+          type: 'circle',
+          source: SRC_MIXED,
+          filter: ['has', 'point_count'],
+          paint: {
+            'circle-color': [
+              'step',
+              ['get', 'point_count'],
+              '#9F7AEA', // purple for 2-4
+              5,
+              '#7C3AED', // deeper purple for 5-9
+              10,
+              '#5B21B6', // dark purple for 10+
+            ],
+            'circle-radius': [
+              'step',
+              ['get', 'point_count'],
+              32, 5, 40, 10, 50,
+            ],
+            'circle-stroke-width': 3,
+            'circle-stroke-color': '#ffffff',
+            'circle-opacity': 0.95,
+          },
+        });
+      }
+
+      // Mixed cluster count label
+      if (!map.getLayer(LYR_MIXED_CLUSTER_COUNT)) {
+        map.addLayer({
+          id: LYR_MIXED_CLUSTER_COUNT,
+          type: 'symbol',
+          source: SRC_MIXED,
+          filter: ['has', 'point_count'],
+          layout: {
+            'text-field': ['get', 'point_count_abbreviated'],
+            'text-size': 13,
+            'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+          },
+          paint: {
+            'text-color': '#ffffff',
+          },
+        });
+      }
+    } catch (e) {
+      console.error('[ParaWaze] Failed to add mixed source/layers:', e);
+    }
   }, []);
 
   /* ---------------------------------------------------------------- */
@@ -1198,6 +1302,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           addLayersToMap(map);
           // Populate with current data
           updateReportSource(map, reportsRef.current);
+          updateMixedSource(map, storiesRef.current, reportsRef.current);
           updateShuttleSource(map, shuttlesRef.current);
           updatePoiSource(map, poisRef.current);
           updatePioupiouSource(map, pioupiouRef.current);
@@ -1218,6 +1323,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           if (cancelled) return;
           addLayersToMap(map);
           updateReportSource(map, reportsRef.current);
+          updateMixedSource(map, storiesRef.current, reportsRef.current);
           updateShuttleSource(map, shuttlesRef.current);
           updatePoiSource(map, poisRef.current);
           updatePioupiouSource(map, pioupiouRef.current);
@@ -1542,8 +1648,47 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           popupRef.current = popup;
         });
 
+        // Mixed cluster click
+        map.on('click', LYR_MIXED_CLUSTER, (e) => {
+          if (!e.features || !e.features[0]) return;
+          const clusterId = e.features[0].properties?.cluster_id;
+          if (clusterId === undefined) return;
+
+          const source = map.getSource(SRC_MIXED) as mapboxgl.GeoJSONSource | undefined;
+          if (!source) return;
+
+          source.getClusterLeaves(clusterId, 100, 0, ((err: Error | null | undefined, features: GeoJSON.Feature[] | undefined) => {
+            if (err || !features) return;
+
+            const storyIds = features
+              .filter((f) => f.properties?.content_type === 'story')
+              .map((f) => f.properties?.id)
+              .filter((id) => id);
+
+            const observationIds = features
+              .filter((f) => f.properties?.content_type === 'observation')
+              .map((f) => f.properties?.id)
+              .filter((id) => id);
+
+            const stories = storyIds
+              .map((id) => storiesRef.current.find((s) => s.id === id))
+              .filter((s) => s) as Story[];
+
+            const observations = observationIds
+              .map((id) => reportsRef.current.find((r) => r.id === id))
+              .filter((r) => r) as WeatherReport[];
+
+            stories.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+            observations.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+            if (stories.length > 0 || observations.length > 0) {
+              onMixedContentClickRef.current?.({ stories, observations });
+            }
+          }) as any);
+        });
+
         // Pointer cursor on interactive layers
-        const interactiveLayers = [LYR_OBS_CIRCLES, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS, LYR_POI_CIRCLES, LYR_POI_LABELS, LYR_PIOUPIOU_CIRCLES, LYR_PIOUPIOU_LABELS, LYR_FFVL_CIRCLES, LYR_FFVL_LABELS, LYR_WINDS_MOBI_CIRCLES, LYR_WINDS_MOBI_LABELS, LYR_GEOSPHERE_CIRCLES, LYR_GEOSPHERE_LABELS, LYR_BRIGHTSKY_CIRCLES, LYR_BRIGHTSKY_LABELS, LYR_MEETUP_CIRCLES, LYR_MEETUP_LABELS, 'parawaze-shuttle-label', 'parawaze-forecast-label'];
+        const interactiveLayers = [LYR_OBS_CIRCLES, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS, LYR_POI_CIRCLES, LYR_POI_LABELS, LYR_PIOUPIOU_CIRCLES, LYR_PIOUPIOU_LABELS, LYR_FFVL_CIRCLES, LYR_FFVL_LABELS, LYR_WINDS_MOBI_CIRCLES, LYR_WINDS_MOBI_LABELS, LYR_GEOSPHERE_CIRCLES, LYR_GEOSPHERE_LABELS, LYR_BRIGHTSKY_CIRCLES, LYR_BRIGHTSKY_LABELS, LYR_MEETUP_CIRCLES, LYR_MEETUP_LABELS, LYR_MIXED_CLUSTER, 'parawaze-shuttle-label', 'parawaze-forecast-label'];
         interactiveLayers.forEach((layerId) => {
           map.on('mouseenter', layerId, () => { map.getCanvas().style.cursor = 'pointer'; });
           map.on('mouseleave', layerId, () => { map.getCanvas().style.cursor = ''; });
@@ -1572,6 +1717,13 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     const src = map.getSource(SRC_REPORTS) as mapboxgl.GeoJSONSource | undefined;
     if (src) {
       src.setData({ type: 'FeatureCollection', features: buildReportFeatures(rpts) });
+    }
+  }
+
+  function updateMixedSource(map: mapboxgl.Map, storyList: Story[], reportList: WeatherReport[]) {
+    const src = map.getSource(SRC_MIXED) as mapboxgl.GeoJSONSource | undefined;
+    if (src) {
+      src.setData({ type: 'FeatureCollection', features: buildMixedFeatures(storyList, reportList) });
     }
   }
 
@@ -1704,6 +1856,9 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     const doUpdate = () => {
       if (map.getSource(SRC_REPORTS)) {
         updateReportSource(map, reports);
+      }
+      if (map.getSource(SRC_MIXED)) {
+        updateMixedSource(map, storiesRef.current, reports);
       }
     };
     if (map.isStyleLoaded()) {
@@ -1847,7 +2002,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   /*  Story DOM markers                                               */
   /* ---------------------------------------------------------------- */
   // Create a stable string of story IDs to use as dependency
-  const storyIdsStr = stories.map(s => s.id).join(',');
+  const storyIdsStr = useMemo(() => stories.map(s => s.id).join(','), [stories]);
 
   useEffect(() => {
     if (!mapRef.current || !mbRef.current) return;
@@ -1894,6 +2049,22 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       storyMarkersRef.current.push(marker);
     });
   }, [storyIdsStr]); // Depend on story IDs string to prevent unnecessary recreations when stories array reference changes
+
+  // Update mixed source (stories + observations clustering) when stories change
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const doUpdate = () => {
+      if (map.getSource(SRC_MIXED)) {
+        updateMixedSource(map, stories, reportsRef.current);
+      }
+    };
+    if (map.isStyleLoaded()) {
+      doUpdate();
+    } else {
+      map.once('idle', doUpdate);
+    }
+  }, [stories]);
 
   /* ---------------------------------------------------------------- */
   /*  Utility callbacks                                               */
