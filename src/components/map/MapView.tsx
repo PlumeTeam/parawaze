@@ -455,6 +455,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const mbRef = useRef<typeof mapboxgl | null>(null);
+  const autoCenteredRef = useRef(false);
   const [mapStyle, setMapStyle] = useState<MapStyleKey>('outdoors');
   const [mapLoaded, setMapLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1823,6 +1824,14 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       { enableHighAccuracy: true, timeout: 10000 },
     );
   }, [flyToLocation]);
+
+  // Auto-center on GPS when map first loads (only once, on initial load)
+  useEffect(() => {
+    if (mapLoaded && !autoCenteredRef.current) {
+      autoCenteredRef.current = true;
+      locateMe();
+    }
+  }, [mapLoaded, locateMe]);
 
   const cycleStyle = () => {
     const styles: MapStyleKey[] = ['outdoors', 'satellite', 'standard'];
