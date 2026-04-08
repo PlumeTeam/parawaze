@@ -125,7 +125,7 @@ export default function ShuttleFormContent() {
         user.id
       );
 
-      router.push('/shuttle/pick-locations');
+      router.push('/map');
     } catch (err: any) {
       setError(err.message || 'Erreur lors de la création');
     } finally {
