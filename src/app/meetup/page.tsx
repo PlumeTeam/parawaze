@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useMeetups } from '@/hooks/useMeetups';
 import BottomNav from '@/components/shared/BottomNav';
 import LoadingSpinner from '@/components/shared/LoadingSpinner';
-import { Calendar, MapPin, Users, Plus, Lock, Globe, Clock } from 'lucide-react';
+import { Calendar, MapPin, Users, Plus, Lock, Globe, Clock, ArrowLeft } from 'lucide-react';
 import type { Meetup } from '@/lib/types';
 
 type Filter = 'all' | 'mine' | 'friends';
@@ -202,12 +202,20 @@ export default function MeetupPage() {
       {/* Header */}
       <header className="flex-shrink-0 bg-white px-4 pt-safe-top pb-4 border-b border-gray-100">
         <div className="pt-4 flex items-center justify-between mb-4">
-          <div>
-            <h1 className="text-xl font-bold text-gray-900">Rendez-vous</h1>
-            <p className="text-sm text-gray-500">Retrouvez d'autres pilotes</p>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => router.push('/map')}
+              className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center active:opacity-60"
+            >
+              <ArrowLeft size={18} className="text-gray-700" />
+            </button>
+            <div>
+              <h1 className="text-xl font-bold text-gray-900">Rendez-vous</h1>
+              <p className="text-sm text-gray-500">Retrouvez d'autres pilotes</p>
+            </div>
           </div>
           <button
-            onClick={() => router.push('/meetup/new')}
+            onClick={() => router.push('/meetup/pick-location')}
             className="w-10 h-10 rounded-full flex items-center justify-center active:scale-95 transition-transform"
             style={{ background: '#3A3A3A' }}
           >
