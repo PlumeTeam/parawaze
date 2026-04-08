@@ -305,8 +305,8 @@ export default function StoryRecorder({ onClose, onPublished }: StoryRecorderPro
           {/* Record button */}
           <div className="absolute bottom-0 left-0 right-0 flex justify-center pb-12" style={{ paddingBottom: 'max(3rem, calc(env(safe-area-inset-bottom) + 1.5rem))' }}>
             <button
-              onPointerDown={startRecording}
-              disabled={recording || !!error}
+              onPointerDown={() => recording ? stopRecording() : startRecording()}
+              disabled={!!error}
               className="relative flex items-center justify-center focus:outline-none"
             >
               {/* Progress ring */}
@@ -332,10 +332,12 @@ export default function StoryRecorder({ onClose, onPublished }: StoryRecorderPro
                   style={{ transition: 'stroke-dashoffset 0.9s linear' }}
                 />
               </svg>
-              {/* Inner circle */}
+              {/* Inner button — circle when idle, square when recording */}
               <div
-                className={`w-14 h-14 rounded-full transition-all duration-150 ${
-                  recording ? 'bg-red-500 scale-90' : 'bg-white'
+                className={`transition-all duration-150 ${
+                  recording
+                    ? 'w-12 h-12 bg-red-500 rounded-md animate-pulse'
+                    : 'w-14 h-14 bg-white rounded-full'
                 }`}
               />
             </button>
