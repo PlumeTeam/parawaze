@@ -48,6 +48,7 @@ interface MapViewProps {
   onStoryClick?: (story: Story) => void;
   onMapMove?: (center: { lat: number; lng: number }) => void;
   onMarkerPlaced?: (pos: MarkerPosition) => void;
+  enableAutocenter?: boolean;
 }
 
 /* ------------------------------------------------------------------ */
@@ -449,7 +450,7 @@ const LYR_MEETUP_LABELS = 'parawaze-meetup-labels';
 /*  Component                                                         */
 /* ------------------------------------------------------------------ */
 const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
-  { reports, shuttles = [], stories = [], pois = [], pioupiouStations = [], ffvlStations = [], windsMobiStations = [], geoSphereStations = [], brightSkyStations = [], meetups = [], onReportClick, onShuttleClick, onPoiClick, onStoryClick, onMeetupClick, onMapMove, onMarkerPlaced },
+  { reports, shuttles = [], stories = [], pois = [], pioupiouStations = [], ffvlStations = [], windsMobiStations = [], geoSphereStations = [], brightSkyStations = [], meetups = [], onReportClick, onShuttleClick, onPoiClick, onStoryClick, onMeetupClick, onMapMove, onMarkerPlaced, enableAutocenter = true },
   ref,
 ) {
   const mapContainer = useRef<HTMLDivElement>(null);
@@ -1844,7 +1845,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
 
   // Auto-center on GPS when map first loads (only once, on initial load)
   useEffect(() => {
-    if (mapLoaded && !autoCenteredRef.current) {
+    if (enableAutocenter && mapLoaded && !autoCenteredRef.current) {
       autoCenteredRef.current = true;
       try {
         locateMe();
@@ -1853,7 +1854,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         console.debug('Auto-center geolocation error:', e);
       }
     }
-  }, [mapLoaded, locateMe]);
+  }, [enableAutocenter, mapLoaded, locateMe]);
 
   const cycleStyle = () => {
     const styles: MapStyleKey[] = ['outdoors', 'satellite', 'standard'];
