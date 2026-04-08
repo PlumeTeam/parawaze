@@ -436,6 +436,57 @@ function buildBrightSkyFeatures(stations: BrightSkyStation[]): GeoJSON.Feature[]
 }
 
 /* ------------------------------------------------------------------ */
+/*  Station deduplication (remove duplicates from multiple API sources) */
+/* ------------------------------------------------------------------ */
+function deduplicateStations(features: GeoJSON.Feature[]): GeoJSON.Feature[] {
+  // Source priority: FFVL > winds.mobi > Pioupiou > GeoSphere > BrightSky
+  const sourcePriority: Record<string, number> = {
+    ffvl: 5,
+    'windsMobi': 4,
+    pioupiou: 3,
+    geosphere: 2,
+    brightsky: 1,
+  };
+
+  // Sort by source priority (higher priority first)
+  const sorted = [...features].sort((a, b) => {
+    const priorityA = sourcePriority[a.properties?.source as string] ?? 0;
+    const priorityB = sourcePriority[b.properties?.source as string] ?? 0;
+    return priorityB - priorityA;
+  });
+
+  const kept: GeoJSON.Feature[] = [];
+  const threshold = 0.0015; // ~150 meters in degrees
+
+  for (const feature of sorted) {
+    const coords = (feature.geometry as any).coordinates as [number, number];
+    const [lng, lat] = coords;
+    const name = (feature.properties?.name as string || '').toLowerCase().trim();
+
+    // Check if this is a duplicate of an already-kept feature
+    const isDuplicate = kept.some((keptFeature) => {
+      const kCoords = (keptFeature.geometry as any).coordinates as [number, number];
+      const [kLng, kLat] = kCoords;
+      const kName = (keptFeature.properties?.name as string || '').toLowerCase().trim();
+
+      // Duplicate if coordinates are close
+      const coordinateMatch = Math.abs(lng - kLng) < threshold && Math.abs(lat - kLat) < threshold;
+
+      // Also check for name similarity (same or very close)
+      const nameMatch = name && kName && (name === kName || name.includes(kName) || kName.includes(name));
+
+      return coordinateMatch || nameMatch;
+    });
+
+    if (!isDuplicate) {
+      kept.push(feature);
+    }
+  }
+
+  return kept;
+}
+
+/* ------------------------------------------------------------------ */
 /*  Unified Station GeoJSON (clustering all 5 APIs)                   */
 /* ------------------------------------------------------------------ */
 function buildUnifiedStationFeatures(
@@ -532,7 +583,8 @@ function buildUnifiedStationFeatures(
     }
   });
 
-  return features;
+  // Deduplicate stations that appear in multiple sources
+  return deduplicateStations(features);
 }
 
 /* ------------------------------------------------------------------ */
