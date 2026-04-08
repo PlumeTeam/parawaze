@@ -790,7 +790,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       });
     }
 
-    // Pioupiou wind direction arrows
+    // Pioupiou wind direction arrows (small white arrow inside circle)
     if (!map.getLayer(LYR_PIOUPIOU_ARROWS)) {
       map.addLayer({
         id: LYR_PIOUPIOU_ARROWS,
@@ -798,8 +798,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         source: SRC_PIOUPIOU,
         filter: ['!=', ['get', 'wind_arrow_angle'], -1],
         layout: {
-          'text-field': '➤',
-          'text-size': 14,
+          'text-field': '▲',
+          'text-size': 7,
           'text-rotate': ['get', 'wind_arrow_angle'],
           'text-allow-overlap': true,
           'text-ignore-placement': true,
@@ -807,8 +807,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         },
         paint: {
           'text-color': '#ffffff',
-          'text-halo-color': 'rgba(0,0,0,0.5)',
-          'text-halo-width': 1,
+          'text-halo-color': 'rgba(0,0,0,0.3)',
+          'text-halo-width': 0.5,
         },
       });
     }
@@ -869,7 +869,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       });
     }
 
-    // FFVL wind direction arrows
+    // FFVL wind direction arrows (small white arrow inside circle)
     if (!map.getLayer(LYR_FFVL_ARROWS)) {
       map.addLayer({
         id: LYR_FFVL_ARROWS,
@@ -877,8 +877,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         source: SRC_FFVL,
         filter: ['!=', ['get', 'wind_arrow_angle'], -1],
         layout: {
-          'text-field': '➤',
-          'text-size': 13,
+          'text-field': '▲',
+          'text-size': 7,
           'text-rotate': ['get', 'wind_arrow_angle'],
           'text-allow-overlap': true,
           'text-ignore-placement': true,
@@ -886,8 +886,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         },
         paint: {
           'text-color': '#ffffff',
-          'text-halo-color': 'rgba(0,0,0,0.5)',
-          'text-halo-width': 1,
+          'text-halo-color': 'rgba(0,0,0,0.3)',
+          'text-halo-width': 0.5,
         },
       });
     }
@@ -956,8 +956,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         source: SRC_WINDS_MOBI,
         filter: ['!=', ['get', 'wind_arrow_angle'], -1],
         layout: {
-          'text-field': '➤',
-          'text-size': 13,
+          'text-field': '▲',
+          'text-size': 7,
           'text-rotate': ['get', 'wind_arrow_angle'],
           'text-allow-overlap': true,
           'text-ignore-placement': true,
@@ -965,8 +965,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         },
         paint: {
           'text-color': '#ffffff',
-          'text-halo-color': 'rgba(0,0,0,0.5)',
-          'text-halo-width': 1,
+          'text-halo-color': 'rgba(0,0,0,0.3)',
+          'text-halo-width': 0.5,
         },
       });
     }
@@ -1087,8 +1087,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         source: SRC_GEOSPHERE,
         filter: ['!=', ['get', 'wind_arrow_angle'], -1],
         layout: {
-          'text-field': '➤',
-          'text-size': 13,
+          'text-field': '▲',
+          'text-size': 7,
           'text-rotate': ['get', 'wind_arrow_angle'],
           'text-allow-overlap': true,
           'text-ignore-placement': true,
@@ -1096,8 +1096,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         },
         paint: {
           'text-color': '#ffffff',
-          'text-halo-color': 'rgba(0,0,0,0.5)',
-          'text-halo-width': 1,
+          'text-halo-color': 'rgba(0,0,0,0.3)',
+          'text-halo-width': 0.5,
         },
       });
     }
@@ -1110,8 +1110,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         source: SRC_BRIGHTSKY,
         filter: ['!=', ['get', 'wind_arrow_angle'], -1],
         layout: {
-          'text-field': '➤',
-          'text-size': 13,
+          'text-field': '▲',
+          'text-size': 7,
           'text-rotate': ['get', 'wind_arrow_angle'],
           'text-allow-overlap': true,
           'text-ignore-placement': true,
@@ -1119,8 +1119,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         },
         paint: {
           'text-color': '#ffffff',
-          'text-halo-color': 'rgba(0,0,0,0.5)',
-          'text-halo-width': 1,
+          'text-halo-color': 'rgba(0,0,0,0.3)',
+          'text-halo-width': 0.5,
         },
       });
     }
@@ -1871,6 +1871,9 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   /* ---------------------------------------------------------------- */
   /*  Story DOM markers                                               */
   /* ---------------------------------------------------------------- */
+  // Create a stable string of story IDs to use as dependency
+  const storyIdsStr = stories.map(s => s.id).join(',');
+
   useEffect(() => {
     if (!mapRef.current || !mbRef.current) return;
     const mb = mbRef.current;
@@ -1915,7 +1918,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
 
       storyMarkersRef.current.push(marker);
     });
-  }, [stories]);
+  }, [storyIdsStr]); // Depend on story IDs string to prevent unnecessary recreations when stories array reference changes
 
   /* ---------------------------------------------------------------- */
   /*  Utility callbacks                                               */
