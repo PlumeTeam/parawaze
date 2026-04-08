@@ -897,9 +897,9 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           'circle-stroke-color': '#ffffff',
           'circle-opacity': [
             'interpolate', ['linear'], ['zoom'],
-            7, 1,      // fully visible at zoom 7+
-            6.5, 0.5,  // 50% opacity at zoom 6.5
-            6, 0       // completely invisible at zoom 6 and below
+            6, 1,      // fully visible at zoom 6+
+            5.5, 0.5,  // 50% opacity at zoom 5.5
+            5, 0       // completely invisible at zoom 5 and below
           ],
         },
       });
@@ -926,9 +926,9 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           'text-halo-width': 1.5,
           'text-opacity': [
             'interpolate', ['linear'], ['zoom'],
-            7, 1,      // fully visible at zoom 7+
-            6.5, 0.5,  // 50% opacity at zoom 6.5
-            6, 0       // completely invisible at zoom 6 and below
+            6, 1,      // fully visible at zoom 6+
+            5.5, 0.5,  // 50% opacity at zoom 5.5
+            5, 0       // completely invisible at zoom 5 and below
           ],
         },
       });
@@ -955,9 +955,9 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           'text-halo-width': 1,
           'text-opacity': [
             'interpolate', ['linear'], ['zoom'],
-            7, 1,      // fully visible at zoom 7+
-            6.5, 0.5,  // 50% opacity at zoom 6.5
-            6, 0       // completely invisible at zoom 6 and below
+            6, 1,      // fully visible at zoom 6+
+            5.5, 0.5,  // 50% opacity at zoom 5.5
+            5, 0       // completely invisible at zoom 5 and below
           ],
         },
       });
@@ -988,9 +988,9 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           'circle-stroke-color': '#ffffff',
           'circle-opacity': [
             'interpolate', ['linear'], ['zoom'],
-            7, 1,      // fully visible at zoom 7+
-            6.5, 0.5,  // 50% opacity at zoom 6.5
-            6, 0       // completely invisible at zoom 6 and below
+            6, 1,      // fully visible at zoom 6+
+            5.5, 0.5,  // 50% opacity at zoom 5.5
+            5, 0       // completely invisible at zoom 5 and below
           ],
         },
       });
@@ -1017,9 +1017,9 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           'text-halo-width': 1.5,
           'text-opacity': [
             'interpolate', ['linear'], ['zoom'],
-            7, 1,      // fully visible at zoom 7+
-            6.5, 0.5,  // 50% opacity at zoom 6.5
-            6, 0       // completely invisible at zoom 6 and below
+            6, 1,      // fully visible at zoom 6+
+            5.5, 0.5,  // 50% opacity at zoom 5.5
+            5, 0       // completely invisible at zoom 5 and below
           ],
         },
       });
@@ -1046,9 +1046,9 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           'text-halo-width': 1,
           'text-opacity': [
             'interpolate', ['linear'], ['zoom'],
-            7, 1,      // fully visible at zoom 7+
-            6.5, 0.5,  // 50% opacity at zoom 6.5
-            6, 0       // completely invisible at zoom 6 and below
+            6, 1,      // fully visible at zoom 6+
+            5.5, 0.5,  // 50% opacity at zoom 5.5
+            5, 0       // completely invisible at zoom 5 and below
           ],
         },
       });
@@ -1079,9 +1079,9 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           'circle-stroke-color': '#ffffff',
           'circle-opacity': [
             'interpolate', ['linear'], ['zoom'],
-            7, 1,      // fully visible at zoom 7+
-            6.5, 0.5,  // 50% opacity at zoom 6.5
-            6, 0       // completely invisible at zoom 6 and below
+            6, 1,      // fully visible at zoom 6+
+            5.5, 0.5,  // 50% opacity at zoom 5.5
+            5, 0       // completely invisible at zoom 5 and below
           ],
         },
       });
@@ -1108,9 +1108,9 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           'text-halo-width': 1.5,
           'text-opacity': [
             'interpolate', ['linear'], ['zoom'],
-            7, 1,      // fully visible at zoom 7+
-            6.5, 0.5,  // 50% opacity at zoom 6.5
-            6, 0       // completely invisible at zoom 6 and below
+            6, 1,      // fully visible at zoom 6+
+            5.5, 0.5,  // 50% opacity at zoom 5.5
+            5, 0       // completely invisible at zoom 5 and below
           ],
         },
       });
@@ -1137,9 +1137,9 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           'text-halo-width': 1,
           'text-opacity': [
             'interpolate', ['linear'], ['zoom'],
-            7, 1,      // fully visible at zoom 7+
-            6.5, 0.5,  // 50% opacity at zoom 6.5
-            6, 0       // completely invisible at zoom 6 and below
+            6, 1,      // fully visible at zoom 6+
+            5.5, 0.5,  // 50% opacity at zoom 5.5
+            5, 0       // completely invisible at zoom 5 and below
           ],
         },
       });
@@ -1178,9 +1178,9 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           'circle-stroke-color': '#ffffff',
           'circle-opacity': [
             'interpolate', ['linear'], ['zoom'],
-            7, 1,      // fully visible at zoom 7+
-            6.5, 0.5,  // 50% opacity at zoom 6.5
-            6, 0       // completely invisible at zoom 6 and below
+            6, 1,      // fully visible at zoom 6+
+            5.5, 0.5,  // 50% opacity at zoom 5.5
+            5, 0       // completely invisible at zoom 5 and below
           ],
         },
       });
@@ -1199,9 +1199,9 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           'circle-stroke-color': '#ffffff',
           'circle-opacity': [
             'interpolate', ['linear'], ['zoom'],
-            7, 1,      // fully visible at zoom 7+
-            6.5, 0.5,  // 50% opacity at zoom 6.5
-            6, 0       // completely invisible at zoom 6 and below
+            6, 1,      // fully visible at zoom 6+
+            5.5, 0.5,  // 50% opacity at zoom 5.5
+            5, 0       // completely invisible at zoom 5 and below
           ],
         },
       });
@@ -1228,9 +1228,9 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           'text-halo-width': 1.5,
           'text-opacity': [
             'interpolate', ['linear'], ['zoom'],
-            7, 1,      // fully visible at zoom 7+
-            6.5, 0.5,  // 50% opacity at zoom 6.5
-            6, 0       // completely invisible at zoom 6 and below
+            6, 1,      // fully visible at zoom 6+
+            5.5, 0.5,  // 50% opacity at zoom 5.5
+            5, 0       // completely invisible at zoom 5 and below
           ],
         },
       });
@@ -1257,9 +1257,9 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           'text-halo-width': 1.5,
           'text-opacity': [
             'interpolate', ['linear'], ['zoom'],
-            7, 1,      // fully visible at zoom 7+
-            6.5, 0.5,  // 50% opacity at zoom 6.5
-            6, 0       // completely invisible at zoom 6 and below
+            6, 1,      // fully visible at zoom 6+
+            5.5, 0.5,  // 50% opacity at zoom 5.5
+            5, 0       // completely invisible at zoom 5 and below
           ],
         },
       });
@@ -1286,9 +1286,9 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           'text-halo-width': 1,
           'text-opacity': [
             'interpolate', ['linear'], ['zoom'],
-            7, 1,      // fully visible at zoom 7+
-            6.5, 0.5,  // 50% opacity at zoom 6.5
-            6, 0       // completely invisible at zoom 6 and below
+            6, 1,      // fully visible at zoom 6+
+            5.5, 0.5,  // 50% opacity at zoom 5.5
+            5, 0       // completely invisible at zoom 5 and below
           ],
         },
       });
@@ -1315,9 +1315,9 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           'text-halo-width': 1,
           'text-opacity': [
             'interpolate', ['linear'], ['zoom'],
-            7, 1,      // fully visible at zoom 7+
-            6.5, 0.5,  // 50% opacity at zoom 6.5
-            6, 0       // completely invisible at zoom 6 and below
+            6, 1,      // fully visible at zoom 6+
+            5.5, 0.5,  // 50% opacity at zoom 5.5
+            5, 0       // completely invisible at zoom 5 and below
           ],
         },
       });
