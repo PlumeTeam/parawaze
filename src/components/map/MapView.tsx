@@ -1202,8 +1202,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
             try {
               const zoom = map.getZoom();
               const bounds = map.getBounds();
-              // Skip stations if zoomed out too far (zoom < 7)
-              if (zoom < 7) {
+              // Skip stations if bounds unavailable or zoomed out too far (zoom < 7)
+              if (!bounds || zoom < 7) {
                 updatePioupiouSource(map, []);
                 updateFFVLSource(map, []);
                 updateWindsMobiSource(map, []);
