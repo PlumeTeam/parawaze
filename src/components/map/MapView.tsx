@@ -42,7 +42,6 @@ interface MapViewProps {
   stories?: Story[];
   meetups?: Meetup[];
   onObservationsClick?: (reports: WeatherReport[]) => void;
-  onMixedContentClick?: (data: { stories: Story[]; observations: WeatherReport[] }) => void;
   onMeetupClick?: (meetup: Meetup) => void;
   onShuttleClick?: (shuttle: Shuttle) => void;
   onPoiClick?: (poi: Poi) => void;
@@ -471,10 +470,6 @@ function buildObservationFeatures(reports: WeatherReport[]): GeoJSON.Feature[] {
     }));
 }
 
-function buildMixedFeatures(stories: Story[], reports: WeatherReport[]): GeoJSON.Feature[] {
-  return [...buildStoryFeatures(stories), ...buildObservationFeatures(reports)];
-}
-
 /* ------------------------------------------------------------------ */
 /*  Layer IDs (constants to avoid typos)                              */
 /* ------------------------------------------------------------------ */
@@ -510,9 +505,6 @@ const LYR_BRIGHTSKY_ARROWS = 'parawaze-brightsky-arrows';
 const SRC_MEETUPS = 'parawaze-meetups';
 const LYR_MEETUP_CIRCLES = 'parawaze-meetup-circles';
 const LYR_MEETUP_LABELS = 'parawaze-meetup-labels';
-const SRC_MIXED = 'parawaze-mixed';
-const LYR_MIXED_CLUSTER = 'parawaze-mixed-cluster';
-const LYR_MIXED_CLUSTER_COUNT = 'parawaze-mixed-cluster-count';
 const SRC_STORIES = 'parawaze-stories';
 const LYR_STORIES_CIRCLES = 'parawaze-stories-circles';
 const LYR_STORIES_CLUSTER = 'parawaze-stories-cluster';
@@ -526,7 +518,7 @@ const LYR_OBSERVATIONS_CLUSTER_COUNT = 'parawaze-observations-cluster-count';
 /*  Component                                                         */
 /* ------------------------------------------------------------------ */
 const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
-  { reports, shuttles = [], stories = [], pois = [], pioupiouStations = [], ffvlStations = [], windsMobiStations = [], geoSphereStations = [], brightSkyStations = [], meetups = [], onShuttleClick, onPoiClick, onStoryClick, onMeetupClick, onMapMove, onMarkerPlaced, onObservationsClick, onMixedContentClick, onMapLoaded, enableAutocenter = true },
+  { reports, shuttles = [], stories = [], pois = [], pioupiouStations = [], ffvlStations = [], windsMobiStations = [], geoSphereStations = [], brightSkyStations = [], meetups = [], onShuttleClick, onPoiClick, onStoryClick, onMeetupClick, onMapMove, onMarkerPlaced, onObservationsClick, onMapLoaded, enableAutocenter = true },
   ref,
 ) {
   const mapContainer = useRef<HTMLDivElement>(null);
@@ -574,8 +566,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   onMeetupClickRef.current = onMeetupClick;
   const onObservationsClickRef = useRef(onObservationsClick);
   onObservationsClickRef.current = onObservationsClick;
-  const onMixedContentClickRef = useRef(onMixedContentClick);
-  onMixedContentClickRef.current = onMixedContentClick;
   const onMapLoadedRef = useRef(onMapLoaded);
   onMapLoadedRef.current = onMapLoaded;
   const popupRef = useRef<mapboxgl.Popup | null>(null);
@@ -1222,68 +1212,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       });
     }
 
-    // --- Mixed source (stories + observations clustering) ---
-    try {
-      if (!map.getSource(SRC_MIXED)) {
-        map.addSource(SRC_MIXED, {
-          type: 'geojson',
-          data: { type: 'FeatureCollection', features: [] },
-          cluster: true,
-          clusterMaxZoom: 14,
-          clusterRadius: 50,
-        });
-      }
-
-      // Mixed cluster circles (purple gradient)
-      if (!map.getLayer(LYR_MIXED_CLUSTER)) {
-        map.addLayer({
-          id: LYR_MIXED_CLUSTER,
-          type: 'circle',
-          source: SRC_MIXED,
-          filter: ['has', 'point_count'],
-          paint: {
-            'circle-color': [
-              'step',
-              ['get', 'point_count'],
-              '#9F7AEA', // purple for 2-4
-              5,
-              '#7C3AED', // deeper purple for 5-9
-              10,
-              '#5B21B6', // dark purple for 10+
-            ],
-            'circle-radius': [
-              'step',
-              ['get', 'point_count'],
-              32, 5, 40, 10, 50,
-            ],
-            'circle-stroke-width': 3,
-            'circle-stroke-color': '#ffffff',
-            'circle-opacity': 0.95,
-          },
-        });
-      }
-
-      // Mixed cluster count label
-      if (!map.getLayer(LYR_MIXED_CLUSTER_COUNT)) {
-        map.addLayer({
-          id: LYR_MIXED_CLUSTER_COUNT,
-          type: 'symbol',
-          source: SRC_MIXED,
-          filter: ['has', 'point_count'],
-          layout: {
-            'text-field': ['get', 'point_count_abbreviated'],
-            'text-size': 13,
-            'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
-          },
-          paint: {
-            'text-color': '#ffffff',
-          },
-        });
-      }
-    } catch (e) {
-      console.error('[ParaWaze] Failed to add mixed source/layers:', e);
-    }
-
     // --- Stories source with clustering ---
     try {
       if (!map.getSource(SRC_STORIES)) {
@@ -1522,7 +1450,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           addLayersToMap(map);
           // Populate with current data
           updateReportSource(map, reportsRef.current);
-          updateMixedSource(map, storiesRef.current, reportsRef.current);
+          updateStoriesSource(map, storiesRef.current);
+          updateObservationsSource(map, reportsRef.current);
           updateShuttleSource(map, shuttlesRef.current);
           updatePoiSource(map, poisRef.current);
           updatePioupiouSource(map, pioupiouRef.current);
@@ -1543,7 +1472,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           if (cancelled) return;
           addLayersToMap(map);
           updateReportSource(map, reportsRef.current);
-          updateMixedSource(map, storiesRef.current, reportsRef.current);
+          updateStoriesSource(map, storiesRef.current);
+          updateObservationsSource(map, reportsRef.current);
           updateShuttleSource(map, shuttlesRef.current);
           updatePoiSource(map, poisRef.current);
           updatePioupiouSource(map, pioupiouRef.current);
@@ -2018,7 +1948,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
             stories.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
             if (stories.length > 0) {
-              onMixedContentClickRef.current?.({ stories, observations: [] });
+              onStoryClickRef.current?.(stories);
             }
           }) as any);
         });
@@ -2046,52 +1976,13 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
             observations.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
             if (observations.length > 0) {
-              onMixedContentClickRef.current?.({ stories: [], observations });
-            }
-          }) as any);
-        });
-
-        // Mixed cluster click (legacy - still supported)
-        map.on('click', LYR_MIXED_CLUSTER, (e) => {
-          if (!e.features || !e.features[0]) return;
-          const clusterId = e.features[0].properties?.cluster_id;
-          if (clusterId === undefined) return;
-
-          const source = map.getSource(SRC_MIXED) as mapboxgl.GeoJSONSource | undefined;
-          if (!source) return;
-
-          source.getClusterLeaves(clusterId, 100, 0, ((err: Error | null | undefined, features: GeoJSON.Feature[] | undefined) => {
-            if (err || !features) return;
-
-            const storyIds = features
-              .filter((f) => f.properties?.content_type === 'story')
-              .map((f) => f.properties?.id)
-              .filter((id) => id);
-
-            const observationIds = features
-              .filter((f) => f.properties?.content_type === 'observation')
-              .map((f) => f.properties?.id)
-              .filter((id) => id);
-
-            const stories = storyIds
-              .map((id) => storiesRef.current.find((s) => s.id === id))
-              .filter((s) => s) as Story[];
-
-            const observations = observationIds
-              .map((id) => reportsRef.current.find((r) => r.id === id))
-              .filter((r) => r) as WeatherReport[];
-
-            stories.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-            observations.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-
-            if (stories.length > 0 || observations.length > 0) {
-              onMixedContentClickRef.current?.({ stories, observations });
+              onObservationsClickRef.current?.(observations);
             }
           }) as any);
         });
 
         // Pointer cursor on interactive layers
-        const interactiveLayers = [LYR_OBS_CIRCLES, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS, LYR_POI_CIRCLES, LYR_POI_LABELS, LYR_PIOUPIOU_CIRCLES, LYR_PIOUPIOU_LABELS, LYR_FFVL_CIRCLES, LYR_FFVL_LABELS, LYR_WINDS_MOBI_CIRCLES, LYR_WINDS_MOBI_LABELS, LYR_GEOSPHERE_CIRCLES, LYR_GEOSPHERE_LABELS, LYR_BRIGHTSKY_CIRCLES, LYR_BRIGHTSKY_LABELS, LYR_MEETUP_CIRCLES, LYR_MEETUP_LABELS, LYR_MIXED_CLUSTER, LYR_STORIES_CIRCLES, LYR_STORIES_CLUSTER, LYR_OBSERVATIONS_CIRCLES, LYR_OBSERVATIONS_CLUSTER, 'parawaze-shuttle-label', 'parawaze-forecast-label'];
+        const interactiveLayers = [LYR_OBS_CIRCLES, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS, LYR_POI_CIRCLES, LYR_POI_LABELS, LYR_PIOUPIOU_CIRCLES, LYR_PIOUPIOU_LABELS, LYR_FFVL_CIRCLES, LYR_FFVL_LABELS, LYR_WINDS_MOBI_CIRCLES, LYR_WINDS_MOBI_LABELS, LYR_GEOSPHERE_CIRCLES, LYR_GEOSPHERE_LABELS, LYR_BRIGHTSKY_CIRCLES, LYR_BRIGHTSKY_LABELS, LYR_MEETUP_CIRCLES, LYR_MEETUP_LABELS, LYR_STORIES_CIRCLES, LYR_STORIES_CLUSTER, LYR_OBSERVATIONS_CIRCLES, LYR_OBSERVATIONS_CLUSTER, 'parawaze-shuttle-label', 'parawaze-forecast-label'];
         interactiveLayers.forEach((layerId) => {
           map.on('mouseenter', layerId, () => { map.getCanvas().style.cursor = 'pointer'; });
           map.on('mouseleave', layerId, () => { map.getCanvas().style.cursor = ''; });
@@ -2135,16 +2026,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     if (src) {
       src.setData({ type: 'FeatureCollection', features: buildObservationFeatures(reportList) });
     }
-  }
-
-  function updateMixedSource(map: mapboxgl.Map, storyList: Story[], reportList: WeatherReport[]) {
-    const src = map.getSource(SRC_MIXED) as mapboxgl.GeoJSONSource | undefined;
-    if (src) {
-      src.setData({ type: 'FeatureCollection', features: buildMixedFeatures(storyList, reportList) });
-    }
-    // Also update the separate sources for clustering
-    updateStoriesSource(map, storyList);
-    updateObservationsSource(map, reportList);
   }
 
   function updateShuttleSource(map: mapboxgl.Map, sht: Shuttle[]) {
@@ -2277,8 +2158,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       if (map.getSource(SRC_REPORTS)) {
         updateReportSource(map, reports);
       }
-      if (map.getSource(SRC_MIXED)) {
-        updateMixedSource(map, storiesRef.current, reports);
+      if (map.getSource(SRC_OBSERVATIONS)) {
+        updateObservationsSource(map, reports);
       }
     };
     if (map.isStyleLoaded()) {
@@ -2441,8 +2322,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     const map = mapRef.current;
     if (!map) return;
     const doUpdate = () => {
-      if (map.getSource(SRC_MIXED)) {
-        updateMixedSource(map, stories, reportsRef.current);
+      if (map.getSource(SRC_STORIES)) {
+        updateStoriesSource(map, stories);
       }
     };
     if (map.isStyleLoaded()) {
