@@ -5,7 +5,7 @@ import type { Story } from '@/lib/types';
 import { useStories } from '@/hooks/useStories';
 
 interface StoryViewerProps {
-  story: Story;
+  stories: Story[];
   onClose: () => void;
 }
 
@@ -19,9 +19,10 @@ function timeAgo(dateStr: string): string {
   return `il y a ${Math.floor(hours / 24)}j`;
 }
 
-export default function StoryViewer({ story, onClose }: StoryViewerProps) {
+export default function StoryViewer({ stories, onClose }: StoryViewerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
 
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [muted, setMuted] = useState(false);
   const [showMuteIcon, setShowMuteIcon] = useState(false);
   const [liked, setLiked] = useState(false);
@@ -38,6 +39,8 @@ export default function StoryViewer({ story, onClose }: StoryViewerProps) {
 
   const { flagStory } = useStories();
 
+  const story = stories[currentIndex];
+
   const handleFlag = useCallback(async () => {
     try {
       await flagStory(story.id);
@@ -49,13 +52,57 @@ export default function StoryViewer({ story, onClose }: StoryViewerProps) {
     }
   }, [flagStory, story.id, onClose]);
 
+  const nextStory = () => {
+    if (currentIndex < stories.length - 1) {
+      setCurrentIndex(currentIndex + 1);
+      setLiked(false);
+      setFlagged(false);
+      setShowFlagConfirm(false);
+    } else {
+      onClose();
+    }
+  };
+
+  const previousStory = () => {
+    if (currentIndex > 0) {
+      setCurrentIndex(currentIndex - 1);
+      setLiked(false);
+      setFlagged(false);
+      setShowFlagConfirm(false);
+    }
+  };
+
   const handleVideoTap = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
     // Don't toggle mute if tapping on UI controls
-    if ((e.target as HTMLElement).closest('button')) return;
-    setMuted((m) => !m);
-    setShowMuteIcon(true);
-    if (muteIconTimer.current) clearTimeout(muteIconTimer.current);
-    muteIconTimer.current = setTimeout(() => setShowMuteIcon(false), 1200);
+    if (target.closest('button')) return;
+
+    // Check which side of screen was tapped
+    const rect = target.closest('video')?.getBoundingClientRect();
+    if (!rect) {
+      setMuted((m) => !m);
+      return;
+    }
+
+    const tapX = e.clientX - rect.left;
+    if (tapX < rect.width / 3) {
+      // Left third — previous story
+      previousStory();
+    } else if (tapX > (rect.width * 2) / 3) {
+      // Right third — next story
+      nextStory();
+    } else {
+      // Middle third — toggle mute
+      setMuted((m) => !m);
+      setShowMuteIcon(true);
+      if (muteIconTimer.current) clearTimeout(muteIconTimer.current);
+      muteIconTimer.current = setTimeout(() => setShowMuteIcon(false), 1200);
+    }
+  };
+
+  // Auto-advance when video ends
+  const handleVideoEnd = () => {
+    nextStory();
   };
 
   const handleLike = () => {
@@ -121,15 +168,33 @@ export default function StoryViewer({ story, onClose }: StoryViewerProps) {
         onPointerUp={onPointerUp}
         onClick={handleVideoTap}
       >
+        {/* Story progress bar */}
+        <div className="absolute top-0 inset-x-0 z-30 flex gap-1 px-2 pt-2">
+          {stories.map((_, idx) => (
+            <div
+              key={idx}
+              className="flex-1 h-1 bg-white/30 rounded-full overflow-hidden"
+            >
+              <div
+                className="h-full bg-white transition-all"
+                style={{
+                  width: idx < currentIndex ? '100%' : idx === currentIndex ? '50%' : '0%',
+                }}
+              />
+            </div>
+          ))}
+        </div>
+
         {/* Full-screen video */}
         <video
           ref={videoRef}
+          key={story.id}
           src={story.video_url}
           autoPlay
           playsInline
           muted={muted}
-          loop
           className="absolute inset-0 w-full h-full object-cover"
+          onEnded={handleVideoEnd}
         />
 
         {/* Top gradient */}

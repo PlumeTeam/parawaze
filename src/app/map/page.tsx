@@ -57,7 +57,7 @@ export default function MapPage() {
   const [toast, setToast] = useState<string | null>(null);
   const [lastMarker, setLastMarker] = useState<{lat: number; lng: number; alt: number | null} | null>(null);
   const [showRecorder, setShowRecorder] = useState(false);
-  const [selectedStory, setSelectedStory] = useState<Story | null>(null);
+  const [selectedStories, setSelectedStories] = useState<Story[]>([]);
   const [selectedMeetup, setSelectedMeetup] = useState<Meetup | null>(null);
   const [showGeolocationScreen, setShowGeolocationScreen] = useState(false);
   const [mapLoading, setMapLoading] = useState(true);
@@ -143,8 +143,8 @@ export default function MapPage() {
     router.push(`/sites/${poi.id}`);
   };
 
-  const handleStoryClick = (story: Story) => {
-    setSelectedStory(story);
+  const handleStoryClick = (stories: Story[]) => {
+    setSelectedStories(stories);
   };
 
   const handleMeetupClick = (meetup: Meetup) => {
@@ -299,10 +299,10 @@ export default function MapPage() {
         />
 
         {/* Story Viewer */}
-        {selectedStory && (
+        {selectedStories.length > 0 && (
           <StoryViewer
-            story={selectedStory}
-            onClose={() => setSelectedStory(null)}
+            stories={selectedStories}
+            onClose={() => setSelectedStories([])}
           />
         )}
 

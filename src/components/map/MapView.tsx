@@ -45,7 +45,7 @@ interface MapViewProps {
   onMeetupClick?: (meetup: Meetup) => void;
   onShuttleClick?: (shuttle: Shuttle) => void;
   onPoiClick?: (poi: Poi) => void;
-  onStoryClick?: (story: Story) => void;
+  onStoryClick?: (stories: Story[]) => void;
   onMapMove?: (center: { lat: number; lng: number }) => void;
   onMarkerPlaced?: (pos: MarkerPosition) => void;
   enableAutocenter?: boolean;
@@ -464,6 +464,8 @@ const LYR_BRIGHTSKY_ARROWS = 'parawaze-brightsky-arrows';
 const SRC_MEETUPS = 'parawaze-meetups';
 const SRC_STORIES = 'parawaze-stories';
 const LYR_STORIES = 'parawaze-stories';
+const LYR_STORIES_CLUSTER = 'parawaze-stories-cluster';
+const LYR_STORIES_CLUSTER_COUNT = 'parawaze-stories-cluster-count';
 const LYR_MEETUP_CIRCLES = 'parawaze-meetup-circles';
 const LYR_MEETUP_LABELS = 'parawaze-meetup-labels';
 
@@ -1109,20 +1111,75 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       console.error('[ParaWaze] Failed to add GeoSphere/BrightSky source/layers:', e);
     }
 
-    // --- Stories source ---
+    // --- Stories source with clustering ---
     if (!map.getSource(SRC_STORIES)) {
       map.addSource(SRC_STORIES, {
         type: 'geojson',
         data: { type: 'FeatureCollection', features: [] },
+        cluster: true,
+        clusterMaxZoom: 14,
+        clusterRadius: 50,
       });
     }
 
-    // Story circles — purple/pink gradient
+    // Clustered stories — larger circles with gradient colors
+    if (!map.getLayer(LYR_STORIES_CLUSTER)) {
+      map.addLayer({
+        id: LYR_STORIES_CLUSTER,
+        type: 'circle',
+        source: SRC_STORIES,
+        filter: ['has', 'point_count'],
+        paint: {
+          'circle-color': [
+            'step',
+            ['get', 'point_count'],
+            '#EC4899', // pink for 2-4 stories
+            5,
+            '#D946EF', // deeper pink for 5-9
+            10,
+            '#A21CAF', // purple for 10+
+          ],
+          'circle-radius': [
+            'step',
+            ['get', 'point_count'],
+            25,
+            5,
+            30,
+            10,
+            35,
+          ],
+          'circle-stroke-width': 3,
+          'circle-stroke-color': '#ffffff',
+          'circle-opacity': 0.95,
+        },
+      });
+    }
+
+    // Cluster count labels
+    if (!map.getLayer(LYR_STORIES_CLUSTER_COUNT)) {
+      map.addLayer({
+        id: LYR_STORIES_CLUSTER_COUNT,
+        type: 'symbol',
+        source: SRC_STORIES,
+        filter: ['has', 'point_count'],
+        layout: {
+          'text-field': '{point_count_abbreviated}',
+          'text-size': 14,
+          'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'],
+        },
+        paint: {
+          'text-color': '#ffffff',
+        },
+      });
+    }
+
+    // Unclustered story circles
     if (!map.getLayer(LYR_STORIES)) {
       map.addLayer({
         id: LYR_STORIES,
         type: 'circle',
         source: SRC_STORIES,
+        filter: ['!', ['has', 'point_count']],
         paint: {
           'circle-radius': 16,
           'circle-color': '#EC4899',
@@ -1453,11 +1510,50 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           }
         });
 
+        // Story cluster click
+        map.on('click', LYR_STORIES_CLUSTER, (e) => {
+          if (!e.features || !e.features[0]) return;
+          const clusterId = e.features[0].properties?.cluster_id;
+          if (clusterId === undefined) return;
+
+          const source = map.getSource(SRC_STORIES) as mapboxgl.GeoJSONSource | undefined;
+          if (!source) return;
+
+          // Get all stories in this cluster
+          source.getClusterLeaves(
+            clusterId,
+            100, // limit to 100 stories per cluster
+            0, // offset
+            (err: Error | null, features: GeoJSON.Feature[]) => {
+              if (err || !features) return;
+
+              // Extract story IDs and get full story objects
+              const storyIds = features
+                .map((f) => f.properties?.id)
+                .filter((id) => id);
+
+              const stories = storyIds
+                .map((id) => storiesRef.current.find((s) => s.id === id))
+                .filter((s) => s) as Story[];
+
+              // Sort by created_at DESC (newest first)
+              stories.sort((a, b) =>
+                new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+              );
+
+              if (stories.length > 0) {
+                onStoryClickRef.current?.(stories);
+              }
+            }
+          );
+        });
+
+        // Unclustered story click
         map.on('click', LYR_STORIES, (e) => {
           if (e.features && e.features[0]) {
             const storyId = e.features[0].properties?.id;
             const story = storiesRef.current.find((s) => s.id === storyId);
-            if (story) onStoryClickRef.current?.(story);
+            if (story) onStoryClickRef.current?.([story]); // Pass as array for consistency
           }
         });
 
@@ -1721,7 +1817,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         });
 
         // Pointer cursor on interactive layers
-        const interactiveLayers = [LYR_OBS_CIRCLES, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS, LYR_POI_CIRCLES, LYR_POI_LABELS, LYR_PIOUPIOU_CIRCLES, LYR_PIOUPIOU_LABELS, LYR_FFVL_CIRCLES, LYR_FFVL_LABELS, LYR_WINDS_MOBI_CIRCLES, LYR_WINDS_MOBI_LABELS, LYR_GEOSPHERE_CIRCLES, LYR_GEOSPHERE_LABELS, LYR_BRIGHTSKY_CIRCLES, LYR_BRIGHTSKY_LABELS, LYR_STORIES, LYR_MEETUP_CIRCLES, LYR_MEETUP_LABELS, 'parawaze-shuttle-label', 'parawaze-forecast-label'];
+        const interactiveLayers = [LYR_OBS_CIRCLES, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS, LYR_POI_CIRCLES, LYR_POI_LABELS, LYR_PIOUPIOU_CIRCLES, LYR_PIOUPIOU_LABELS, LYR_FFVL_CIRCLES, LYR_FFVL_LABELS, LYR_WINDS_MOBI_CIRCLES, LYR_WINDS_MOBI_LABELS, LYR_GEOSPHERE_CIRCLES, LYR_GEOSPHERE_LABELS, LYR_BRIGHTSKY_CIRCLES, LYR_BRIGHTSKY_LABELS, LYR_STORIES, LYR_STORIES_CLUSTER, LYR_MEETUP_CIRCLES, LYR_MEETUP_LABELS, 'parawaze-shuttle-label', 'parawaze-forecast-label'];
         interactiveLayers.forEach((layerId) => {
           map.on('mouseenter', layerId, () => { map.getCanvas().style.cursor = 'pointer'; });
           map.on('mouseleave', layerId, () => { map.getCanvas().style.cursor = ''; });
