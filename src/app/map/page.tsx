@@ -15,7 +15,6 @@ import { useWindsMobi } from '@/hooks/useWindsMobi';
 import { useGeoSphere } from '@/hooks/useGeoSphere';
 import { useBrightSky } from '@/hooks/useBrightSky';
 import type { DayFilter } from '@/hooks/useReports';
-import ReportBottomSheet from '@/components/map/ReportBottomSheet';
 import BottomNav from '@/components/shared/BottomNav';
 import LoadingSpinner from '@/components/shared/LoadingSpinner';
 import StoryRecorder from '@/components/stories/StoryRecorder';
@@ -54,7 +53,6 @@ export default function MapPage() {
   const { stations: windsMobiStations } = useWindsMobi();
   const { stations: geoSphereStations } = useGeoSphere();
   const { stations: brightSkyStations } = useBrightSky();
-  const [selectedReport, setSelectedReport] = useState<WeatherReport | null>(null);
   const [selectedObservations, setSelectedObservations] = useState<WeatherReport[]>([]);
   const [selectedMixedContent, setSelectedMixedContent] = useState<{ stories: Story[]; observations: WeatherReport[] } | null>(null);
   const [selectedDay, setSelectedDay] = useState<DayFilter>('today');
@@ -134,10 +132,6 @@ export default function MapPage() {
     const t = setTimeout(() => setToast(null), 3000);
     return () => clearTimeout(t);
   }, [toast]);
-
-  const handleReportClick = (report: WeatherReport) => {
-    setSelectedReport(report);
-  };
 
   const handleShuttleClick = (shuttle: Shuttle) => {
     router.push(`/shuttle/${shuttle.id}`);
@@ -286,7 +280,6 @@ export default function MapPage() {
             if (selectedDay === 'yesterday') return dep >= yesterdayStart && dep < todayStart;
             return true;
           })}
-          onReportClick={handleReportClick}
           onObservationsClick={handleObservationsClick}
           onMixedContentClick={handleMixedContentClick}
           onShuttleClick={handleShuttleClick}
@@ -303,14 +296,6 @@ export default function MapPage() {
             <p className="mt-4 text-gray-600 font-medium">Chargement...</p>
           </div>
         )}
-
-        <ReportBottomSheet
-          reports={reports}
-          selectedReport={selectedReport}
-          onSelectReport={setSelectedReport}
-          onViewDetail={handleViewDetail}
-          selectedDay={selectedDay}
-        />
 
         {/* Story Viewer */}
         {selectedStories.length > 0 && (

@@ -41,7 +41,6 @@ interface MapViewProps {
   brightSkyStations?: BrightSkyStation[];
   stories?: Story[];
   meetups?: Meetup[];
-  onReportClick: (report: WeatherReport) => void;
   onObservationsClick?: (reports: WeatherReport[]) => void;
   onMixedContentClick?: (data: { stories: Story[]; observations: WeatherReport[] }) => void;
   onMeetupClick?: (meetup: Meetup) => void;
@@ -506,7 +505,7 @@ const LYR_OBSERVATIONS_CLUSTER_COUNT = 'parawaze-observations-cluster-count';
 /*  Component                                                         */
 /* ------------------------------------------------------------------ */
 const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
-  { reports, shuttles = [], stories = [], pois = [], pioupiouStations = [], ffvlStations = [], windsMobiStations = [], geoSphereStations = [], brightSkyStations = [], meetups = [], onReportClick, onShuttleClick, onPoiClick, onStoryClick, onMeetupClick, onMapMove, onMarkerPlaced, onObservationsClick, onMixedContentClick, onMapLoaded, enableAutocenter = true },
+  { reports, shuttles = [], stories = [], pois = [], pioupiouStations = [], ffvlStations = [], windsMobiStations = [], geoSphereStations = [], brightSkyStations = [], meetups = [], onShuttleClick, onPoiClick, onStoryClick, onMeetupClick, onMapMove, onMarkerPlaced, onObservationsClick, onMixedContentClick, onMapLoaded, enableAutocenter = true },
   ref,
 ) {
   const mapContainer = useRef<HTMLDivElement>(null);
@@ -527,8 +526,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   reportsRef.current = reports;
   const shuttlesRef = useRef<Shuttle[]>(shuttles);
   shuttlesRef.current = shuttles;
-  const onReportClickRef = useRef(onReportClick);
-  onReportClickRef.current = onReportClick;
   const onShuttleClickRef = useRef(onShuttleClick);
   onShuttleClickRef.current = onShuttleClick;
   const poisRef = useRef<Poi[]>(pois);
@@ -1517,18 +1514,81 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
 
         // --- Click handlers for GeoJSON layers ---
         map.on('click', LYR_OBS_CIRCLES, (e) => {
-          if (e.features && e.features[0]) {
-            const reportId = e.features[0].properties?.id;
-            const report = reportsRef.current.find((r) => r.id === reportId);
-            if (report) onReportClickRef.current(report);
+          if (!e.features || !e.features[0]) return;
+          const props = e.features[0].properties;
+          if (!props) return;
+          const coords = (e.features[0].geometry as any).coordinates.slice() as [number, number];
+
+          if (popupRef.current) {
+            popupRef.current.remove();
+            popupRef.current = null;
           }
+
+          const reportType = props.report_type || 'observation';
+          const windAvg = props.windAvg != null ? Number(props.windAvg) : null;
+          const windGust = props.windGust != null ? Number(props.windGust) : null;
+          const windDir = props.windDirection != null ? Number(props.windDirection) : null;
+          const thermal = props.thermal != null ? Number(props.thermal) : null;
+          const createdAt = props.created_at
+            ? new Date(props.created_at).toLocaleString('fr-FR', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })
+            : '—';
+
+          const html = `
+            <div style="font-family:system-ui,-apple-system,sans-serif;font-size:13px;line-height:1.5;min-width:200px">
+              <div style="font-weight:700;font-size:14px;margin-bottom:2px">👁️ ${reportType === 'observation' ? 'Observation' : 'Report'}</div>
+              ${props.author ? `<div style="color:#666;font-size:12px;margin-bottom:6px">par ${props.author}</div>` : ''}
+              ${windAvg != null ? `<div style="margin-bottom:2px">💨 Vent: <b>${Math.round(windAvg)} km/h</b></div>` : ''}
+              ${windGust != null ? `<div style="margin-bottom:2px">🌪️ Rafales: ${Math.round(windGust)} km/h</div>` : ''}
+              ${windDir != null ? `<div style="margin-bottom:2px">🧭 Direction: ${Math.round(windDir)}°</div>` : ''}
+              ${thermal != null ? `<div style="margin-bottom:2px">📈 Thermique: ${thermal.toFixed(1)}m/s</div>` : ''}
+              ${props.description && props.description !== 'null' ? `<div style="margin-bottom:6px;color:#555"><i>${props.description}</i></div>` : ''}
+              <div style="margin-bottom:2px;color:#666;font-size:12px">🕐 ${createdAt}</div>
+            </div>
+          `;
+
+          const popup = new mb.Popup({ closeButton: true, maxWidth: '280px', offset: 12 })
+            .setLngLat(coords)
+            .setHTML(html)
+            .addTo(map);
+
+          popup.on('close', () => { popupRef.current = null; });
+          popupRef.current = popup;
         });
         map.on('click', LYR_FORECAST_CIRCLES, (e) => {
-          if (e.features && e.features[0]) {
-            const reportId = e.features[0].properties?.id;
-            const report = reportsRef.current.find((r) => r.id === reportId);
-            if (report) onReportClickRef.current(report);
+          if (!e.features || !e.features[0]) return;
+          const props = e.features[0].properties;
+          if (!props) return;
+          const coords = (e.features[0].geometry as any).coordinates.slice() as [number, number];
+
+          if (popupRef.current) {
+            popupRef.current.remove();
+            popupRef.current = null;
           }
+
+          const windAvg = props.windAvg != null ? Number(props.windAvg) : null;
+          const windGust = props.windGust != null ? Number(props.windGust) : null;
+          const windDir = props.windDirection != null ? Number(props.windDirection) : null;
+          const createdAt = props.created_at
+            ? new Date(props.created_at).toLocaleString('fr-FR', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })
+            : '—';
+
+          const html = `
+            <div style="font-family:system-ui,-apple-system,sans-serif;font-size:13px;line-height:1.5;min-width:200px">
+              <div style="font-weight:700;font-size:14px;margin-bottom:2px">📊 Prévision</div>
+              ${windAvg != null ? `<div style="margin-bottom:2px">💨 Vent: <b>${Math.round(windAvg)} km/h</b></div>` : ''}
+              ${windGust != null ? `<div style="margin-bottom:2px">🌪️ Rafales: ${Math.round(windGust)} km/h</div>` : ''}
+              ${windDir != null ? `<div style="margin-bottom:2px">🧭 Direction: ${Math.round(windDir)}°</div>` : ''}
+              <div style="margin-bottom:2px;color:#666;font-size:12px">🕐 ${createdAt}</div>
+            </div>
+          `;
+
+          const popup = new mb.Popup({ closeButton: true, maxWidth: '280px', offset: 12 })
+            .setLngLat(coords)
+            .setHTML(html)
+            .addTo(map);
+
+          popup.on('close', () => { popupRef.current = null; });
+          popupRef.current = popup;
         });
         map.on('click', LYR_SHUTTLE_ICONS, (e) => {
           if (e.features && e.features[0]) {
@@ -1818,12 +1878,44 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         // Individual observation click
         map.on('click', LYR_OBSERVATIONS_CIRCLES, (e) => {
           if (!e.features || !e.features[0]) return;
-          const reportId = e.features[0].properties?.id;
-          if (!reportId) return;
-          const report = reportsRef.current.find((r) => r.id === reportId);
-          if (report) {
-            onReportClickRef.current(report);
+          const props = e.features[0].properties;
+          if (!props) return;
+          const coords = (e.features[0].geometry as any).coordinates.slice() as [number, number];
+
+          if (popupRef.current) {
+            popupRef.current.remove();
+            popupRef.current = null;
           }
+
+          const reportType = props.report_type || 'observation';
+          const windAvg = props.windAvg != null ? Number(props.windAvg) : null;
+          const windGust = props.windGust != null ? Number(props.windGust) : null;
+          const windDir = props.windDirection != null ? Number(props.windDirection) : null;
+          const thermal = props.thermal != null ? Number(props.thermal) : null;
+          const createdAt = props.created_at
+            ? new Date(props.created_at).toLocaleString('fr-FR', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })
+            : '—';
+
+          const html = `
+            <div style="font-family:system-ui,-apple-system,sans-serif;font-size:13px;line-height:1.5;min-width:200px">
+              <div style="font-weight:700;font-size:14px;margin-bottom:2px">👁️ Observation</div>
+              ${props.author ? `<div style="color:#666;font-size:12px;margin-bottom:6px">par ${props.author}</div>` : ''}
+              ${windAvg != null ? `<div style="margin-bottom:2px">💨 Vent: <b>${Math.round(windAvg)} km/h</b></div>` : ''}
+              ${windGust != null ? `<div style="margin-bottom:2px">🌪️ Rafales: ${Math.round(windGust)} km/h</div>` : ''}
+              ${windDir != null ? `<div style="margin-bottom:2px">🧭 Direction: ${Math.round(windDir)}°</div>` : ''}
+              ${thermal != null ? `<div style="margin-bottom:2px">📈 Thermique: ${thermal.toFixed(1)}m/s</div>` : ''}
+              ${props.description && props.description !== 'null' ? `<div style="margin-bottom:6px;color:#555"><i>${props.description}</i></div>` : ''}
+              <div style="margin-bottom:2px;color:#666;font-size:12px">🕐 ${createdAt}</div>
+            </div>
+          `;
+
+          const popup = new mb.Popup({ closeButton: true, maxWidth: '280px', offset: 12 })
+            .setLngLat(coords)
+            .setHTML(html)
+            .addTo(map);
+
+          popup.on('close', () => { popupRef.current = null; });
+          popupRef.current = popup;
         });
 
         // Stories cluster click
