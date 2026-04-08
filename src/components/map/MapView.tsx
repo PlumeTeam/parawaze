@@ -173,6 +173,24 @@ function buildPoiFeatures(pois: Poi[]): GeoJSON.Feature[] {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Story GeoJSON                                                     */
+/* ------------------------------------------------------------------ */
+function buildStoryFeatures(stories: Story[]): GeoJSON.Feature[] {
+  return stories
+    .filter((s) => s.location && s.location.coordinates && s.location.coordinates.length >= 2)
+    .map((s) => ({
+      type: 'Feature' as const,
+      geometry: {
+        type: 'Point' as const,
+        coordinates: s.location!.coordinates,
+      },
+      properties: {
+        id: s.id,
+      },
+    }));
+}
+
+/* ------------------------------------------------------------------ */
 /*  Meetup GeoJSON                                                    */
 /* ------------------------------------------------------------------ */
 function buildMeetupFeatures(meetups: Meetup[]): GeoJSON.Feature[] {
@@ -444,6 +462,8 @@ const LYR_BRIGHTSKY_CIRCLES = 'parawaze-brightsky-circles';
 const LYR_BRIGHTSKY_LABELS = 'parawaze-brightsky-labels';
 const LYR_BRIGHTSKY_ARROWS = 'parawaze-brightsky-arrows';
 const SRC_MEETUPS = 'parawaze-meetups';
+const SRC_STORIES = 'parawaze-stories';
+const LYR_STORIES = 'parawaze-stories';
 const LYR_MEETUP_CIRCLES = 'parawaze-meetup-circles';
 const LYR_MEETUP_LABELS = 'parawaze-meetup-labels';
 
@@ -490,7 +510,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   geoSphereRef.current = geoSphereStations;
   const brightSkyRef = useRef<BrightSkyStation[]>(brightSkyStations);
   brightSkyRef.current = brightSkyStations;
-  const storyMarkersRef = useRef<mapboxgl.Marker[]>([]);
   const storiesRef = useRef<Story[]>(stories);
   storiesRef.current = stories;
   const onStoryClickRef = useRef(onStoryClick);
@@ -1090,6 +1109,30 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       console.error('[ParaWaze] Failed to add GeoSphere/BrightSky source/layers:', e);
     }
 
+    // --- Stories source ---
+    if (!map.getSource(SRC_STORIES)) {
+      map.addSource(SRC_STORIES, {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] },
+      });
+    }
+
+    // Story circles — purple/pink gradient
+    if (!map.getLayer(LYR_STORIES)) {
+      map.addLayer({
+        id: LYR_STORIES,
+        type: 'circle',
+        source: SRC_STORIES,
+        paint: {
+          'circle-radius': 16,
+          'circle-color': '#EC4899',
+          'circle-stroke-width': 3,
+          'circle-stroke-color': '#ffffff',
+          'circle-opacity': 0.95,
+        },
+      });
+    }
+
     // --- Meetups source ---
     if (!map.getSource(SRC_MEETUPS)) {
       map.addSource(SRC_MEETUPS, {
@@ -1410,6 +1453,14 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           }
         });
 
+        map.on('click', LYR_STORIES, (e) => {
+          if (e.features && e.features[0]) {
+            const storyId = e.features[0].properties?.id;
+            const story = storiesRef.current.find((s) => s.id === storyId);
+            if (story) onStoryClickRef.current?.(story);
+          }
+        });
+
         map.on('click', LYR_MEETUP_CIRCLES, (e) => {
           if (e.features && e.features[0]) {
             const meetupId = e.features[0].properties?.id;
@@ -1670,7 +1721,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         });
 
         // Pointer cursor on interactive layers
-        const interactiveLayers = [LYR_OBS_CIRCLES, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS, LYR_POI_CIRCLES, LYR_POI_LABELS, LYR_PIOUPIOU_CIRCLES, LYR_PIOUPIOU_LABELS, LYR_FFVL_CIRCLES, LYR_FFVL_LABELS, LYR_WINDS_MOBI_CIRCLES, LYR_WINDS_MOBI_LABELS, LYR_GEOSPHERE_CIRCLES, LYR_GEOSPHERE_LABELS, LYR_BRIGHTSKY_CIRCLES, LYR_BRIGHTSKY_LABELS, LYR_MEETUP_CIRCLES, LYR_MEETUP_LABELS, 'parawaze-shuttle-label', 'parawaze-forecast-label'];
+        const interactiveLayers = [LYR_OBS_CIRCLES, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS, LYR_POI_CIRCLES, LYR_POI_LABELS, LYR_PIOUPIOU_CIRCLES, LYR_PIOUPIOU_LABELS, LYR_FFVL_CIRCLES, LYR_FFVL_LABELS, LYR_WINDS_MOBI_CIRCLES, LYR_WINDS_MOBI_LABELS, LYR_GEOSPHERE_CIRCLES, LYR_GEOSPHERE_LABELS, LYR_BRIGHTSKY_CIRCLES, LYR_BRIGHTSKY_LABELS, LYR_STORIES, LYR_MEETUP_CIRCLES, LYR_MEETUP_LABELS, 'parawaze-shuttle-label', 'parawaze-forecast-label'];
         interactiveLayers.forEach((layerId) => {
           map.on('mouseenter', layerId, () => { map.getCanvas().style.cursor = 'pointer'; });
           map.on('mouseleave', layerId, () => { map.getCanvas().style.cursor = ''; });
@@ -1772,6 +1823,17 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       }
     } catch (e) {
       console.error('[ParaWaze] Failed to update BrightSky source:', e);
+    }
+  }
+
+  function updateStorySource(map: mapboxgl.Map, storyList: Story[]) {
+    try {
+      const src = map.getSource(SRC_STORIES) as mapboxgl.GeoJSONSource | undefined;
+      if (src) {
+        src.setData({ type: 'FeatureCollection', features: buildStoryFeatures(storyList) });
+      }
+    } catch (e) {
+      console.error('[ParaWaze] Failed to update Story source:', e);
     }
   }
 
@@ -1970,53 +2032,24 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     }
   }, [meetups]);
 
-  /* ---------------------------------------------------------------- */
-  /*  Story DOM markers                                               */
-  /* ---------------------------------------------------------------- */
+  // Update story markers using GeoJSON layer
   useEffect(() => {
-    if (!mapRef.current || !mbRef.current) return;
-    const mb = mbRef.current;
+    storiesRef.current = stories;
+  }, [stories]);
 
-    storyMarkersRef.current.forEach((m) => m.remove());
-    storyMarkersRef.current = [];
-
-    stories.forEach((story) => {
-      if (!story.location) return;
-      const coords = story.location.coordinates;
-      if (!coords || coords.length < 2) return;
-
-      const el = document.createElement('div');
-      el.className = 'parawaze-story-marker';
-      el.style.cssText = `
-        width: 38px;
-        height: 38px;
-        border-radius: 50%;
-        background: linear-gradient(135deg, #8B5CF6, #EC4899);
-        border: 3px solid white;
-        box-shadow: 0 2px 10px rgba(139,92,246,0.5);
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: transform 0.2s;
-        animation: story-pulse 2s ease-in-out infinite;
-      `;
-      el.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="white"><polygon points="5 3 19 12 5 21 5 3"/></svg>`;
-
-      el.addEventListener('mouseenter', () => { el.style.transform = 'scale(1.15)'; });
-      el.addEventListener('mouseleave', () => { el.style.transform = 'scale(1)'; });
-
-      const marker = new mb.Marker({ element: el })
-        .setLngLat([coords[0], coords[1]])
-        .addTo(mapRef.current!);
-
-      el.addEventListener('click', (e) => {
-        e.stopPropagation();
-        onStoryClickRef.current?.(story);
-      });
-
-      storyMarkersRef.current.push(marker);
-    });
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const doUpdate = () => {
+      if (map.getSource(SRC_STORIES)) {
+        updateStorySource(map, storiesRef.current);
+      }
+    };
+    if (map.isStyleLoaded()) {
+      doUpdate();
+    } else {
+      map.once('idle', doUpdate);
+    }
   }, [stories]);
 
   /* ---------------------------------------------------------------- */
@@ -2091,14 +2124,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   /* ---------------------------------------------------------------- */
   return (
     <div className="relative w-full h-full">
-      {/* Pulse animation for story markers */}
-      <style>{`
-        @keyframes story-pulse {
-          0%, 100% { box-shadow: 0 2px 10px rgba(139,92,246,0.5); }
-          50% { box-shadow: 0 2px 20px rgba(236,72,153,0.7), 0 0 0 6px rgba(139,92,246,0.15); }
-        }
-      `}</style>
-
       {error && (
         <div className="absolute top-0 left-0 right-0 bg-red-600 text-white text-sm px-4 py-2 z-50">
           Map error: {error}
