@@ -13,7 +13,7 @@ interface BottomNavProps {
 export default function BottomNav({ onCreateReport, onCameraOpen }: BottomNavProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [communauteMenuOpen, setCommunauteMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const isObservationActive = pathname.startsWith('/report');
@@ -34,23 +34,17 @@ export default function BottomNav({ onCreateReport, onCameraOpen }: BottomNavPro
 
   // Close menu when clicking outside
   useEffect(() => {
-    if (!menuOpen) return;
+    if (!communauteMenuOpen) return;
 
     const handleClickOutside = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
+        setCommunauteMenuOpen(false);
       }
     };
 
     document.addEventListener('click', handleClickOutside);
     return () => document.removeEventListener('click', handleClickOutside);
-  }, [menuOpen]);
-
-  const menuItems = [
-    { label: 'Navette', icon: '🚐', path: '/shuttle/pick-locations' },
-    { label: 'RDV', icon: '📅', path: '/meetup' },
-    { label: 'Site', icon: '📍', path: '/sites/pick-location' },
-  ];
+  }, [communauteMenuOpen]);
 
   return (
     <nav
@@ -62,52 +56,64 @@ export default function BottomNav({ onCreateReport, onCameraOpen }: BottomNavPro
         style={{ height: 82 }}
       >
 
-        {/* LEFT — Expandable Plus button with menu */}
+        {/* LEFT — Communauté button with popup */}
         <div className="relative w-16 flex justify-center" ref={menuRef}>
           <button
-            onClick={() => setMenuOpen(!menuOpen)}
+            onClick={() => setCommunauteMenuOpen(!communauteMenuOpen)}
             className="flex flex-col items-center justify-center gap-1 transition-opacity active:opacity-60"
           >
-            <div
-              className="flex items-center justify-center"
-              style={{
-                width: 44,
-                height: 44,
-                borderRadius: 22,
-                background: menuOpen ? '#3A3A3A' : '#C5C5C5',
-                color: 'white',
-                fontSize: 24,
-                fontWeight: 'bold',
-                transition: 'all 0.2s ease',
-              }}
+            <svg
+              width={22}
+              height={22}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke={communauteMenuOpen ? '#3A3A3A' : '#C5C5C5'}
+              strokeWidth={1.8}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{ transition: 'stroke 0.2s ease' }}
             >
-              +
-            </div>
+              {/* Three people silhouettes */}
+              {/* Left person */}
+              <circle cx="6" cy="7" r="2.5" />
+              <path d="M6 10v5" />
+              <path d="M4.5 12h3" />
+              {/* Center person */}
+              <circle cx="12" cy="6" r="2.5" />
+              <path d="M12 9v6" />
+              <path d="M10 11h4" />
+              {/* Right person */}
+              <circle cx="18" cy="7" r="2.5" />
+              <path d="M18 10v5" />
+              <path d="M16.5 12h3" />
+            </svg>
             <span
               className="font-medium"
               style={{
                 fontSize: 10,
-                color: '#C5C5C5',
+                color: communauteMenuOpen ? '#3A3A3A' : '#C5C5C5',
                 lineHeight: 1,
                 transition: 'color 0.2s ease',
               }}
             >
-              Plus
+              Communauté
             </span>
           </button>
 
-          {/* Popup menu */}
-          {menuOpen && (
+          {/* Communauté popup menu */}
+          {communauteMenuOpen && (
             <div
               style={{
                 position: 'absolute',
                 bottom: 80,
-                left: -20,
-                right: -20,
+                left: -40,
+                right: -40,
                 background: 'white',
                 borderRadius: 16,
                 boxShadow: '0 -4px 20px rgba(0,0,0,0.15)',
                 padding: 12,
+                display: 'flex',
+                gap: 8,
                 animation: 'slideUp 0.2s ease-out',
               }}
             >
@@ -123,21 +129,66 @@ export default function BottomNav({ onCreateReport, onCameraOpen }: BottomNavPro
                   }
                 }
               `}</style>
-              <div className="flex flex-col gap-2">
-                {menuItems.map((item) => (
-                  <button
-                    key={item.path}
-                    onClick={() => {
-                      setMenuOpen(false);
-                      router.push(item.path);
-                    }}
-                    className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-50 transition-colors text-left"
-                  >
-                    <span style={{ fontSize: 20 }}>{item.icon}</span>
-                    <span className="font-medium text-sm text-gray-800">{item.label}</span>
-                  </button>
-                ))}
-              </div>
+
+              {/* Navette option */}
+              <button
+                onClick={() => {
+                  setCommunauteMenuOpen(false);
+                  router.push('/shuttle/pick-locations');
+                }}
+                className="flex-1 flex flex-col items-center gap-2 px-3 py-3 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <svg
+                  width={28}
+                  height={28}
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#3A3A3A"
+                  strokeWidth={1.6}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  {/* Minibus/van from side */}
+                  <path d="M3 10h18v8c0 1-1 2-2 2H5c-1 0-2-1-2-2v-8z" />
+                  <path d="M2 10h20" />
+                  <circle cx="6" cy="16" r="1.5" />
+                  <circle cx="18" cy="16" r="1.5" />
+                  <path d="M18 10V7c0-1 0-2-2-2h-8c-2 0-2 1-2 2v3" />
+                </svg>
+                <span className="font-medium text-xs text-gray-800">Navette</span>
+              </button>
+
+              {/* RDV option */}
+              <button
+                onClick={() => {
+                  setCommunauteMenuOpen(false);
+                  router.push('/meetup');
+                }}
+                className="flex-1 flex flex-col items-center gap-2 px-3 py-3 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <svg
+                  width={28}
+                  height={28}
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#3A3A3A"
+                  strokeWidth={1.6}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  {/* Calendar with people */}
+                  <rect x="3" y="5" width="18" height="16" rx="2" />
+                  <path d="M3 9h18" />
+                  <path d="M7 5V3" />
+                  <path d="M17 5V3" />
+                  {/* Two people inside */}
+                  <circle cx="9" cy="13.5" r="1.5" />
+                  <path d="M9 15.5v1.5" />
+                  <circle cx="15" cy="13.5" r="1.5" />
+                  <path d="M15 15.5v1.5" />
+                </svg>
+                <span className="font-medium text-xs text-gray-800">RDV</span>
+              </button>
             </div>
           )}
         </div>
@@ -239,8 +290,39 @@ export default function BottomNav({ onCreateReport, onCameraOpen }: BottomNavPro
           </div>
         </div>
 
-        {/* RIGHT — Empty space or future button */}
-        <div className="w-16" />
+        {/* RIGHT — Site button (direct, no popup) */}
+        <button
+          onClick={() => router.push('/sites/pick-location')}
+          className="flex flex-col items-center justify-center gap-1 w-16 transition-opacity active:opacity-60"
+        >
+          <svg
+            width={22}
+            height={22}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#C5C5C5"
+            strokeWidth={1.8}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            {/* Map pin with paraglider wing inside */}
+            <path d="M12 2c-4 0-6 3-6 6 0 4 6 12 6 12s6-8 6-12c0-3-2-6-6-6z" />
+            {/* Paraglider wing inside pin */}
+            <path d="M12 8.5c-1 0-1.5.5-1.5 1.5s.5 1.5 1.5 1.5 1.5-.5 1.5-1.5-.5-1.5-1.5-1.5z" />
+            <path d="M10.5 8c-.5.5-.5 1 0 1.5" />
+            <path d="M13.5 8c.5.5.5 1 0 1.5" />
+          </svg>
+          <span
+            className="font-medium"
+            style={{
+              fontSize: 10,
+              color: '#C5C5C5',
+              lineHeight: 1,
+            }}
+          >
+            Site
+          </span>
+        </button>
 
       </div>
     </nav>
