@@ -507,6 +507,8 @@ const LYR_MEETUP_CIRCLES = 'parawaze-meetup-circles';
 const LYR_MEETUP_LABELS = 'parawaze-meetup-labels';
 const SRC_STORIES = 'parawaze-stories';
 const LYR_STORIES_CIRCLES = 'parawaze-stories-circles';
+const LYR_STORIES_CLUSTERS = 'parawaze-stories-clusters';
+const LYR_STORIES_CLUSTER_COUNT = 'parawaze-stories-cluster-count';
 const SRC_OBSERVATIONS = 'parawaze-observations';
 const LYR_OBSERVATIONS_CIRCLES = 'parawaze-observations-circles';
 
@@ -1214,15 +1216,55 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         map.addSource(SRC_STORIES, {
           type: 'geojson',
           data: { type: 'FeatureCollection', features: [] },
+          cluster: true,
+          clusterRadius: 50,
+          clusterMaxZoom: 14,
         });
       }
 
-      // Story circles (pink)
+      // Story cluster circles (pink) — fixed size 20
+      if (!map.getLayer(LYR_STORIES_CLUSTERS)) {
+        map.addLayer({
+          id: LYR_STORIES_CLUSTERS,
+          type: 'circle',
+          source: SRC_STORIES,
+          filter: ['has', 'point_count'],
+          paint: {
+            'circle-color': '#EC4899',
+            'circle-radius': 20,
+            'circle-stroke-width': 2,
+            'circle-stroke-color': '#ffffff',
+            'circle-opacity': 0.9,
+          },
+        });
+      }
+
+      // Story cluster count label
+      if (!map.getLayer(LYR_STORIES_CLUSTER_COUNT)) {
+        map.addLayer({
+          id: LYR_STORIES_CLUSTER_COUNT,
+          type: 'symbol',
+          source: SRC_STORIES,
+          filter: ['has', 'point_count'],
+          layout: {
+            'text-field': '{point_count_abbreviated}',
+            'text-size': 13,
+            'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+            'text-allow-overlap': true,
+          },
+          paint: {
+            'text-color': '#ffffff',
+          },
+        });
+      }
+
+      // Individual story circles (pink) — only non-clustered points
       if (!map.getLayer(LYR_STORIES_CIRCLES)) {
         map.addLayer({
           id: LYR_STORIES_CIRCLES,
           type: 'circle',
           source: SRC_STORIES,
+          filter: ['!', ['has', 'point_count']],
           paint: {
             'circle-color': '#EC4899',
             'circle-radius': 10,
@@ -1232,8 +1274,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           },
         });
       }
-
-      // Stories cluster circles (pink) — fixed size 20
     } catch (e) {
       console.error('[ParaWaze] Failed to add stories source/layers:', e);
     }
@@ -1847,9 +1887,25 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           popupRef.current = popup;
         });
 
-        // Stories cluster click
+        // Stories cluster click — expand cluster into constituent stories
+        map.on('click', LYR_STORIES_CLUSTERS, (e) => {
+          if (!e.features || !e.features[0]) return;
+          const clusterId = e.features[0].properties?.cluster_id;
+          if (clusterId == null) return;
+          const src = map.getSource(SRC_STORIES) as mapboxgl.GeoJSONSource | undefined;
+          if (!src) return;
+          src.getClusterLeaves(clusterId, Infinity, 0, (err, leaves) => {
+            if (err || !leaves) return;
+            const ids = leaves.map((f) => f.properties?.id).filter(Boolean) as string[];
+            const found = ids.map((id) => storiesRef.current.find((s) => s.id === id)).filter(Boolean) as Story[];
+            if (found.length > 0) {
+              onStoryClickRef.current?.(found);
+            }
+          });
+        });
+
         // Pointer cursor on interactive layers
-        const interactiveLayers = [LYR_OBS_CIRCLES, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS, LYR_POI_CIRCLES, LYR_POI_LABELS, LYR_PIOUPIOU_CIRCLES, LYR_PIOUPIOU_LABELS, LYR_FFVL_CIRCLES, LYR_FFVL_LABELS, LYR_WINDS_MOBI_CIRCLES, LYR_WINDS_MOBI_LABELS, LYR_GEOSPHERE_CIRCLES, LYR_GEOSPHERE_LABELS, LYR_BRIGHTSKY_CIRCLES, LYR_BRIGHTSKY_LABELS, LYR_MEETUP_CIRCLES, LYR_MEETUP_LABELS, LYR_STORIES_CIRCLES, LYR_OBSERVATIONS_CIRCLES, 'parawaze-shuttle-label', 'parawaze-forecast-label'];
+        const interactiveLayers = [LYR_OBS_CIRCLES, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS, LYR_POI_CIRCLES, LYR_POI_LABELS, LYR_PIOUPIOU_CIRCLES, LYR_PIOUPIOU_LABELS, LYR_FFVL_CIRCLES, LYR_FFVL_LABELS, LYR_WINDS_MOBI_CIRCLES, LYR_WINDS_MOBI_LABELS, LYR_GEOSPHERE_CIRCLES, LYR_GEOSPHERE_LABELS, LYR_BRIGHTSKY_CIRCLES, LYR_BRIGHTSKY_LABELS, LYR_MEETUP_CIRCLES, LYR_MEETUP_LABELS, LYR_STORIES_CIRCLES, LYR_STORIES_CLUSTERS, LYR_OBSERVATIONS_CIRCLES, 'parawaze-shuttle-label', 'parawaze-forecast-label'];
         interactiveLayers.forEach((layerId) => {
           map.on('mouseenter', layerId, () => { map.getCanvas().style.cursor = 'pointer'; });
           map.on('mouseleave', layerId, () => { map.getCanvas().style.cursor = ''; });
