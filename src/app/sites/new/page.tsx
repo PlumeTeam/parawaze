@@ -30,14 +30,20 @@ function NewSiteForm() {
   const searchParams = useSearchParams();
   const { createPoi } = usePois();
 
-  const lat = searchParams.get('lat');
-  const lng = searchParams.get('lng');
-  const alt = searchParams.get('alt');
+  // Get takeoff location
+  const tlat = searchParams.get('tlat');
+  const tlng = searchParams.get('tlng');
+  const talt = searchParams.get('talt');
 
-  const [poiType, setPoiType] = useState<PoiType>('takeoff');
+  // Get landing location
+  const llat = searchParams.get('llat');
+  const llng = searchParams.get('llng');
+  const lalt = searchParams.get('lalt');
+
+  const [poiType, setPoiType] = useState<PoiType>(tlat ? 'takeoff' : 'landing');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [altitude, setAltitude] = useState(alt || '');
+  const [altitude, setAltitude] = useState(tlat ? (talt || '') : (lalt || ''));
   const [windOrientations, setWindOrientations] = useState<string[]>([]);
   const [difficulty, setDifficulty] = useState<PoiDifficulty | ''>('');
   const [ffvlApproved, setFfvlApproved] = useState(false);
@@ -65,11 +71,16 @@ function NewSiteForm() {
     setError(null);
 
     try {
+      // Use either takeoff or landing location
+      const lat = tlat || llat;
+      const lng = tlng || llng;
+      const alt = altitude ? parseInt(altitude) : undefined;
+
       const input: CreatePoiInput = {
         poi_type: poiType,
         location_name: name.trim(),
         description: description.trim() || undefined,
-        altitude_m: altitude ? parseInt(altitude) : undefined,
+        altitude_m: alt,
         latitude: lat ? parseFloat(lat) : undefined,
         longitude: lng ? parseFloat(lng) : undefined,
       };
@@ -102,10 +113,20 @@ function NewSiteForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       {/* Coordinates display */}
-      {lat && lng && (
-        <div className="bg-gray-50 rounded-xl p-3 text-sm text-gray-600">
-          <span className="font-medium">Position :</span> {parseFloat(lat).toFixed(4)}°N, {parseFloat(lng).toFixed(4)}°E
-          {alt && <span> · {alt}m</span>}
+      {(tlat || llat) && (
+        <div className="space-y-2">
+          {tlat && tlng && (
+            <div className="bg-green-50 rounded-xl p-3 text-sm text-green-700">
+              <span className="font-medium">🟢 Décollage :</span> {parseFloat(tlat).toFixed(4)}°N, {parseFloat(tlng).toFixed(4)}°E
+              {talt && <span> · {talt}m</span>}
+            </div>
+          )}
+          {llat && llng && (
+            <div className="bg-blue-50 rounded-xl p-3 text-sm text-blue-700">
+              <span className="font-medium">🔵 Atterrissage :</span> {parseFloat(llat).toFixed(4)}°N, {parseFloat(llng).toFixed(4)}°E
+              {lalt && <span> · {lalt}m</span>}
+            </div>
+          )}
         </div>
       )}
 
