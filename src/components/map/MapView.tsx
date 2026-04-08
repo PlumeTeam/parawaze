@@ -9,7 +9,6 @@ import {
   DEFAULT_ZOOM,
   type MapStyleKey,
 } from '@/lib/mapbox';
-import { formatTimestamp } from '@/lib/dateUtils';
 import type { WeatherReport, Shuttle, WindDirection, Poi, Story, Meetup } from '@/lib/types';
 import type { PioupiouStation } from '@/hooks/usePioupiou';
 import type { FFVLStation } from '@/hooks/useFFVL';
@@ -122,7 +121,6 @@ function buildReportFeatures(reports: WeatherReport[]): GeoJSON.Feature[] {
         color: getConditionColor(r),
         wind_angle: getWindAngle(r.wind_direction),
         opacity: getAgeOpacity(r.created_at, r.report_type),
-        wind_speed: r.wind_speed_kmh ?? 0,
       },
     }));
 }
@@ -177,24 +175,6 @@ function buildPoiFeatures(pois: Poi[]): GeoJSON.Feature[] {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Story GeoJSON                                                     */
-/* ------------------------------------------------------------------ */
-function buildStoryFeatures(stories: Story[]): GeoJSON.Feature[] {
-  return stories
-    .filter((s) => s.location && s.location.coordinates && s.location.coordinates.length >= 2)
-    .map((s) => ({
-      type: 'Feature' as const,
-      geometry: {
-        type: 'Point' as const,
-        coordinates: s.location!.coordinates,
-      },
-      properties: {
-        id: s.id,
-      },
-    }));
-}
-
-/* ------------------------------------------------------------------ */
 /*  Meetup GeoJSON                                                    */
 /* ------------------------------------------------------------------ */
 function buildMeetupFeatures(meetups: Meetup[]): GeoJSON.Feature[] {
@@ -216,24 +196,16 @@ function buildMeetupFeatures(meetups: Meetup[]): GeoJSON.Feature[] {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Generic wind speed to color mapping                               */
+/*  Pioupiou GeoJSON                                                  */
 /* ------------------------------------------------------------------ */
-function getWindSpeedColor(windSpeed: number | null | undefined): string {
-  if (windSpeed == null) return '#9ca3af'; // gray — no data
-  const w = windSpeed;
+function getPioupiouColor(station: PioupiouStation): string {
+  if (!station.isOnline || station.windAvg == null) return '#9ca3af'; // gray
+  const w = station.windAvg;
   if (w < 15) return '#22c55e';  // green
   if (w < 25) return '#84cc16';  // yellow-green
   if (w < 35) return '#eab308';  // yellow
   if (w < 45) return '#f97316';  // orange
   return '#ef4444';              // red
-}
-
-/* ------------------------------------------------------------------ */
-/*  Pioupiou GeoJSON                                                  */
-/* ------------------------------------------------------------------ */
-function getPioupiouColor(station: PioupiouStation): string {
-  if (!station.isOnline || station.windAvg == null) return '#9ca3af'; // gray
-  return getWindSpeedColor(station.windAvg);
 }
 
 function buildPioupiouFeatures(stations: PioupiouStation[]): GeoJSON.Feature[] {
@@ -269,7 +241,13 @@ function buildPioupiouFeatures(stations: PioupiouStation[]): GeoJSON.Feature[] {
 /*  FFVL GeoJSON                                                      */
 /* ------------------------------------------------------------------ */
 function getFFVLColor(station: FFVLStation): string {
-  return getWindSpeedColor(station.windAvg);
+  if (station.windAvg == null) return '#9ca3af'; // gray — no data
+  const w = station.windAvg;
+  if (w < 15) return '#22c55e';  // green
+  if (w < 25) return '#84cc16';  // yellow-green
+  if (w < 35) return '#eab308';  // yellow
+  if (w < 45) return '#f97316';  // orange
+  return '#ef4444';              // red
 }
 
 function buildFFVLFeatures(stations: FFVLStation[]): GeoJSON.Feature[] {
@@ -436,55 +414,10 @@ function buildBrightSkyFeatures(stations: BrightSkyStation[]): GeoJSON.Feature[]
 }
 
 /* ------------------------------------------------------------------ */
-/*  Mixed GeoJSON (Stories + Observations for unified clustering)     */
-/* ------------------------------------------------------------------ */
-function buildMixedFeatures(stories: Story[], reports: WeatherReport[]): GeoJSON.Feature[] {
-  const storyFeatures = stories
-    .filter((s) => s.location && s.location.coordinates && s.location.coordinates.length >= 2)
-    .map((s) => ({
-      type: 'Feature' as const,
-      geometry: {
-        type: 'Point' as const,
-        coordinates: s.location!.coordinates,
-      },
-      properties: {
-        id: s.id,
-        content_type: 'story' as const,
-        created_at_ms: new Date(s.created_at).getTime(),
-        is_story: 1,
-      },
-    }));
-
-  const observationFeatures = reports
-    .filter(
-      (r) =>
-        r.location && r.location.coordinates && r.location.coordinates.length >= 2 &&
-        (r.report_type === 'observation' || r.report_type === 'image_share')
-    )
-    .map((r) => ({
-      type: 'Feature' as const,
-      geometry: {
-        type: 'Point' as const,
-        coordinates: r.location!.coordinates,
-      },
-      properties: {
-        id: r.id,
-        content_type: 'observation' as const,
-        created_at_ms: new Date(r.created_at).getTime(),
-        is_story: 0,
-      },
-    }));
-
-  return [...storyFeatures, ...observationFeatures];
-}
-
-/* ------------------------------------------------------------------ */
 /*  Layer IDs (constants to avoid typos)                              */
 /* ------------------------------------------------------------------ */
 const SRC_REPORTS = 'parawaze-reports';
 const LYR_OBS_CIRCLES = 'parawaze-obs-circles';
-const LYR_OBS_CLUSTER = 'parawaze-obs-cluster';
-const LYR_OBS_CLUSTER_COUNT = 'parawaze-obs-cluster-count';
 const LYR_FORECAST_CIRCLES = 'parawaze-forecast-circles';
 const LYR_WIND_ARROWS = 'parawaze-wind-arrows';
 const SRC_SHUTTLES = 'parawaze-shuttles';
@@ -492,12 +425,6 @@ const LYR_SHUTTLE_ICONS = 'parawaze-shuttle-icons';
 const SRC_POIS = 'parawaze-pois';
 const LYR_POI_CIRCLES = 'parawaze-poi-circles';
 const LYR_POI_LABELS = 'parawaze-poi-labels';
-const SRC_STATIONS = 'parawaze-stations';
-const LYR_STATIONS_CLUSTER = 'parawaze-stations-cluster';
-const LYR_STATIONS_CLUSTER_COUNT = 'parawaze-stations-cluster-count';
-const LYR_STATIONS_UNCLUSTERED = 'parawaze-stations-unclustered';
-const LYR_STATIONS_ARROWS = 'parawaze-stations-arrows';
-const LYR_STATIONS_LABELS = 'parawaze-stations-labels';
 const SRC_PIOUPIOU = 'parawaze-pioupiou';
 const LYR_PIOUPIOU_CIRCLES = 'parawaze-pioupiou-circles';
 const LYR_PIOUPIOU_LABELS = 'parawaze-pioupiou-labels';
@@ -519,13 +446,6 @@ const LYR_BRIGHTSKY_CIRCLES = 'parawaze-brightsky-circles';
 const LYR_BRIGHTSKY_LABELS = 'parawaze-brightsky-labels';
 const LYR_BRIGHTSKY_ARROWS = 'parawaze-brightsky-arrows';
 const SRC_MEETUPS = 'parawaze-meetups';
-const SRC_STORIES = 'parawaze-stories';
-const LYR_STORIES = 'parawaze-stories';
-const LYR_STORIES_CLUSTER = 'parawaze-stories-cluster';
-const LYR_STORIES_CLUSTER_COUNT = 'parawaze-stories-cluster-count';
-const SRC_MIXED = 'parawaze-mixed';
-const LYR_MIXED_CLUSTER = 'parawaze-mixed-cluster';
-const LYR_MIXED_CLUSTER_COUNT = 'parawaze-mixed-cluster-count';
 const LYR_MEETUP_CIRCLES = 'parawaze-meetup-circles';
 const LYR_MEETUP_LABELS = 'parawaze-meetup-labels';
 
@@ -533,7 +453,7 @@ const LYR_MEETUP_LABELS = 'parawaze-meetup-labels';
 /*  Component                                                         */
 /* ------------------------------------------------------------------ */
 const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
-  { reports, shuttles = [], stories = [], pois = [], pioupiouStations = [], ffvlStations = [], windsMobiStations = [], geoSphereStations = [], brightSkyStations = [], meetups = [], onReportClick, onObservationsClick, onMixedContentClick, onShuttleClick, onPoiClick, onStoryClick, onMeetupClick, onMapMove, onMarkerPlaced, enableAutocenter = true, onMapLoaded },
+  { reports, shuttles = [], stories = [], pois = [], pioupiouStations = [], ffvlStations = [], windsMobiStations = [], geoSphereStations = [], brightSkyStations = [], meetups = [], onReportClick, onShuttleClick, onPoiClick, onStoryClick, onMeetupClick, onMapMove, onMarkerPlaced, enableAutocenter = true },
   ref,
 ) {
   const mapContainer = useRef<HTMLDivElement>(null);
@@ -572,6 +492,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   geoSphereRef.current = geoSphereStations;
   const brightSkyRef = useRef<BrightSkyStation[]>(brightSkyStations);
   brightSkyRef.current = brightSkyStations;
+  const storyMarkersRef = useRef<mapboxgl.Marker[]>([]);
   const storiesRef = useRef<Story[]>(stories);
   storiesRef.current = stories;
   const onStoryClickRef = useRef(onStoryClick);
@@ -580,10 +501,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   meetupsRef.current = meetups;
   const onMeetupClickRef = useRef(onMeetupClick);
   onMeetupClickRef.current = onMeetupClick;
-  const onObservationsClickRef = useRef(onObservationsClick);
-  onObservationsClickRef.current = onObservationsClick;
-  const onMixedContentClickRef = useRef(onMixedContentClick);
-  onMixedContentClickRef.current = onMixedContentClick;
   const popupRef = useRef<mapboxgl.Popup | null>(null);
 
   // Expose getCenter and getMarkerPosition to parent via ref
@@ -627,15 +544,11 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   /* ---------------------------------------------------------------- */
   const addLayersToMap = useCallback((map: mapboxgl.Map) => {
     try {
-      // --- Reports source with clustering ---
+      // --- Reports source ---
       if (!map.getSource(SRC_REPORTS)) {
         map.addSource(SRC_REPORTS, {
           type: 'geojson',
           data: { type: 'FeatureCollection', features: [] },
-          cluster: true,
-          clusterMaxZoom: 14,
-          clusterRadius: 50,
-          clusterProperties: { max_wind_speed: ['max', ['get', 'wind_speed']] },
         });
       }
     } catch (e) {
@@ -643,73 +556,16 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     }
 
     try {
-      // Clustered observations — color based on worst wind condition
-      if (!map.getLayer(LYR_OBS_CLUSTER)) {
-        map.addLayer({
-          id: LYR_OBS_CLUSTER,
-          type: 'circle',
-          source: SRC_REPORTS,
-          filter: ['has', 'point_count'],
-          paint: {
-            'circle-color': [
-              'step',
-              ['get', 'max_wind_speed'],
-              '#22c55e', // green for < 15
-              15,
-              '#84cc16', // yellow-green for 15-24
-              25,
-              '#eab308', // yellow for 25-34
-              35,
-              '#f97316', // orange for 35-44
-              45,
-              '#ef4444', // red for 45+
-            ],
-            'circle-radius': [
-              'step',
-              ['get', 'point_count'],
-              25,
-              5,
-              30,
-              10,
-              35,
-            ],
-            'circle-stroke-width': 3,
-            'circle-stroke-color': '#ffffff',
-            'circle-opacity': 0.95,
-          },
-        });
-      }
 
-      // Cluster count labels
-      if (!map.getLayer(LYR_OBS_CLUSTER_COUNT)) {
-        map.addLayer({
-          id: LYR_OBS_CLUSTER_COUNT,
-          type: 'symbol',
-          source: SRC_REPORTS,
-          filter: ['has', 'point_count'],
-          layout: {
-            'text-field': '{point_count_abbreviated}',
-            'text-size': 14,
-            'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'],
-          },
-          paint: {
-            'text-color': '#ffffff',
-          },
-        });
-      }
-
-    // Observation circles (report_type = 'observation' or 'image_share') — unclustered
+    // Observation circles (report_type = 'observation' or 'image_share')
     if (!map.getLayer(LYR_OBS_CIRCLES)) {
       map.addLayer({
         id: LYR_OBS_CIRCLES,
         type: 'circle',
         source: SRC_REPORTS,
-        filter: ['all',
-          ['!', ['has', 'point_count']],
-          ['any',
-            ['==', ['get', 'report_type'], 'observation'],
-            ['==', ['get', 'report_type'], 'image_share'],
-          ],
+        filter: ['any',
+          ['==', ['get', 'report_type'], 'observation'],
+          ['==', ['get', 'report_type'], 'image_share'],
         ],
         paint: {
           'circle-radius': 14,
@@ -924,12 +780,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           'text-color': ['get', 'color'],
           'text-halo-color': '#ffffff',
           'text-halo-width': 1.5,
-          'text-opacity': [
-            'interpolate', ['linear'], ['zoom'],
-            6, 1,      // fully visible at zoom 6+
-            5.5, 0.5,  // 50% opacity at zoom 5.5
-            5, 0       // completely invisible at zoom 5 and below
-          ],
         },
       });
     }
@@ -953,12 +803,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           'text-color': '#ffffff',
           'text-halo-color': 'rgba(0,0,0,0.5)',
           'text-halo-width': 1,
-          'text-opacity': [
-            'interpolate', ['linear'], ['zoom'],
-            6, 1,      // fully visible at zoom 6+
-            5.5, 0.5,  // 50% opacity at zoom 5.5
-            5, 0       // completely invisible at zoom 5 and below
-          ],
         },
       });
     }
@@ -1015,12 +859,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           'text-color': ['get', 'color'],
           'text-halo-color': '#ffffff',
           'text-halo-width': 1.5,
-          'text-opacity': [
-            'interpolate', ['linear'], ['zoom'],
-            6, 1,      // fully visible at zoom 6+
-            5.5, 0.5,  // 50% opacity at zoom 5.5
-            5, 0       // completely invisible at zoom 5 and below
-          ],
         },
       });
     }
@@ -1044,12 +882,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           'text-color': '#ffffff',
           'text-halo-color': 'rgba(0,0,0,0.5)',
           'text-halo-width': 1,
-          'text-opacity': [
-            'interpolate', ['linear'], ['zoom'],
-            6, 1,      // fully visible at zoom 6+
-            5.5, 0.5,  // 50% opacity at zoom 5.5
-            5, 0       // completely invisible at zoom 5 and below
-          ],
         },
       });
     }
@@ -1106,12 +938,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           'text-color': ['get', 'color'],
           'text-halo-color': '#ffffff',
           'text-halo-width': 1.5,
-          'text-opacity': [
-            'interpolate', ['linear'], ['zoom'],
-            6, 1,      // fully visible at zoom 6+
-            5.5, 0.5,  // 50% opacity at zoom 5.5
-            5, 0       // completely invisible at zoom 5 and below
-          ],
         },
       });
     }
@@ -1135,12 +961,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           'text-color': '#ffffff',
           'text-halo-color': 'rgba(0,0,0,0.5)',
           'text-halo-width': 1,
-          'text-opacity': [
-            'interpolate', ['linear'], ['zoom'],
-            6, 1,      // fully visible at zoom 6+
-            5.5, 0.5,  // 50% opacity at zoom 5.5
-            5, 0       // completely invisible at zoom 5 and below
-          ],
         },
       });
     }
@@ -1226,12 +1046,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           'text-color': ['get', 'color'],
           'text-halo-color': '#ffffff',
           'text-halo-width': 1.5,
-          'text-opacity': [
-            'interpolate', ['linear'], ['zoom'],
-            6, 1,      // fully visible at zoom 6+
-            5.5, 0.5,  // 50% opacity at zoom 5.5
-            5, 0       // completely invisible at zoom 5 and below
-          ],
         },
       });
     }
@@ -1255,12 +1069,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           'text-color': ['get', 'color'],
           'text-halo-color': '#ffffff',
           'text-halo-width': 1.5,
-          'text-opacity': [
-            'interpolate', ['linear'], ['zoom'],
-            6, 1,      // fully visible at zoom 6+
-            5.5, 0.5,  // 50% opacity at zoom 5.5
-            5, 0       // completely invisible at zoom 5 and below
-          ],
         },
       });
     }
@@ -1284,12 +1092,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           'text-color': '#ffffff',
           'text-halo-color': 'rgba(0,0,0,0.5)',
           'text-halo-width': 1,
-          'text-opacity': [
-            'interpolate', ['linear'], ['zoom'],
-            6, 1,      // fully visible at zoom 6+
-            5.5, 0.5,  // 50% opacity at zoom 5.5
-            5, 0       // completely invisible at zoom 5 and below
-          ],
         },
       });
     }
@@ -1313,174 +1115,11 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           'text-color': '#ffffff',
           'text-halo-color': 'rgba(0,0,0,0.5)',
           'text-halo-width': 1,
-          'text-opacity': [
-            'interpolate', ['linear'], ['zoom'],
-            6, 1,      // fully visible at zoom 6+
-            5.5, 0.5,  // 50% opacity at zoom 5.5
-            5, 0       // completely invisible at zoom 5 and below
-          ],
         },
       });
     }
     } catch (e) {
       console.error('[ParaWaze] Failed to add GeoSphere/BrightSky source/layers:', e);
-    }
-
-    // --- Stories source with clustering ---
-    if (!map.getSource(SRC_STORIES)) {
-      map.addSource(SRC_STORIES, {
-        type: 'geojson',
-        data: { type: 'FeatureCollection', features: [] },
-        cluster: true,
-        clusterMaxZoom: 14,
-        clusterRadius: 50,
-      });
-    }
-
-    // Clustered stories — larger circles with gradient colors
-    if (!map.getLayer(LYR_STORIES_CLUSTER)) {
-      map.addLayer({
-        id: LYR_STORIES_CLUSTER,
-        type: 'circle',
-        source: SRC_STORIES,
-        filter: ['has', 'point_count'],
-        paint: {
-          'circle-color': [
-            'step',
-            ['get', 'point_count'],
-            '#EC4899', // pink for 2-4 stories
-            5,
-            '#D946EF', // deeper pink for 5-9
-            10,
-            '#A21CAF', // purple for 10+
-          ],
-          'circle-radius': [
-            'step',
-            ['get', 'point_count'],
-            25,
-            5,
-            30,
-            10,
-            35,
-          ],
-          'circle-stroke-width': 3,
-          'circle-stroke-color': '#ffffff',
-          'circle-opacity': 0.95,
-        },
-      });
-    }
-
-    // Cluster count labels
-    if (!map.getLayer(LYR_STORIES_CLUSTER_COUNT)) {
-      map.addLayer({
-        id: LYR_STORIES_CLUSTER_COUNT,
-        type: 'symbol',
-        source: SRC_STORIES,
-        filter: ['has', 'point_count'],
-        layout: {
-          'text-field': '{point_count_abbreviated}',
-          'text-size': 14,
-          'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'],
-        },
-        paint: {
-          'text-color': '#ffffff',
-        },
-      });
-    }
-
-    // Unclustered story circles
-    if (!map.getLayer(LYR_STORIES)) {
-      map.addLayer({
-        id: LYR_STORIES,
-        type: 'circle',
-        source: SRC_STORIES,
-        filter: ['!', ['has', 'point_count']],
-        paint: {
-          'circle-radius': 16,
-          'circle-color': '#EC4899',
-          'circle-stroke-width': 3,
-          'circle-stroke-color': '#ffffff',
-          'circle-opacity': 0.95,
-        },
-      });
-    }
-
-    // --- Mixed source (stories + observations) ---
-    if (!map.getSource(SRC_MIXED)) {
-      map.addSource(SRC_MIXED, {
-        type: 'geojson',
-        data: { type: 'FeatureCollection', features: [] },
-        cluster: true,
-        clusterMaxZoom: 14,
-        clusterRadius: 50,
-        clusterProperties: {
-          story_count: ['sum', ['get', 'is_story']],
-          latest_created_at_ms: ['max', ['get', 'created_at_ms']],
-        },
-      });
-    }
-
-    // Clustered mixed content — color based on latest content type
-    if (!map.getLayer(LYR_MIXED_CLUSTER)) {
-      map.addLayer({
-        id: LYR_MIXED_CLUSTER,
-        type: 'circle',
-        source: SRC_MIXED,
-        filter: ['has', 'point_count'],
-        paint: {
-          // Pink for stories, blue for observations (based on story_count > half of total)
-          'circle-color': [
-            'case',
-            ['>', ['get', 'story_count'], ['/', ['get', 'point_count'], 2]],
-            // More stories: pink gradient
-            [
-              'step',
-              ['get', 'point_count'],
-              '#EC4899', // pink for 2-4
-              5,
-              '#DB2777', // deeper pink for 5-9
-              10,
-              '#BE185D', // dark pink for 10+
-            ],
-            // More observations: blue gradient
-            [
-              'step',
-              ['get', 'point_count'],
-              '#3B82F6', // blue for 2-4
-              5,
-              '#2563EB', // deeper blue for 5-9
-              10,
-              '#1E40AF', // dark blue for 10+
-            ],
-          ],
-          'circle-radius': [
-            'step',
-            ['get', 'point_count'],
-            32, 5, 40, 10, 50,
-          ],
-          'circle-stroke-width': 3,
-          'circle-stroke-color': '#ffffff',
-          'circle-opacity': 0.95,
-        },
-      });
-    }
-
-    // Mixed cluster count label
-    if (!map.getLayer(LYR_MIXED_CLUSTER_COUNT)) {
-      map.addLayer({
-        id: LYR_MIXED_CLUSTER_COUNT,
-        type: 'symbol',
-        source: SRC_MIXED,
-        filter: ['has', 'point_count'],
-        layout: {
-          'text-field': ['get', 'point_count_abbreviated'],
-          'text-size': 13,
-          'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
-        },
-        paint: {
-          'text-color': '#ffffff',
-        },
-      });
     }
 
     // --- Meetups source ---
@@ -1587,48 +1226,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           updateBrightSkySource(map, brightSkyRef.current);
           updateMeetupSource(map, meetupsRef.current);
           setMapLoaded(true);
-          onMapLoaded?.();
-
-          // Add viewport-based filtering on moveend/zoomend
-          let filterTimeout: NodeJS.Timeout | null = null;
-          const updateVisibleStations = () => {
-            try {
-              const zoom = map.getZoom();
-              const bounds = map.getBounds();
-              // Skip stations if bounds unavailable or zoomed out too far (zoom < 7)
-              if (!bounds || zoom < 7) {
-                updatePioupiouSource(map, []);
-                updateFFVLSource(map, []);
-                updateWindsMobiSource(map, []);
-                updateGeoSphereSource(map, []);
-                updateBrightSkySource(map, []);
-              } else {
-                // Filter stations to only visible ones within bounds
-                const filterFeatures = (features: any[]) => {
-                  return features.filter(f => {
-                    if (!f.geometry || f.geometry.type !== 'Point') return false;
-                    const [lng, lat] = f.geometry.coordinates;
-                    return bounds.contains([lng, lat]);
-                  });
-                };
-                updatePioupiouSource(map, pioupiouRef.current);
-                updateFFVLSource(map, ffvlRef.current);
-                updateWindsMobiSource(map, windsMobiRef.current);
-                updateGeoSphereSource(map, geoSphereRef.current);
-                updateBrightSkySource(map, brightSkyRef.current);
-              }
-            } catch (e) {
-              console.debug('Viewport filtering error:', e);
-            }
-          };
-
-          const debouncedUpdate = () => {
-            if (filterTimeout) clearTimeout(filterTimeout);
-            filterTimeout = setTimeout(updateVisibleStations, 350);
-          };
-
-          map.on('moveend', debouncedUpdate);
-          map.on('zoomend', debouncedUpdate);
         };
 
         map.on('load', onStyleReady);
@@ -1672,63 +1269,19 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         });
 
         // --- Click handlers for GeoJSON layers ---
-        // Unclustered observation click
         map.on('click', LYR_OBS_CIRCLES, (e) => {
           if (e.features && e.features[0]) {
             const reportId = e.features[0].properties?.id;
             const report = reportsRef.current.find((r) => r.id === reportId);
-            if (report) onObservationsClickRef.current?.([report]); // Pass as array for consistency
+            if (report) onReportClickRef.current(report);
           }
         });
-        // Forecast click → show popup
         map.on('click', LYR_FORECAST_CIRCLES, (e) => {
-          if (!e.features || !e.features[0]) return;
-          const props = e.features[0].properties;
-          if (!props) return;
-          const coords = (e.features[0].geometry as any).coordinates.slice() as [number, number];
-
-          const reportId = props.id;
-          const report = reportsRef.current.find((r) => r.id === reportId);
-          if (!report) return;
-
-          // Close previous popup
-          if (popupRef.current) {
-            popupRef.current.remove();
-            popupRef.current = null;
+          if (e.features && e.features[0]) {
+            const reportId = e.features[0].properties?.id;
+            const report = reportsRef.current.find((r) => r.id === reportId);
+            if (report) onReportClickRef.current(report);
           }
-
-          // Format wind info
-          const windAvg = report.wind_speed_kmh != null ? Number(report.wind_speed_kmh) : null;
-          const windGust = report.wind_gust_kmh != null ? Number(report.wind_gust_kmh) : null;
-          const windDir = report.wind_direction != null ? report.wind_direction : null;
-          const dirLabel = windDir ? windDir : '—';
-
-          // Format timestamp
-          const created = report.created_at ? formatTimestamp(report.created_at) : '—';
-
-          // Build HTML
-          const author = report.profiles?.display_name || report.profiles?.username || 'Anonyme';
-          const html = `
-            <div style="font-family:system-ui,-apple-system,sans-serif;font-size:13px;line-height:1.5;min-width:200px">
-              <div style="font-weight:700;font-size:14px;margin-bottom:2px">🔮 Prévision</div>
-              <div style="color:#666;font-size:12px;margin-bottom:6px">👤 ${author}</div>
-              ${report.location_name ? `<div style="color:#666;font-size:12px;margin-bottom:6px">📍 ${report.location_name}</div>` : ''}
-              ${report.altitude_m != null ? `<div style="margin-bottom:2px">⛰️ ${report.altitude_m} m</div>` : ''}
-              ${windAvg != null ? `<div style="margin-bottom:2px">💨 Moy: <b>${Math.round(windAvg)} km/h</b></div>` : ''}
-              ${windGust != null ? `<div style="margin-bottom:2px">📈 Rafales: ${Math.round(windGust)} km/h</div>` : ''}
-              ${windDir != null ? `<div style="margin-bottom:2px">🧭 Direction: ${dirLabel}</div>` : ''}
-              ${report.description ? `<div style="margin:6px 0;padding:6px;background:#f5f5f5;border-radius:4px;font-size:12px;line-height:1.4">${report.description.substring(0, 100)}${report.description.length > 100 ? '...' : ''}</div>` : ''}
-              <div style="margin-bottom:6px;color:#666;font-size:11px">🕐 ${created}</div>
-            </div>
-          `;
-
-          const popup = new mb.Popup({ closeButton: true, maxWidth: '280px', offset: 12 })
-            .setLngLat(coords)
-            .setHTML(html)
-            .addTo(map);
-
-          popup.on('close', () => { popupRef.current = null; });
-          popupRef.current = popup;
         });
         map.on('click', LYR_SHUTTLE_ICONS, (e) => {
           if (e.features && e.features[0]) {
@@ -1745,208 +1298,12 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           }
         });
 
-        // Story cluster click
-        map.on('click', LYR_STORIES_CLUSTER, (e) => {
-          if (!e.features || !e.features[0]) return;
-          const clusterId = e.features[0].properties?.cluster_id;
-          if (clusterId === undefined) return;
-
-          const source = map.getSource(SRC_STORIES) as mapboxgl.GeoJSONSource | undefined;
-          if (!source) return;
-
-          // Get all stories in this cluster
-          source.getClusterLeaves(
-            clusterId,
-            100, // limit to 100 stories per cluster
-            0, // offset
-            ((err: Error | null | undefined, features: GeoJSON.Feature[] | undefined) => {
-              if (err || !features) return;
-
-              // Extract story IDs and get full story objects
-              const storyIds = features
-                .map((f) => f.properties?.id)
-                .filter((id) => id);
-
-              const stories = storyIds
-                .map((id) => storiesRef.current.find((s) => s.id === id))
-                .filter((s) => s) as Story[];
-
-              // Sort by created_at DESC (newest first)
-              stories.sort((a, b) =>
-                new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-              );
-
-              if (stories.length > 0) {
-                onStoryClickRef.current?.(stories);
-              }
-            }) as any
-          );
-        });
-
-        // Clustered observation click
-        map.on('click', LYR_OBS_CLUSTER, (e) => {
-          if (!e.features || !e.features[0]) return;
-          const clusterId = e.features[0].properties?.cluster_id;
-          if (clusterId === undefined) return;
-
-          const source = map.getSource(SRC_REPORTS) as mapboxgl.GeoJSONSource | undefined;
-          if (!source) return;
-
-          // Get all observations in this cluster
-          source.getClusterLeaves(
-            clusterId,
-            100, // limit to 100 observations per cluster
-            0, // offset
-            ((err: Error | null | undefined, features: GeoJSON.Feature[] | undefined) => {
-              if (err || !features) return;
-
-              // Extract report IDs and get full report objects
-              const reportIds = features
-                .map((f) => f.properties?.id)
-                .filter((id) => id);
-
-              const reports = reportIds
-                .map((id) => reportsRef.current.find((r) => r.id === id))
-                .filter((r) => r) as WeatherReport[];
-
-              // Sort by created_at DESC (newest first)
-              reports.sort((a, b) =>
-                new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-              );
-
-              if (reports.length > 0) {
-                onObservationsClickRef.current?.(reports);
-              }
-            }) as any
-          );
-        });
-
-        // Clustered mixed content (stories + observations) click
-        map.on('click', LYR_MIXED_CLUSTER, (e) => {
-          if (!e.features || !e.features[0]) return;
-          const clusterId = e.features[0].properties?.cluster_id;
-          if (clusterId === undefined) return;
-
-          const source = map.getSource(SRC_MIXED) as mapboxgl.GeoJSONSource | undefined;
-          if (!source) return;
-
-          // Get all items in this cluster
-          source.getClusterLeaves(
-            clusterId,
-            100, // limit to 100 items per cluster
-            0, // offset
-            ((err: Error | null | undefined, features: GeoJSON.Feature[] | undefined) => {
-              if (err || !features) return;
-
-              // Separate stories and observations
-              const storyIds = features
-                .filter((f) => f.properties?.content_type === 'story')
-                .map((f) => f.properties?.id)
-                .filter((id) => id);
-
-              const observationIds = features
-                .filter((f) => f.properties?.content_type === 'observation')
-                .map((f) => f.properties?.id)
-                .filter((id) => id);
-
-              const stories = storyIds
-                .map((id) => storiesRef.current.find((s) => s.id === id))
-                .filter((s) => s) as Story[];
-
-              const observations = observationIds
-                .map((id) => reportsRef.current.find((r) => r.id === id))
-                .filter((r) => r) as WeatherReport[];
-
-              // Sort both by created_at DESC (newest first)
-              stories.sort((a, b) =>
-                new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-              );
-              observations.sort((a, b) =>
-                new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-              );
-
-              if (stories.length > 0 || observations.length > 0) {
-                onMixedContentClickRef.current?.({ stories, observations });
-              }
-            }) as any
-          );
-        });
-
-        // Unclustered story click
-        map.on('click', LYR_STORIES, (e) => {
-          if (e.features && e.features[0]) {
-            const storyId = e.features[0].properties?.id;
-            const story = storiesRef.current.find((s) => s.id === storyId);
-            if (story) onStoryClickRef.current?.([story]); // Pass as array for consistency
-          }
-        });
-
         map.on('click', LYR_MEETUP_CIRCLES, (e) => {
           if (e.features && e.features[0]) {
             const meetupId = e.features[0].properties?.id;
             const meetup = meetupsRef.current.find((m) => m.id === meetupId);
             if (meetup) onMeetupClickRef.current?.(meetup);
           }
-        });
-
-        // Unified stations — cluster click to zoom in
-        map.on('click', LYR_STATIONS_CLUSTER, (e) => {
-          if (!e.features || !e.features[0]) return;
-          const clusterId = e.features[0].properties?.cluster_id;
-          if (clusterId === undefined) return;
-
-          const source = map.getSource(SRC_STATIONS) as mapboxgl.GeoJSONSource | undefined;
-          if (!source) return;
-
-          source.getClusterExpansionZoom(
-            clusterId,
-            ((err: Error | null | undefined, zoom: number | undefined) => {
-              if (err || zoom === undefined) return;
-
-              const lng = (e.features![0].geometry as any).coordinates[0];
-              const lat = (e.features![0].geometry as any).coordinates[1];
-
-              map.flyTo({
-                center: [lng, lat],
-                zoom,
-                duration: 400,
-              });
-            }) as any
-          );
-        });
-
-        // Unified stations — individual station click
-        map.on('click', LYR_STATIONS_UNCLUSTERED, (e) => {
-          if (!e.features || !e.features[0]) return;
-          const props = e.features[0].properties;
-          if (!props) return;
-          const coords = (e.features[0].geometry as any).coordinates.slice() as [number, number];
-
-          // Close previous popup
-          if (popupRef.current) {
-            popupRef.current.remove();
-            popupRef.current = null;
-          }
-
-          const windSpeed = props.wind_speed != null ? Number(props.wind_speed) : null;
-          const speedLabel = windSpeed != null ? `${Math.round(windSpeed)} km/h` : '—';
-          const sourceLabel = (props.source || 'station').toUpperCase();
-
-          const html = `
-            <div style="font-family:system-ui,-apple-system,sans-serif;font-size:13px;line-height:1.5;min-width:180px">
-              <div style="font-weight:700;font-size:14px;margin-bottom:6px">${props.name || 'Station'}</div>
-              <div style="margin-bottom:2px">💨 Vent: <b>${speedLabel}</b></div>
-              <div style="color:#666;font-size:12px;margin-bottom:6px">📡 ${sourceLabel}</div>
-            </div>
-          `;
-
-          const popup = new mb.Popup({ closeButton: true, maxWidth: '200px', offset: 12 })
-            .setLngLat(coords)
-            .setHTML(html)
-            .addTo(map);
-
-          popup.on('close', () => { popupRef.current = null; });
-          popupRef.current = popup;
         });
 
         // Pioupiou click → show popup
@@ -2201,7 +1558,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         });
 
         // Pointer cursor on interactive layers
-        const interactiveLayers = [LYR_OBS_CIRCLES, LYR_OBS_CLUSTER, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS, LYR_POI_CIRCLES, LYR_POI_LABELS, LYR_STATIONS_CLUSTER, LYR_STATIONS_UNCLUSTERED, LYR_PIOUPIOU_CIRCLES, LYR_PIOUPIOU_LABELS, LYR_FFVL_CIRCLES, LYR_FFVL_LABELS, LYR_WINDS_MOBI_CIRCLES, LYR_WINDS_MOBI_LABELS, LYR_GEOSPHERE_CIRCLES, LYR_GEOSPHERE_LABELS, LYR_BRIGHTSKY_CIRCLES, LYR_BRIGHTSKY_LABELS, LYR_STORIES, LYR_STORIES_CLUSTER, LYR_MIXED_CLUSTER, LYR_MEETUP_CIRCLES, LYR_MEETUP_LABELS, 'parawaze-shuttle-label', 'parawaze-forecast-label'];
+        const interactiveLayers = [LYR_OBS_CIRCLES, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS, LYR_POI_CIRCLES, LYR_POI_LABELS, LYR_PIOUPIOU_CIRCLES, LYR_PIOUPIOU_LABELS, LYR_FFVL_CIRCLES, LYR_FFVL_LABELS, LYR_WINDS_MOBI_CIRCLES, LYR_WINDS_MOBI_LABELS, LYR_GEOSPHERE_CIRCLES, LYR_GEOSPHERE_LABELS, LYR_BRIGHTSKY_CIRCLES, LYR_BRIGHTSKY_LABELS, LYR_MEETUP_CIRCLES, LYR_MEETUP_LABELS, 'parawaze-shuttle-label', 'parawaze-forecast-label'];
         interactiveLayers.forEach((layerId) => {
           map.on('mouseenter', layerId, () => { map.getCanvas().style.cursor = 'pointer'; });
           map.on('mouseleave', layerId, () => { map.getCanvas().style.cursor = ''; });
@@ -2306,28 +1663,10 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     }
   }
 
-  function updateStorySource(map: mapboxgl.Map, storyList: Story[]) {
-    try {
-      const src = map.getSource(SRC_STORIES) as mapboxgl.GeoJSONSource | undefined;
-      if (src) {
-        src.setData({ type: 'FeatureCollection', features: buildStoryFeatures(storyList) });
-      }
-    } catch (e) {
-      console.error('[ParaWaze] Failed to update Story source:', e);
-    }
-  }
-
   function updateMeetupSource(map: mapboxgl.Map, mts: Meetup[]) {
     const src = map.getSource(SRC_MEETUPS) as mapboxgl.GeoJSONSource | undefined;
     if (src) {
       src.setData({ type: 'FeatureCollection', features: buildMeetupFeatures(mts) });
-    }
-  }
-
-  function updateMixedSource(map: mapboxgl.Map, storyList: Story[], reportList: WeatherReport[]) {
-    const src = map.getSource(SRC_MIXED) as mapboxgl.GeoJSONSource | undefined;
-    if (src) {
-      src.setData({ type: 'FeatureCollection', features: buildMixedFeatures(storyList, reportList) });
     }
   }
 
@@ -2380,9 +1719,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     const doUpdate = () => {
       if (map.getSource(SRC_REPORTS)) {
         updateReportSource(map, reports);
-      }
-      if (map.getSource(SRC_MIXED)) {
-        updateMixedSource(map, storiesRef.current, reports);
       }
     };
     if (map.isStyleLoaded()) {
@@ -2522,27 +1858,53 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     }
   }, [meetups]);
 
-  // Update story markers using GeoJSON layer
+  /* ---------------------------------------------------------------- */
+  /*  Story DOM markers                                               */
+  /* ---------------------------------------------------------------- */
   useEffect(() => {
-    storiesRef.current = stories;
-  }, [stories]);
+    if (!mapRef.current || !mbRef.current) return;
+    const mb = mbRef.current;
 
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-    const doUpdate = () => {
-      if (map.getSource(SRC_STORIES)) {
-        updateStorySource(map, storiesRef.current);
-      }
-      if (map.getSource(SRC_MIXED)) {
-        updateMixedSource(map, storiesRef.current, reportsRef.current);
-      }
-    };
-    if (map.isStyleLoaded()) {
-      doUpdate();
-    } else {
-      map.once('idle', doUpdate);
-    }
+    storyMarkersRef.current.forEach((m) => m.remove());
+    storyMarkersRef.current = [];
+
+    stories.forEach((story) => {
+      if (!story.location) return;
+      const coords = story.location.coordinates;
+      if (!coords || coords.length < 2) return;
+
+      const el = document.createElement('div');
+      el.className = 'parawaze-story-marker';
+      el.style.cssText = `
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #8B5CF6, #EC4899);
+        border: 3px solid white;
+        box-shadow: 0 2px 10px rgba(139,92,246,0.5);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: transform 0.2s;
+        animation: story-pulse 2s ease-in-out infinite;
+      `;
+      el.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="white"><polygon points="5 3 19 12 5 21 5 3"/></svg>`;
+
+      el.addEventListener('mouseenter', () => { el.style.transform = 'scale(1.15)'; });
+      el.addEventListener('mouseleave', () => { el.style.transform = 'scale(1)'; });
+
+      const marker = new mb.Marker({ element: el })
+        .setLngLat([coords[0], coords[1]])
+        .addTo(mapRef.current!);
+
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        onStoryClickRef.current?.([story]);
+      });
+
+      storyMarkersRef.current.push(marker);
+    });
   }, [stories]);
 
   /* ---------------------------------------------------------------- */
@@ -2617,6 +1979,14 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   /* ---------------------------------------------------------------- */
   return (
     <div className="relative w-full h-full">
+      {/* Pulse animation for story markers */}
+      <style>{`
+        @keyframes story-pulse {
+          0%, 100% { box-shadow: 0 2px 10px rgba(139,92,246,0.5); }
+          50% { box-shadow: 0 2px 20px rgba(236,72,153,0.7), 0 0 0 6px rgba(139,92,246,0.15); }
+        }
+      `}</style>
+
       {error && (
         <div className="absolute top-0 left-0 right-0 bg-red-600 text-white text-sm px-4 py-2 z-50">
           Map error: {error}
