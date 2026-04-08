@@ -1305,7 +1305,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           filter: ['!', ['has', 'point_count']],
           paint: {
             'circle-color': '#EC4899',
-            'circle-radius': 8,
+            'circle-radius': 10,
             'circle-stroke-width': 2,
             'circle-stroke-color': '#ffffff',
             'circle-opacity': 0.9,
@@ -1313,7 +1313,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         });
       }
 
-      // Stories cluster circles (pink)
+      // Stories cluster circles (pink) — fixed size 20
       if (!map.getLayer(LYR_STORIES_CLUSTER)) {
         map.addLayer({
           id: LYR_STORIES_CLUSTER,
@@ -1322,12 +1322,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           filter: ['has', 'point_count'],
           paint: {
             'circle-color': '#EC4899',
-            'circle-radius': [
-              'step',
-              ['get', 'point_count'],
-              32, 5, 40, 10, 50,
-            ],
-            'circle-stroke-width': 3,
+            'circle-radius': 20,
+            'circle-stroke-width': 2,
             'circle-stroke-color': '#ffffff',
             'circle-opacity': 0.9,
           },
@@ -1367,7 +1363,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         });
       }
 
-      // Observation individual circles (non-clustered, blue)
+      // Observation individual circles (non-clustered, colored by wind speed)
       if (!map.getLayer(LYR_OBSERVATIONS_CIRCLES)) {
         map.addLayer({
           id: LYR_OBSERVATIONS_CIRCLES,
@@ -1375,8 +1371,22 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           source: SRC_OBSERVATIONS,
           filter: ['!', ['has', 'point_count']],
           paint: {
-            'circle-color': '#3B82F6',
-            'circle-radius': 8,
+            'circle-color': [
+              'step',
+              ['coalesce', ['get', 'wind_speed_kmh'], -1],
+              '#3B82F6', // blue default if no wind data
+              0,
+              '#22c55e', // green < 15
+              15,
+              '#84cc16', // yellow-green 15-25
+              25,
+              '#eab308', // yellow 25-35
+              35,
+              '#f97316', // orange 35-45
+              45,
+              '#ef4444', // red 45+
+            ],
+            'circle-radius': 10,
             'circle-stroke-width': 2,
             'circle-stroke-color': '#ffffff',
             'circle-opacity': 0.9,
@@ -1384,7 +1394,47 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         });
       }
 
-      // Observations cluster circles (blue)
+      // Observation wind direction arrows
+      if (!map.getLayer('parawaze-observations-wind-arrows')) {
+        map.addLayer({
+          id: 'parawaze-observations-wind-arrows',
+          type: 'symbol',
+          source: SRC_OBSERVATIONS,
+          filter: ['!', ['has', 'point_count']],
+          layout: {
+            'text-field': '➤',
+            'text-size': 15,
+            'text-font': ['Open Sans Regular', 'Arial Unicode MS Regular'],
+            'text-rotation-alignment': 'map',
+            'text-pitch-alignment': 'map',
+            'text-rotate': [
+              'case',
+              ['!=', ['get', 'wind_speed_kmh'], null],
+              ['case',
+                ['==', ['get', 'wind_direction'], 'N'], 0,
+                ['==', ['get', 'wind_direction'], 'NE'], 45,
+                ['==', ['get', 'wind_direction'], 'E'], 90,
+                ['==', ['get', 'wind_direction'], 'SE'], 135,
+                ['==', ['get', 'wind_direction'], 'S'], 180,
+                ['==', ['get', 'wind_direction'], 'SW'], 225,
+                ['==', ['get', 'wind_direction'], 'W'], 270,
+                ['==', ['get', 'wind_direction'], 'NW'], 315,
+                0,
+              ],
+              0,
+            ],
+            'text-allow-overlap': true,
+            'icon-allow-overlap': true,
+          },
+          paint: {
+            'text-color': '#ffffff',
+            'text-halo-color': '#000000',
+            'text-halo-width': 0.5,
+          },
+        });
+      }
+
+      // Observations cluster circles (blue) — fixed size 20
       if (!map.getLayer(LYR_OBSERVATIONS_CLUSTER)) {
         map.addLayer({
           id: LYR_OBSERVATIONS_CLUSTER,
@@ -1393,12 +1443,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           filter: ['has', 'point_count'],
           paint: {
             'circle-color': '#3B82F6',
-            'circle-radius': [
-              'step',
-              ['get', 'point_count'],
-              32, 5, 40, 10, 50,
-            ],
-            'circle-stroke-width': 3,
+            'circle-radius': 20,
+            'circle-stroke-width': 2,
             'circle-stroke-color': '#ffffff',
             'circle-opacity': 0.9,
           },
