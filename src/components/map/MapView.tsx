@@ -1398,9 +1398,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       }
     });
 
-    // Gray out stations when not showing today
-    const shouldGrayStations = filter !== 'today';
-    const grayColor = '#cccccc';
+    // Update station styling based on whether showing today or future/past
+    const showingToday = filter === 'today';
     const stationLayers = [
       { circles: LYR_PIOUPIOU_CIRCLES, labels: LYR_PIOUPIOU_LABELS, arrows: LYR_PIOUPIOU_ARROWS },
       { circles: 'parawaze-ffvl-circles', labels: 'parawaze-ffvl-labels', arrows: 'parawaze-ffvl-arrows' },
@@ -1412,23 +1411,28 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     stationLayers.forEach(({ circles, labels, arrows }) => {
       try {
         if (map.getLayer(circles)) {
-          if (shouldGrayStations) {
-            map.setPaintProperty(circles, 'circle-color', grayColor);
-            // Hide labels and arrows when grayed out
-            if (map.getLayer(labels)) {
-              map.setLayoutProperty(labels, 'visibility', 'none');
-            }
-            if (map.getLayer(arrows)) {
-              map.setLayoutProperty(arrows, 'visibility', 'none');
-            }
-          } else {
-            // Restore original colors by updating the data
-            // For now, we'll just show them — the actual colors are set by updateSource functions
+          if (showingToday) {
+            // Restore normal display: colored circles with data
+            // The actual colors are managed by the updateSource functions
+            // Just restore visibility of labels and arrows
             if (map.getLayer(labels)) {
               map.setLayoutProperty(labels, 'visibility', 'visible');
             }
             if (map.getLayer(arrows)) {
               map.setLayoutProperty(arrows, 'visibility', 'visible');
+            }
+          } else {
+            // Show outline-only circles for future/past dates
+            map.setPaintProperty(circles, 'circle-color', '#f5f5f5'); // Very light gray fill
+            map.setPaintProperty(circles, 'circle-stroke-color', '#aaaaaa'); // Medium gray stroke
+            map.setPaintProperty(circles, 'circle-stroke-width', 1.5);
+            map.setPaintProperty(circles, 'circle-opacity', 0.6);
+            // Hide labels and arrows for non-today dates
+            if (map.getLayer(labels)) {
+              map.setLayoutProperty(labels, 'visibility', 'none');
+            }
+            if (map.getLayer(arrows)) {
+              map.setLayoutProperty(arrows, 'visibility', 'none');
             }
           }
         }
@@ -1671,32 +1675,40 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
             popupRef.current = null;
           }
 
-          const isOnline = props.isOnline === true || props.isOnline === 'true';
-          const windAvg = props.windAvg != null && props.windAvg !== '' ? Number(props.windAvg) : null;
-          const windMin = props.windMin != null && props.windMin !== '' ? Number(props.windMin) : null;
-          const windMax = props.windMax != null && props.windMax !== '' ? Number(props.windMax) : null;
-          const heading = props.windHeading != null && props.windHeading !== '' ? Number(props.windHeading) : null;
+          // Show minimal popup for non-today dates, full popup for today
+          let html: string;
+          if (dayFilterRef.current !== 'today') {
+            // Minimal popup: name only
+            html = `<div style="font-family:system-ui,-apple-system,sans-serif;font-size:13px"><b>${props.name || 'Pioupiou ' + props.id}</b></div>`;
+          } else {
+            // Full popup with all data
+            const isOnline = props.isOnline === true || props.isOnline === 'true';
+            const windAvg = props.windAvg != null && props.windAvg !== '' ? Number(props.windAvg) : null;
+            const windMin = props.windMin != null && props.windMin !== '' ? Number(props.windMin) : null;
+            const windMax = props.windMax != null && props.windMax !== '' ? Number(props.windMax) : null;
+            const heading = props.windHeading != null && props.windHeading !== '' ? Number(props.windHeading) : null;
 
-          const dirLabel = heading != null ? `${Math.round(heading)}°` : '—';
-          const statusLabel = isOnline ? '🟢 En ligne' : '🔴 Hors ligne';
-          const lastUp = props.lastUpdate
-            ? new Date(props.lastUpdate).toLocaleString('fr-FR', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })
-            : '—';
+            const dirLabel = heading != null ? `${Math.round(heading)}°` : '—';
+            const statusLabel = isOnline ? '🟢 En ligne' : '🔴 Hors ligne';
+            const lastUp = props.lastUpdate
+              ? new Date(props.lastUpdate).toLocaleString('fr-FR', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })
+              : '—';
 
-          const html = `
-            <div style="font-family:system-ui,-apple-system,sans-serif;font-size:13px;line-height:1.5;min-width:180px">
-              <div style="font-weight:700;font-size:14px;margin-bottom:6px">${props.name || 'Pioupiou ' + props.id}</div>
-              <div style="margin-bottom:2px">💨 Moy: <b>${windAvg != null ? Math.round(windAvg) + ' km/h' : '—'}</b></div>
-              <div style="margin-bottom:2px">📉 Min: ${windMin != null ? Math.round(windMin) + ' km/h' : '—'} · 📈 Max: ${windMax != null ? Math.round(windMax) + ' km/h' : '—'}</div>
-              <div style="margin-bottom:2px">🧭 Direction: ${dirLabel}</div>
-              <div style="margin-bottom:2px">${statusLabel}</div>
-              <div style="margin-bottom:6px;color:#666">🕐 ${lastUp}</div>
-              <a href="https://www.openwindmap.org/PP${props.id}" target="_blank" rel="noopener"
-                 style="color:#0ea5e9;text-decoration:underline;font-size:12px">
-                Voir sur OpenWindMap ↗
-              </a>
-            </div>
-          `;
+            html = `
+              <div style="font-family:system-ui,-apple-system,sans-serif;font-size:13px;line-height:1.5;min-width:180px">
+                <div style="font-weight:700;font-size:14px;margin-bottom:6px">${props.name || 'Pioupiou ' + props.id}</div>
+                <div style="margin-bottom:2px">💨 Moy: <b>${windAvg != null ? Math.round(windAvg) + ' km/h' : '—'}</b></div>
+                <div style="margin-bottom:2px">📉 Min: ${windMin != null ? Math.round(windMin) + ' km/h' : '—'} · 📈 Max: ${windMax != null ? Math.round(windMax) + ' km/h' : '—'}</div>
+                <div style="margin-bottom:2px">🧭 Direction: ${dirLabel}</div>
+                <div style="margin-bottom:2px">${statusLabel}</div>
+                <div style="margin-bottom:6px;color:#666">🕐 ${lastUp}</div>
+                <a href="https://www.openwindmap.org/PP${props.id}" target="_blank" rel="noopener"
+                   style="color:#0ea5e9;text-decoration:underline;font-size:12px">
+                  Voir sur OpenWindMap ↗
+                </a>
+              </div>
+            `;
+          }
 
           const popup = new mb.Popup({ closeButton: true, maxWidth: '260px', offset: 12 })
             .setLngLat(coords)
@@ -1719,37 +1731,44 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
             popupRef.current = null;
           }
 
-          const windAvg = props.windAvg != null && props.windAvg !== '' ? Number(props.windAvg) : null;
-          const windMin = props.windMin != null && props.windMin !== '' ? Number(props.windMin) : null;
-          const windMax = props.windMax != null && props.windMax !== '' ? Number(props.windMax) : null;
-          const windDir = props.windDirection != null && props.windDirection !== '' ? Number(props.windDirection) : null;
-          const temp = props.temperature != null && props.temperature !== '' ? Number(props.temperature) : null;
-          const humidity = props.humidity != null && props.humidity !== '' ? Number(props.humidity) : null;
-          const alt = props.altitude != null && props.altitude !== '' ? Number(props.altitude) : null;
+          let html: string;
+          if (dayFilterRef.current !== 'today') {
+            // Minimal popup: name only
+            html = `<div style="font-family:system-ui,-apple-system,sans-serif;font-size:13px"><b>${props.name || 'FFVL ' + props.id}</b></div>`;
+          } else {
+            // Full popup with all data
+            const windAvg = props.windAvg != null && props.windAvg !== '' ? Number(props.windAvg) : null;
+            const windMin = props.windMin != null && props.windMin !== '' ? Number(props.windMin) : null;
+            const windMax = props.windMax != null && props.windMax !== '' ? Number(props.windMax) : null;
+            const windDir = props.windDirection != null && props.windDirection !== '' ? Number(props.windDirection) : null;
+            const temp = props.temperature != null && props.temperature !== '' ? Number(props.temperature) : null;
+            const humidity = props.humidity != null && props.humidity !== '' ? Number(props.humidity) : null;
+            const alt = props.altitude != null && props.altitude !== '' ? Number(props.altitude) : null;
 
-          const lastUp = props.lastUpdate
-            ? new Date(props.lastUpdate).toLocaleString('fr-FR', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })
-            : '—';
-          const stationUrl = props.url && props.url !== 'null'
-            ? props.url
-            : `https://www.balisemeteo.com/balise.php?idBalise=${props.id}`;
+            const lastUp = props.lastUpdate
+              ? new Date(props.lastUpdate).toLocaleString('fr-FR', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })
+              : '—';
+            const stationUrl = props.url && props.url !== 'null'
+              ? props.url
+              : `https://www.balisemeteo.com/balise.php?idBalise=${props.id}`;
 
-          const html = `
-            <div style="font-family:system-ui,-apple-system,sans-serif;font-size:13px;line-height:1.5;min-width:190px">
-              <div style="font-weight:700;font-size:14px;margin-bottom:2px">${props.name || 'FFVL ' + props.id}</div>
-              ${alt != null ? `<div style="color:#666;font-size:12px;margin-bottom:6px">⛰️ ${alt} m${props.departement && props.departement !== 'null' ? ' · ' + props.departement : ''}</div>` : ''}
-              <div style="margin-bottom:2px">💨 Moy: <b>${windAvg != null ? Math.round(windAvg) + ' km/h' : '—'}</b></div>
-              <div style="margin-bottom:2px">📉 Min: ${windMin != null ? Math.round(windMin) + ' km/h' : '—'} · 📈 Max: ${windMax != null ? Math.round(windMax) + ' km/h' : '—'}</div>
-              <div style="margin-bottom:2px">🧭 Direction: ${windDir != null ? Math.round(windDir) + '°' : '—'}</div>
-              ${temp != null ? `<div style="margin-bottom:2px">🌡️ Température: ${temp.toFixed(1)} °C</div>` : ''}
-              ${humidity != null ? `<div style="margin-bottom:2px">💧 Humidité: ${Math.round(humidity)} %</div>` : ''}
-              <div style="margin-bottom:6px;color:#666">🕐 ${lastUp}</div>
-              <a href="${stationUrl}" target="_blank" rel="noopener"
-                 style="color:#0ea5e9;text-decoration:underline;font-size:12px">
-                Voir sur balisemeteo.com ↗
-              </a>
-            </div>
-          `;
+            html = `
+              <div style="font-family:system-ui,-apple-system,sans-serif;font-size:13px;line-height:1.5;min-width:190px">
+                <div style="font-weight:700;font-size:14px;margin-bottom:2px">${props.name || 'FFVL ' + props.id}</div>
+                ${alt != null ? `<div style="color:#666;font-size:12px;margin-bottom:6px">⛰️ ${alt} m${props.departement && props.departement !== 'null' ? ' · ' + props.departement : ''}</div>` : ''}
+                <div style="margin-bottom:2px">💨 Moy: <b>${windAvg != null ? Math.round(windAvg) + ' km/h' : '—'}</b></div>
+                <div style="margin-bottom:2px">📉 Min: ${windMin != null ? Math.round(windMin) + ' km/h' : '—'} · 📈 Max: ${windMax != null ? Math.round(windMax) + ' km/h' : '—'}</div>
+                <div style="margin-bottom:2px">🧭 Direction: ${windDir != null ? Math.round(windDir) + '°' : '—'}</div>
+                ${temp != null ? `<div style="margin-bottom:2px">🌡️ Température: ${temp.toFixed(1)} °C</div>` : ''}
+                ${humidity != null ? `<div style="margin-bottom:2px">💧 Humidité: ${Math.round(humidity)} %</div>` : ''}
+                <div style="margin-bottom:6px;color:#666">🕐 ${lastUp}</div>
+                <a href="${stationUrl}" target="_blank" rel="noopener"
+                   style="color:#0ea5e9;text-decoration:underline;font-size:12px">
+                  Voir sur balisemeteo.com ↗
+                </a>
+              </div>
+            `;
+          }
 
           const popup = new mb.Popup({ closeButton: true, maxWidth: '280px', offset: 12 })
             .setLngLat(coords)
@@ -1772,37 +1791,44 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
             popupRef.current = null;
           }
 
-          const windAvg = props.windAvg != null && props.windAvg !== '' ? Number(props.windAvg) : null;
-          const windMax = props.windMax != null && props.windMax !== '' ? Number(props.windMax) : null;
-          const windDir = props.windDirection != null && props.windDirection !== '' ? Number(props.windDirection) : null;
-          const temp = props.temperature != null && props.temperature !== '' ? Number(props.temperature) : null;
-          const alt = props.altitude != null && props.altitude !== '' ? Number(props.altitude) : null;
+          let html: string;
+          if (dayFilterRef.current !== 'today') {
+            // Minimal popup: name only
+            html = `<div style="font-family:system-ui,-apple-system,sans-serif;font-size:13px"><b>${props.name || props.id}</b></div>`;
+          } else {
+            // Full popup with all data
+            const windAvg = props.windAvg != null && props.windAvg !== '' ? Number(props.windAvg) : null;
+            const windMax = props.windMax != null && props.windMax !== '' ? Number(props.windMax) : null;
+            const windDir = props.windDirection != null && props.windDirection !== '' ? Number(props.windDirection) : null;
+            const temp = props.temperature != null && props.temperature !== '' ? Number(props.temperature) : null;
+            const alt = props.altitude != null && props.altitude !== '' ? Number(props.altitude) : null;
 
-          const lastUp = props.lastUpdate
-            ? new Date(Number(props.lastUpdate) * 1000).toLocaleString('fr-FR', {
-                hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit',
-              })
-            : '—';
+            const lastUp = props.lastUpdate
+              ? new Date(Number(props.lastUpdate) * 1000).toLocaleString('fr-FR', {
+                  hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit',
+                })
+              : '—';
 
-          const stationUrl = props.url && props.url !== 'null'
-            ? props.url
-            : `https://winds.mobi/station/${encodeURIComponent(props.id)}`;
+            const stationUrl = props.url && props.url !== 'null'
+              ? props.url
+              : `https://winds.mobi/station/${encodeURIComponent(props.id)}`;
 
-          const html = `
-            <div style="font-family:system-ui,-apple-system,sans-serif;font-size:13px;line-height:1.5;min-width:190px">
-              <div style="font-weight:700;font-size:14px;margin-bottom:2px">${props.name || props.id}</div>
-              ${alt != null ? `<div style="color:#666;font-size:12px;margin-bottom:6px">⛰️ ${alt} m · <span style="color:#888">${props.pvName || props.pvCode || ''}</span></div>` : `<div style="color:#888;font-size:12px;margin-bottom:6px">${props.pvName || props.pvCode || ''}</div>`}
-              <div style="margin-bottom:2px">💨 Moy: <b>${windAvg != null ? Math.round(windAvg) + ' km/h' : '—'}</b></div>
-              <div style="margin-bottom:2px">📈 Rafales: ${windMax != null ? Math.round(windMax) + ' km/h' : '—'}</div>
-              <div style="margin-bottom:2px">🧭 Direction: ${windDir != null ? Math.round(windDir) + '°' : '—'}</div>
-              ${temp != null ? `<div style="margin-bottom:2px">🌡️ Température: ${temp.toFixed(1)} °C</div>` : ''}
-              <div style="margin-bottom:6px;color:#666">🕐 ${lastUp}</div>
-              <a href="${stationUrl}" target="_blank" rel="noopener"
-                 style="color:#0ea5e9;text-decoration:underline;font-size:12px">
-                Voir sur winds.mobi ↗
-              </a>
-            </div>
-          `;
+            html = `
+              <div style="font-family:system-ui,-apple-system,sans-serif;font-size:13px;line-height:1.5;min-width:190px">
+                <div style="font-weight:700;font-size:14px;margin-bottom:2px">${props.name || props.id}</div>
+                ${alt != null ? `<div style="color:#666;font-size:12px;margin-bottom:6px">⛰️ ${alt} m · <span style="color:#888">${props.pvName || props.pvCode || ''}</span></div>` : `<div style="color:#888;font-size:12px;margin-bottom:6px">${props.pvName || props.pvCode || ''}</div>`}
+                <div style="margin-bottom:2px">💨 Moy: <b>${windAvg != null ? Math.round(windAvg) + ' km/h' : '—'}</b></div>
+                <div style="margin-bottom:2px">📈 Rafales: ${windMax != null ? Math.round(windMax) + ' km/h' : '—'}</div>
+                <div style="margin-bottom:2px">🧭 Direction: ${windDir != null ? Math.round(windDir) + '°' : '—'}</div>
+                ${temp != null ? `<div style="margin-bottom:2px">🌡️ Température: ${temp.toFixed(1)} °C</div>` : ''}
+                <div style="margin-bottom:6px;color:#666">🕐 ${lastUp}</div>
+                <a href="${stationUrl}" target="_blank" rel="noopener"
+                   style="color:#0ea5e9;text-decoration:underline;font-size:12px">
+                  Voir sur winds.mobi ↗
+                </a>
+              </div>
+            `;
+          }
 
           const popup = new mb.Popup({ closeButton: true, maxWidth: '280px', offset: 12 })
             .setLngLat(coords)
@@ -1825,35 +1851,42 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
             popupRef.current = null;
           }
 
-          const windAvg = props.windAvg != null && props.windAvg !== '' ? Number(props.windAvg) : null;
-          const windGust = props.windGust != null && props.windGust !== '' ? Number(props.windGust) : null;
-          const windDir = props.windDirection != null && props.windDirection !== '' ? Number(props.windDirection) : null;
-          const temp = props.temperature != null && props.temperature !== '' ? Number(props.temperature) : null;
-          const alt = props.altitude != null && props.altitude !== '' ? Number(props.altitude) : null;
-          const state = props.state && props.state !== 'null' ? props.state : null;
+          let html: string;
+          if (dayFilterRef.current !== 'today') {
+            // Minimal popup: name only
+            html = `<div style="font-family:system-ui,-apple-system,sans-serif;font-size:13px"><b>${props.name || props.id}</b></div>`;
+          } else {
+            // Full popup with all data
+            const windAvg = props.windAvg != null && props.windAvg !== '' ? Number(props.windAvg) : null;
+            const windGust = props.windGust != null && props.windGust !== '' ? Number(props.windGust) : null;
+            const windDir = props.windDirection != null && props.windDirection !== '' ? Number(props.windDirection) : null;
+            const temp = props.temperature != null && props.temperature !== '' ? Number(props.temperature) : null;
+            const alt = props.altitude != null && props.altitude !== '' ? Number(props.altitude) : null;
+            const state = props.state && props.state !== 'null' ? props.state : null;
 
-          const lastUp = props.timestamp
-            ? new Date(props.timestamp).toLocaleString('fr-FR', {
-                hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit',
-              })
-            : '—';
+            const lastUp = props.timestamp
+              ? new Date(props.timestamp).toLocaleString('fr-FR', {
+                  hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit',
+                })
+              : '—';
 
-          const html = `
-            <div style="font-family:system-ui,-apple-system,sans-serif;font-size:13px;line-height:1.5;min-width:190px">
-              <div style="font-weight:700;font-size:14px;margin-bottom:2px">${props.name || props.id}</div>
-              <div style="color:#6366f1;font-size:11px;font-weight:600;letter-spacing:0.03em;margin-bottom:4px">GeoSphere Austria</div>
-              ${alt != null ? `<div style="color:#666;font-size:12px;margin-bottom:6px">⛰️ ${alt} m${state ? ' · ' + state : ''}</div>` : (state ? `<div style="color:#666;font-size:12px;margin-bottom:6px">${state}</div>` : '')}
-              <div style="margin-bottom:2px">💨 Moy: <b>${windAvg != null ? Math.round(windAvg) + ' km/h' : '—'}</b></div>
-              <div style="margin-bottom:2px">📈 Rafales: ${windGust != null ? Math.round(windGust) + ' km/h' : '—'}</div>
-              <div style="margin-bottom:2px">🧭 Direction: ${windDir != null ? Math.round(windDir) + '°' : '—'}</div>
-              ${temp != null ? `<div style="margin-bottom:2px">🌡️ Température: ${temp.toFixed(1)} °C</div>` : ''}
-              <div style="margin-bottom:6px;color:#666">🕐 ${lastUp}</div>
-              <a href="https://geosphere.at" target="_blank" rel="noopener"
-                 style="color:#6366f1;text-decoration:underline;font-size:12px">
-                GeoSphere Austria ↗
-              </a>
-            </div>
-          `;
+            html = `
+              <div style="font-family:system-ui,-apple-system,sans-serif;font-size:13px;line-height:1.5;min-width:190px">
+                <div style="font-weight:700;font-size:14px;margin-bottom:2px">${props.name || props.id}</div>
+                <div style="color:#6366f1;font-size:11px;font-weight:600;letter-spacing:0.03em;margin-bottom:4px">GeoSphere Austria</div>
+                ${alt != null ? `<div style="color:#666;font-size:12px;margin-bottom:6px">⛰️ ${alt} m${state ? ' · ' + state : ''}</div>` : (state ? `<div style="color:#666;font-size:12px;margin-bottom:6px">${state}</div>` : '')}
+                <div style="margin-bottom:2px">💨 Moy: <b>${windAvg != null ? Math.round(windAvg) + ' km/h' : '—'}</b></div>
+                <div style="margin-bottom:2px">📈 Rafales: ${windGust != null ? Math.round(windGust) + ' km/h' : '—'}</div>
+                <div style="margin-bottom:2px">🧭 Direction: ${windDir != null ? Math.round(windDir) + '°' : '—'}</div>
+                ${temp != null ? `<div style="margin-bottom:2px">🌡️ Température: ${temp.toFixed(1)} °C</div>` : ''}
+                <div style="margin-bottom:6px;color:#666">🕐 ${lastUp}</div>
+                <a href="https://geosphere.at" target="_blank" rel="noopener"
+                   style="color:#6366f1;text-decoration:underline;font-size:12px">
+                  GeoSphere Austria ↗
+                </a>
+              </div>
+            `;
+          }
 
           const popup = new mb.Popup({ closeButton: true, maxWidth: '280px', offset: 12 })
             .setLngLat(coords)
@@ -1876,29 +1909,36 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
             popupRef.current = null;
           }
 
-          const dirLabel = props.windDirection != null
-            ? BS_COMPASS[Math.round(Number(props.windDirection) / 22.5) % 16]
-            : '—';
-          const timeLabel = props.timestamp
-            ? new Date(props.timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
-            : '';
-          const demoUrl = `https://brightsky.dev/demo/#lat=${props.lat}&lon=${props.lon}&zoom=12`;
+          let html: string;
+          if (dayFilterRef.current !== 'today') {
+            // Minimal popup: name only
+            html = `<div style="font-family:system-ui,-apple-system,sans-serif;font-size:13px"><b>${props.name}</b></div>`;
+          } else {
+            // Full popup with all data
+            const dirLabel = props.windDirection != null
+              ? BS_COMPASS[Math.round(Number(props.windDirection) / 22.5) % 16]
+              : '—';
+            const timeLabel = props.timestamp
+              ? new Date(props.timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+              : '';
+            const demoUrl = `https://brightsky.dev/demo/#lat=${props.lat}&lon=${props.lon}&zoom=12`;
 
-          const html = `
-            <div style="font-family:system-ui,-apple-system,sans-serif;font-size:13px;line-height:1.5;min-width:190px">
-              <div style="font-weight:700;font-size:14px;margin-bottom:2px">${props.name}</div>
-              ${props.altitude != null ? `<div style="color:#666;font-size:12px;margin-bottom:6px">⛰️ ${props.altitude} m · DWD via Bright Sky</div>` : ''}
-              <div style="margin-bottom:2px">💨 Vent moy: <b>${Math.round(Number(props.windAvg))} km/h</b></div>
-              <div style="margin-bottom:2px">📈 Rafale: ${props.windGust != null ? Math.round(Number(props.windGust)) + ' km/h' : '—'}</div>
-              <div style="margin-bottom:2px">🧭 Direction: ${dirLabel} · ${props.windDirection != null ? Math.round(Number(props.windDirection)) + '°' : '—'}</div>
-              ${props.temperature != null ? `<div style="margin-bottom:2px">🌡️ Température: ${Number(props.temperature).toFixed(1)} °C</div>` : ''}
-              ${timeLabel ? `<div style="margin-bottom:6px;color:#666">🕐 Obs. ${timeLabel}</div>` : ''}
-              <a href="${demoUrl}" target="_blank" rel="noopener"
-                 style="color:#0ea5e9;text-decoration:underline;font-size:12px">
-                Voir sur Bright Sky ↗
-              </a>
-            </div>
-          `;
+            html = `
+              <div style="font-family:system-ui,-apple-system,sans-serif;font-size:13px;line-height:1.5;min-width:190px">
+                <div style="font-weight:700;font-size:14px;margin-bottom:2px">${props.name}</div>
+                ${props.altitude != null ? `<div style="color:#666;font-size:12px;margin-bottom:6px">⛰️ ${props.altitude} m · DWD via Bright Sky</div>` : ''}
+                <div style="margin-bottom:2px">💨 Vent moy: <b>${Math.round(Number(props.windAvg))} km/h</b></div>
+                <div style="margin-bottom:2px">📈 Rafale: ${props.windGust != null ? Math.round(Number(props.windGust)) + ' km/h' : '—'}</div>
+                <div style="margin-bottom:2px">🧭 Direction: ${dirLabel} · ${props.windDirection != null ? Math.round(Number(props.windDirection)) + '°' : '—'}</div>
+                ${props.temperature != null ? `<div style="margin-bottom:2px">🌡️ Température: ${Number(props.temperature).toFixed(1)} °C</div>` : ''}
+                ${timeLabel ? `<div style="margin-bottom:6px;color:#666">🕐 Obs. ${timeLabel}</div>` : ''}
+                <a href="${demoUrl}" target="_blank" rel="noopener"
+                   style="color:#0ea5e9;text-decoration:underline;font-size:12px">
+                  Voir sur Bright Sky ↗
+                </a>
+              </div>
+            `;
+          }
 
           const popup = new mb.Popup({ closeButton: true, maxWidth: '280px', offset: 12 })
             .setLngLat(coords)
