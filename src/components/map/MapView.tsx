@@ -1279,19 +1279,127 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         });
 
         // --- Click handlers for GeoJSON layers ---
+        // Observation click → show popup
         map.on('click', LYR_OBS_CIRCLES, (e) => {
-          if (e.features && e.features[0]) {
-            const reportId = e.features[0].properties?.id;
-            const report = reportsRef.current.find((r) => r.id === reportId);
-            if (report) onReportClickRef.current(report);
+          if (!e.features || !e.features[0]) return;
+          const props = e.features[0].properties;
+          if (!props) return;
+          const coords = (e.features[0].geometry as any).coordinates.slice() as [number, number];
+
+          const reportId = props.id;
+          const report = reportsRef.current.find((r) => r.id === reportId);
+          if (!report) return;
+
+          // Close previous popup
+          if (popupRef.current) {
+            popupRef.current.remove();
+            popupRef.current = null;
           }
+
+          // Format report type label
+          const typeLabels: Record<string, string> = {
+            observation: '🔍 Observation',
+            forecast: '🔮 Prévision',
+            image_share: '📸 Partage photo',
+          };
+          const typeLabel = typeLabels[report.report_type] || 'Observation';
+
+          // Format wind info
+          const windAvg = report.wind_speed_kmh != null ? Number(report.wind_speed_kmh) : null;
+          const windGust = report.wind_gust_kmh != null ? Number(report.wind_gust_kmh) : null;
+          const windDir = report.wind_direction != null ? report.wind_direction : null;
+          const dirLabel = windDir ? windDir : '—';
+
+          // Format timestamp
+          const created = report.created_at
+            ? new Date(report.created_at).toLocaleString('fr-FR', {
+                hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit',
+              })
+            : '—';
+
+          // Build HTML
+          const author = report.profiles?.display_name || report.profiles?.username || 'Anonyme';
+          const html = `
+            <div style="font-family:system-ui,-apple-system,sans-serif;font-size:13px;line-height:1.5;min-width:200px">
+              <div style="font-weight:700;font-size:14px;margin-bottom:2px">${typeLabel}</div>
+              <div style="color:#666;font-size:12px;margin-bottom:6px">👤 ${author}</div>
+              ${report.location_name ? `<div style="color:#666;font-size:12px;margin-bottom:6px">📍 ${report.location_name}</div>` : ''}
+              ${report.altitude_m != null ? `<div style="margin-bottom:2px">⛰️ ${report.altitude_m} m</div>` : ''}
+              ${windAvg != null ? `<div style="margin-bottom:2px">💨 Moy: <b>${Math.round(windAvg)} km/h</b></div>` : ''}
+              ${windGust != null ? `<div style="margin-bottom:2px">📈 Rafales: ${Math.round(windGust)} km/h</div>` : ''}
+              ${windDir !== '—' ? `<div style="margin-bottom:2px">🧭 Direction: ${dirLabel}</div>` : ''}
+              ${report.description ? `<div style="margin:6px 0;padding:6px;background:#f5f5f5;border-radius:4px;font-size:12px;line-height:1.4">${report.description.substring(0, 100)}${report.description.length > 100 ? '...' : ''}</div>` : ''}
+              <div style="margin-bottom:6px;color:#666;font-size:11px">🕐 ${created}</div>
+            </div>
+          `;
+
+          const popup = new mb.Popup({ closeButton: true, maxWidth: '280px', offset: 12 })
+            .setLngLat(coords)
+            .setHTML(html)
+            .addTo(map);
+
+          popup.on('close', () => { popupRef.current = null; });
+          popupRef.current = popup;
+
+          // Also call the callback for bottom sheet opening
+          onReportClickRef.current(report);
         });
+        // Forecast click → show popup
         map.on('click', LYR_FORECAST_CIRCLES, (e) => {
-          if (e.features && e.features[0]) {
-            const reportId = e.features[0].properties?.id;
-            const report = reportsRef.current.find((r) => r.id === reportId);
-            if (report) onReportClickRef.current(report);
+          if (!e.features || !e.features[0]) return;
+          const props = e.features[0].properties;
+          if (!props) return;
+          const coords = (e.features[0].geometry as any).coordinates.slice() as [number, number];
+
+          const reportId = props.id;
+          const report = reportsRef.current.find((r) => r.id === reportId);
+          if (!report) return;
+
+          // Close previous popup
+          if (popupRef.current) {
+            popupRef.current.remove();
+            popupRef.current = null;
           }
+
+          // Format wind info
+          const windAvg = report.wind_speed_kmh != null ? Number(report.wind_speed_kmh) : null;
+          const windGust = report.wind_gust_kmh != null ? Number(report.wind_gust_kmh) : null;
+          const windDir = report.wind_direction != null ? report.wind_direction : null;
+          const dirLabel = windDir ? windDir : '—';
+
+          // Format timestamp
+          const created = report.created_at
+            ? new Date(report.created_at).toLocaleString('fr-FR', {
+                hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit',
+              })
+            : '—';
+
+          // Build HTML
+          const author = report.profiles?.display_name || report.profiles?.username || 'Anonyme';
+          const html = `
+            <div style="font-family:system-ui,-apple-system,sans-serif;font-size:13px;line-height:1.5;min-width:200px">
+              <div style="font-weight:700;font-size:14px;margin-bottom:2px">🔮 Prévision</div>
+              <div style="color:#666;font-size:12px;margin-bottom:6px">👤 ${author}</div>
+              ${report.location_name ? `<div style="color:#666;font-size:12px;margin-bottom:6px">📍 ${report.location_name}</div>` : ''}
+              ${report.altitude_m != null ? `<div style="margin-bottom:2px">⛰️ ${report.altitude_m} m</div>` : ''}
+              ${windAvg != null ? `<div style="margin-bottom:2px">💨 Moy: <b>${Math.round(windAvg)} km/h</b></div>` : ''}
+              ${windGust != null ? `<div style="margin-bottom:2px">📈 Rafales: ${Math.round(windGust)} km/h</div>` : ''}
+              ${windDir !== '—' ? `<div style="margin-bottom:2px">🧭 Direction: ${dirLabel}</div>` : ''}
+              ${report.description ? `<div style="margin:6px 0;padding:6px;background:#f5f5f5;border-radius:4px;font-size:12px;line-height:1.4">${report.description.substring(0, 100)}${report.description.length > 100 ? '...' : ''}</div>` : ''}
+              <div style="margin-bottom:6px;color:#666;font-size:11px">🕐 ${created}</div>
+            </div>
+          `;
+
+          const popup = new mb.Popup({ closeButton: true, maxWidth: '280px', offset: 12 })
+            .setLngLat(coords)
+            .setHTML(html)
+            .addTo(map);
+
+          popup.on('close', () => { popupRef.current = null; });
+          popupRef.current = popup;
+
+          // Also call the callback for bottom sheet opening
+          onReportClickRef.current(report);
         });
         map.on('click', LYR_SHUTTLE_ICONS, (e) => {
           if (e.features && e.features[0]) {
