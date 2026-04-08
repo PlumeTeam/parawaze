@@ -1,21 +1,12 @@
 'use client';
 
 import { useRef, useEffect, useState } from 'react';
+import { formatTimestamp } from '@/lib/dateUtils';
 import type { WeatherReport } from '@/lib/types';
 
 interface ObservationViewerProps {
   observations: WeatherReport[];
   onClose: () => void;
-}
-
-function timeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const minutes = Math.floor(diff / 60000);
-  if (minutes < 1) return 'à l\'instant';
-  if (minutes < 60) return `il y a ${minutes} min`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `il y a ${hours}h`;
-  return `il y a ${Math.floor(hours / 24)}j`;
 }
 
 const WIND_LABELS: Record<string, string> = {
@@ -153,7 +144,7 @@ export default function ObservationViewer({ observations, onClose }: Observation
           <div style={shadowStyle}>
             <p className="text-gray-900 font-bold text-base">{typeLabel}</p>
             <p className="text-gray-700 text-sm mt-0.5">{authorName}</p>
-            <p className="text-gray-600 text-xs mt-1">{timeAgo(observation.created_at)}</p>
+            <p className="text-gray-600 text-xs mt-1">{formatTimestamp(observation.created_at)}</p>
           </div>
 
           {/* Close button */}

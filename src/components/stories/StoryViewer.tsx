@@ -1,22 +1,13 @@
 'use client';
 
 import { useRef, useEffect, useState, useCallback } from 'react';
+import { formatTimestamp } from '@/lib/dateUtils';
 import type { Story } from '@/lib/types';
 import { useStories } from '@/hooks/useStories';
 
 interface StoryViewerProps {
   stories: Story[];
   onClose: () => void;
-}
-
-function timeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const minutes = Math.floor(diff / 60000);
-  if (minutes < 1) return 'à l\'instant';
-  if (minutes < 60) return `il y a ${minutes} min`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `il y a ${hours}h`;
-  return `il y a ${Math.floor(hours / 24)}j`;
 }
 
 export default function StoryViewer({ stories, onClose }: StoryViewerProps) {
@@ -217,7 +208,7 @@ export default function StoryViewer({ stories, onClose }: StoryViewerProps) {
           {/* Author info */}
           <div style={shadowStyle}>
             <p className="text-white font-semibold text-base leading-tight">{authorName}</p>
-            <p className="text-white/80 text-sm mt-0.5">{timeAgo(story.created_at)}</p>
+            <p className="text-white/80 text-sm mt-0.5">{formatTimestamp(story.created_at)}</p>
           </div>
 
           {/* Close button */}

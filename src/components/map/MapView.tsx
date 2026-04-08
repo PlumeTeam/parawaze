@@ -9,6 +9,7 @@ import {
   DEFAULT_ZOOM,
   type MapStyleKey,
 } from '@/lib/mapbox';
+import { formatTimestamp } from '@/lib/dateUtils';
 import type { WeatherReport, Shuttle, WindDirection, Poi, Story, Meetup } from '@/lib/types';
 import type { PioupiouStation } from '@/hooks/usePioupiou';
 import type { FFVLStation } from '@/hooks/useFFVL';
@@ -446,6 +447,8 @@ function buildMixedFeatures(stories: Story[], reports: WeatherReport[]): GeoJSON
       properties: {
         id: s.id,
         content_type: 'story' as const,
+        created_at_ms: new Date(s.created_at).getTime(),
+        is_story: 1,
       },
     }));
 
@@ -464,6 +467,8 @@ function buildMixedFeatures(stories: Story[], reports: WeatherReport[]): GeoJSON
       properties: {
         id: r.id,
         content_type: 'observation' as const,
+        created_at_ms: new Date(r.created_at).getTime(),
+        is_story: 0,
       },
     }));
 
@@ -1304,10 +1309,14 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         cluster: true,
         clusterMaxZoom: 14,
         clusterRadius: 50,
+        clusterProperties: {
+          story_count: ['sum', ['get', 'is_story']],
+          latest_created_at_ms: ['max', ['get', 'created_at_ms']],
+        },
       });
     }
 
-    // Clustered mixed content — purple/blue gradient
+    // Clustered mixed content — color based on latest content type
     if (!map.getLayer(LYR_MIXED_CLUSTER)) {
       map.addLayer({
         id: LYR_MIXED_CLUSTER,
@@ -1315,14 +1324,30 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         source: SRC_MIXED,
         filter: ['has', 'point_count'],
         paint: {
+          // Pink for stories, blue for observations (based on story_count > half of total)
           'circle-color': [
-            'step',
-            ['get', 'point_count'],
-            '#9F7AEA', // purple for 2-4 mixed
-            5,
-            '#7C3AED', // deeper purple for 5-9
-            10,
-            '#5B21B6', // dark purple for 10+
+            'case',
+            ['>', ['get', 'story_count'], ['/', ['get', 'point_count'], 2]],
+            // More stories: pink gradient
+            [
+              'step',
+              ['get', 'point_count'],
+              '#EC4899', // pink for 2-4
+              5,
+              '#DB2777', // deeper pink for 5-9
+              10,
+              '#BE185D', // dark pink for 10+
+            ],
+            // More observations: blue gradient
+            [
+              'step',
+              ['get', 'point_count'],
+              '#3B82F6', // blue for 2-4
+              5,
+              '#2563EB', // deeper blue for 5-9
+              10,
+              '#1E40AF', // dark blue for 10+
+            ],
           ],
           'circle-radius': [
             'step',
@@ -1575,11 +1600,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           const dirLabel = windDir ? windDir : '—';
 
           // Format timestamp
-          const created = report.created_at
-            ? new Date(report.created_at).toLocaleString('fr-FR', {
-                hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit',
-              })
-            : '—';
+          const created = report.created_at ? formatTimestamp(report.created_at) : '—';
 
           // Build HTML
           const author = report.profiles?.display_name || report.profiles?.username || 'Anonyme';
