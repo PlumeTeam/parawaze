@@ -540,13 +540,19 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   /*  Add GeoJSON sources & layers                                    */
   /* ---------------------------------------------------------------- */
   const addLayersToMap = useCallback((map: mapboxgl.Map) => {
-    // --- Reports source ---
-    if (!map.getSource(SRC_REPORTS)) {
-      map.addSource(SRC_REPORTS, {
-        type: 'geojson',
-        data: { type: 'FeatureCollection', features: [] },
-      });
+    try {
+      // --- Reports source ---
+      if (!map.getSource(SRC_REPORTS)) {
+        map.addSource(SRC_REPORTS, {
+          type: 'geojson',
+          data: { type: 'FeatureCollection', features: [] },
+        });
+      }
+    } catch (e) {
+      console.error('[ParaWaze] Failed to add reports source:', e);
     }
+
+    try {
 
     // Observation circles (report_type = 'observation' or 'image_share')
     if (!map.getLayer(LYR_OBS_CIRCLES)) {
@@ -630,6 +636,9 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           'text-opacity': ['get', 'opacity'],
         },
       });
+    }
+    } catch (e) {
+      console.error('[ParaWaze] Failed to add report layers:', e);
     }
 
     // --- Shuttles source ---
@@ -720,12 +729,13 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     }
 
     // --- Pioupiou source ---
-    if (!map.getSource(SRC_PIOUPIOU)) {
-      map.addSource(SRC_PIOUPIOU, {
-        type: 'geojson',
-        data: { type: 'FeatureCollection', features: [] },
-      });
-    }
+    try {
+      if (!map.getSource(SRC_PIOUPIOU)) {
+        map.addSource(SRC_PIOUPIOU, {
+          type: 'geojson',
+          data: { type: 'FeatureCollection', features: [] },
+        });
+      }
 
     // Pioupiou circles
     if (!map.getLayer(LYR_PIOUPIOU_CIRCLES)) {
@@ -787,14 +797,18 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         },
       });
     }
+    } catch (e) {
+      console.error('[ParaWaze] Failed to add Pioupiou source/layers:', e);
+    }
 
     // --- FFVL source ---
-    if (!map.getSource(SRC_FFVL)) {
-      map.addSource(SRC_FFVL, {
-        type: 'geojson',
-        data: { type: 'FeatureCollection', features: [] },
-      });
-    }
+    try {
+      if (!map.getSource(SRC_FFVL)) {
+        map.addSource(SRC_FFVL, {
+          type: 'geojson',
+          data: { type: 'FeatureCollection', features: [] },
+        });
+      }
 
     // FFVL circles
     if (!map.getLayer(LYR_FFVL_CIRCLES)) {
@@ -856,14 +870,18 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         },
       });
     }
+    } catch (e) {
+      console.error('[ParaWaze] Failed to add FFVL source/layers:', e);
+    }
 
     // --- winds.mobi source ---
-    if (!map.getSource(SRC_WINDS_MOBI)) {
-      map.addSource(SRC_WINDS_MOBI, {
-        type: 'geojson',
-        data: { type: 'FeatureCollection', features: [] },
-      });
-    }
+    try {
+      if (!map.getSource(SRC_WINDS_MOBI)) {
+        map.addSource(SRC_WINDS_MOBI, {
+          type: 'geojson',
+          data: { type: 'FeatureCollection', features: [] },
+        });
+      }
 
     // winds.mobi circles
     if (!map.getLayer(LYR_WINDS_MOBI_CIRCLES)) {
@@ -925,22 +943,26 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         },
       });
     }
+    } catch (e) {
+      console.error('[ParaWaze] Failed to add Winds Mobi source/layers:', e);
+    }
 
     // --- GeoSphere Austria source ---
-    if (!map.getSource(SRC_GEOSPHERE)) {
-      map.addSource(SRC_GEOSPHERE, {
-        type: 'geojson',
-        data: { type: 'FeatureCollection', features: [] },
-      });
-    }
+    try {
+      if (!map.getSource(SRC_GEOSPHERE)) {
+        map.addSource(SRC_GEOSPHERE, {
+          type: 'geojson',
+          data: { type: 'FeatureCollection', features: [] },
+        });
+      }
 
-    // --- Bright Sky (DWD) source ---
-    if (!map.getSource(SRC_BRIGHTSKY)) {
-      map.addSource(SRC_BRIGHTSKY, {
-        type: 'geojson',
-        data: { type: 'FeatureCollection', features: [] },
-      });
-    }
+      // --- Bright Sky (DWD) source ---
+      if (!map.getSource(SRC_BRIGHTSKY)) {
+        map.addSource(SRC_BRIGHTSKY, {
+          type: 'geojson',
+          data: { type: 'FeatureCollection', features: [] },
+        });
+      }
 
     // GeoSphere circles
     if (!map.getLayer(LYR_GEOSPHERE_CIRCLES)) {
@@ -1063,6 +1085,9 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         },
       });
     }
+    } catch (e) {
+      console.error('[ParaWaze] Failed to add GeoSphere/BrightSky source/layers:', e);
+    }
 
     // --- Meetups source ---
     if (!map.getSource(SRC_MEETUPS)) {
@@ -1122,6 +1147,16 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         const mb = (await import('mapbox-gl')).default;
         if (cancelled) return;
 
+        // Check if WebGL is supported
+        if (!mb.supported()) {
+          throw new Error('Votre navigateur ne supporte pas WebGL. Essayez de fermer d\'autres onglets ou utilisez Chrome.');
+        }
+
+        // Prewarm the map if available
+        if (typeof mb.prewarm === 'function') {
+          mb.prewarm();
+        }
+
         mb.accessToken = MAPBOX_TOKEN;
         mbRef.current = mb;
 
@@ -1131,9 +1166,18 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           center: DEFAULT_CENTER,
           zoom: DEFAULT_ZOOM,
           attributionControl: false,
+          maxTileCacheSize: 50, // Reduce GPU memory usage
+          fadeDuration: 0, // Reduce GPU memory pressure
         });
 
         map.addControl(new mb.AttributionControl({ compact: true }), 'bottom-left');
+
+        // Handle map errors gracefully
+        map.on('error', (e) => {
+          console.error('[ParaWaze] Map error:', e?.error?.message || e);
+          // Don't set error state on every map error - map might recover
+          // Only log to console for debugging
+        });
 
         const onStyleReady = () => {
           if (cancelled) return;
@@ -1532,37 +1576,57 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   }
 
   function updatePioupiouSource(map: mapboxgl.Map, stns: PioupiouStation[]) {
-    const src = map.getSource(SRC_PIOUPIOU) as mapboxgl.GeoJSONSource | undefined;
-    if (src) {
-      src.setData({ type: 'FeatureCollection', features: buildPioupiouFeatures(stns) });
+    try {
+      const src = map.getSource(SRC_PIOUPIOU) as mapboxgl.GeoJSONSource | undefined;
+      if (src) {
+        src.setData({ type: 'FeatureCollection', features: buildPioupiouFeatures(stns) });
+      }
+    } catch (e) {
+      console.error('[ParaWaze] Failed to update Pioupiou source:', e);
     }
   }
 
   function updateFFVLSource(map: mapboxgl.Map, stns: FFVLStation[]) {
-    const src = map.getSource(SRC_FFVL) as mapboxgl.GeoJSONSource | undefined;
-    if (src) {
-      src.setData({ type: 'FeatureCollection', features: buildFFVLFeatures(stns) });
+    try {
+      const src = map.getSource(SRC_FFVL) as mapboxgl.GeoJSONSource | undefined;
+      if (src) {
+        src.setData({ type: 'FeatureCollection', features: buildFFVLFeatures(stns) });
+      }
+    } catch (e) {
+      console.error('[ParaWaze] Failed to update FFVL source:', e);
     }
   }
 
   function updateWindsMobiSource(map: mapboxgl.Map, stns: WindsMobiStation[]) {
-    const src = map.getSource(SRC_WINDS_MOBI) as mapboxgl.GeoJSONSource | undefined;
-    if (src) {
-      src.setData({ type: 'FeatureCollection', features: buildWindsMobiFeatures(stns) });
+    try {
+      const src = map.getSource(SRC_WINDS_MOBI) as mapboxgl.GeoJSONSource | undefined;
+      if (src) {
+        src.setData({ type: 'FeatureCollection', features: buildWindsMobiFeatures(stns) });
+      }
+    } catch (e) {
+      console.error('[ParaWaze] Failed to update Winds Mobi source:', e);
     }
   }
 
   function updateGeoSphereSource(map: mapboxgl.Map, stns: GeoSphereStation[]) {
-    const src = map.getSource(SRC_GEOSPHERE) as mapboxgl.GeoJSONSource | undefined;
-    if (src) {
-      src.setData({ type: 'FeatureCollection', features: buildGeoSphereFeatures(stns) });
+    try {
+      const src = map.getSource(SRC_GEOSPHERE) as mapboxgl.GeoJSONSource | undefined;
+      if (src) {
+        src.setData({ type: 'FeatureCollection', features: buildGeoSphereFeatures(stns) });
+      }
+    } catch (e) {
+      console.error('[ParaWaze] Failed to update GeoSphere source:', e);
     }
   }
 
   function updateBrightSkySource(map: mapboxgl.Map, stns: BrightSkyStation[]) {
-    const src = map.getSource(SRC_BRIGHTSKY) as mapboxgl.GeoJSONSource | undefined;
-    if (src) {
-      src.setData({ type: 'FeatureCollection', features: buildBrightSkyFeatures(stns) });
+    try {
+      const src = map.getSource(SRC_BRIGHTSKY) as mapboxgl.GeoJSONSource | undefined;
+      if (src) {
+        src.setData({ type: 'FeatureCollection', features: buildBrightSkyFeatures(stns) });
+      }
+    } catch (e) {
+      console.error('[ParaWaze] Failed to update BrightSky source:', e);
     }
   }
 
