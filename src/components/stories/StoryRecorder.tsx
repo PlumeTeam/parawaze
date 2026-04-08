@@ -6,11 +6,12 @@ import { useStories } from '@/hooks/useStories';
 interface StoryRecorderProps {
   onClose: () => void;
   onPublished?: () => void;
+  onStoryPublished?: () => void;
 }
 
 const RECORD_DURATION = 20; // seconds
 
-export default function StoryRecorder({ onClose, onPublished }: StoryRecorderProps) {
+export default function StoryRecorder({ onClose, onPublished, onStoryPublished }: StoryRecorderProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -199,6 +200,7 @@ export default function StoryRecorder({ onClose, onPublished }: StoryRecorderPro
       );
 
       if (previewUrl) URL.revokeObjectURL(previewUrl);
+      onStoryPublished?.();
       onPublished?.();
       onClose();
     } catch (e: unknown) {

@@ -43,9 +43,9 @@ const DAY_LABELS: Record<DayFilter, string> = {
 
 export default function MapPage() {
   const { user, profile, loading: authLoading } = useAuth();
-  const { reports, loading: reportsLoading, fetchReportsByDay } = useReports();
+  const { reports, loading: reportsLoading, fetchReportsByDay, fetchReports } = useReports();
   const { shuttles, fetchShuttles } = useShuttles();
-  const { stories } = useStories();
+  const { stories, fetchStories } = useStories();
   const { pois, fetchPois } = usePois();
   const { meetups } = useMeetups();
   const { stations: pioupiouStations } = usePioupiou();
@@ -115,6 +115,31 @@ export default function MapPage() {
   useEffect(() => {
     fetchReportsByDay(selectedDay);
   }, [selectedDay, fetchReportsByDay]);
+
+  // Refetch stories and reports when page becomes visible (e.g., returning from posting)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        // Page became visible, refetch stories and reports
+        fetchStories();
+        fetchReportsByDay(selectedDay);
+      }
+    };
+
+    const handleFocus = () => {
+      // Window regained focus, refetch data
+      fetchStories();
+      fetchReportsByDay(selectedDay);
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [selectedDay, fetchStories, fetchReportsByDay]);
 
   // Fetch shuttles once
   useEffect(() => {
@@ -340,6 +365,7 @@ export default function MapPage() {
         <StoryRecorder
           onClose={() => setShowRecorder(false)}
           onPublished={() => setToast('Story publiée !')}
+          onStoryPublished={() => fetchStories()}
         />
       )}
     </div>
