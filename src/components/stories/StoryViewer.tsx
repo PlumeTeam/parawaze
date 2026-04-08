@@ -14,7 +14,7 @@ export default function StoryViewer({ stories, onClose }: StoryViewerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [muted, setMuted] = useState(false);
+  const [muted, setMuted] = useState(true);
   const [showMuteIcon, setShowMuteIcon] = useState(false);
   const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
@@ -49,6 +49,12 @@ export default function StoryViewer({ stories, onClose }: StoryViewerProps) {
       setLiked(false);
       setFlagged(false);
       setShowFlagConfirm(false);
+      // Ensure video plays when moving to next story
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.play().catch(() => {});
+        }
+      }, 0);
     } else {
       onClose();
     }
@@ -60,6 +66,12 @@ export default function StoryViewer({ stories, onClose }: StoryViewerProps) {
       setLiked(false);
       setFlagged(false);
       setShowFlagConfirm(false);
+      // Ensure video plays when moving to previous story
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.play().catch(() => {});
+        }
+      }, 0);
     }
   };
 
@@ -125,6 +137,16 @@ export default function StoryViewer({ stories, onClose }: StoryViewerProps) {
       setTranslateY(0);
     }
   };
+
+  // Auto-play video when story changes
+  useEffect(() => {
+    const video = videoRef.current;
+    if (video) {
+      video.play().catch(() => {
+        // Autoplay blocked, but video will still play when user interacts
+      });
+    }
+  }, [currentIndex]);
 
   useEffect(() => {
     return () => {
