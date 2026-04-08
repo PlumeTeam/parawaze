@@ -168,22 +168,25 @@ export default function StoryViewer({ stories, onClose }: StoryViewerProps) {
         onPointerUp={onPointerUp}
         onClick={handleVideoTap}
       >
-        {/* Story progress bar */}
-        <div className="absolute top-0 inset-x-0 z-30 flex gap-1 px-2 pt-2">
-          {stories.map((_, idx) => (
-            <div
-              key={idx}
-              className="flex-1 h-1 bg-white/30 rounded-full overflow-hidden"
-            >
+        {/* Story progress bar — Instagram style */}
+        {stories.length > 1 && (
+          <div className="absolute top-0 inset-x-0 z-40 flex gap-1 px-1.5 pt-1.5" style={{ paddingTop: 'max(0.375rem, env(safe-area-inset-top))' }}>
+            {stories.map((_, idx) => (
               <div
-                className="h-full bg-white transition-all"
-                style={{
-                  width: idx < currentIndex ? '100%' : idx === currentIndex ? '50%' : '0%',
-                }}
-              />
-            </div>
-          ))}
-        </div>
+                key={idx}
+                className="flex-1 h-1 bg-white/40 rounded-full overflow-hidden"
+              >
+                <div
+                  className="h-full bg-white"
+                  style={{
+                    width: idx < currentIndex ? '100%' : idx === currentIndex ? '100%' : '0%',
+                    transition: idx === currentIndex ? 'width 0.1s linear' : 'width 0.3s ease-out',
+                  }}
+                />
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Full-screen video */}
         <video
