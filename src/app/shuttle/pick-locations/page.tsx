@@ -255,7 +255,7 @@ function PickLocationsContent() {
         </div>
       </div>
 
-      {/* Bottom panel */}
+      {/* Bottom panel — pin info only */}
       <div className="flex-shrink-0 bg-white border-t border-gray-200 px-4 py-3 space-y-3 safe-area-bottom">
         {/* Pin info */}
         <div className="flex gap-2">
@@ -266,20 +266,21 @@ function PickLocationsContent() {
             &#x1F535; {arrival ? formatCoord(arrival) : 'Arriv\u00e9e non plac\u00e9e'}
           </div>
         </div>
-
-        {/* Validate */}
-        <button
-          onClick={handleValidate}
-          disabled={!canValidate}
-          className={`w-full py-3.5 rounded-xl font-bold text-base transition-all ${
-            canValidate
-              ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-lg'
-              : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-          }`}
-        >
-          {canValidate ? `Valider (${distance !== null ? (distance < 1 ? `${Math.round(distance! * 1000)}m` : `${distance!.toFixed(1)} km`) : ''})` : 'Placez les deux points'}
-        </button>
       </div>
+
+      {/* Fixed Validate Button — above BottomNav */}
+      <button
+        onClick={handleValidate}
+        disabled={!canValidate}
+        className={`fixed left-4 right-4 z-30 py-3.5 rounded-xl font-bold text-base transition-all ${
+          canValidate
+            ? 'bg-gradient-to-r from-sky-500 to-sky-600 text-white shadow-lg'
+            : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+        }`}
+        style={{ bottom: '80px' }}
+      >
+        {canValidate ? `Valider (${distance !== null ? (distance < 1 ? `${Math.round(distance! * 1000)}m` : `${distance!.toFixed(1)} km`) : ''})` : 'Placez les deux points'}
+      </button>
     </div>
   );
 }
