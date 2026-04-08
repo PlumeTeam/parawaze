@@ -1340,9 +1340,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
 
           popup.on('close', () => { popupRef.current = null; });
           popupRef.current = popup;
-
-          // Also call the callback for bottom sheet opening
-          onReportClickRef.current(report);
         });
         // Forecast click → show popup
         map.on('click', LYR_FORECAST_CIRCLES, (e) => {
@@ -1397,9 +1394,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
 
           popup.on('close', () => { popupRef.current = null; });
           popupRef.current = popup;
-
-          // Also call the callback for bottom sheet opening
-          onReportClickRef.current(report);
         });
         map.on('click', LYR_SHUTTLE_ICONS, (e) => {
           if (e.features && e.features[0]) {
