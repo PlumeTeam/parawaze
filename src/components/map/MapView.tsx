@@ -509,6 +509,8 @@ function buildUnifiedStationFeatures(
           name: s.name,
           source: 'pioupiou',
           wind_speed: s.windAvg,
+          speed: Math.round(s.windAvg),
+          wind_direction: s.windHeading ?? null,
           color: getWindSpeedColor(s.windAvg),
         },
       });
@@ -526,6 +528,8 @@ function buildUnifiedStationFeatures(
           name: s.name,
           source: 'ffvl',
           wind_speed: s.windAvg,
+          speed: Math.round(s.windAvg),
+          wind_direction: s.windDirection ?? null,
           color: getWindSpeedColor(s.windAvg),
         },
       });
@@ -543,6 +547,8 @@ function buildUnifiedStationFeatures(
           name: s.name,
           source: 'windsMobi',
           wind_speed: s.windAvg,
+          speed: Math.round(s.windAvg),
+          wind_direction: s.windDirection ?? null,
           color: getWindSpeedColor(s.windAvg),
         },
       });
@@ -560,6 +566,8 @@ function buildUnifiedStationFeatures(
           name: s.name,
           source: 'geosphere',
           wind_speed: s.windAvg,
+          speed: Math.round(s.windAvg),
+          wind_direction: s.windDirection ?? null,
           color: getWindSpeedColor(s.windAvg),
         },
       });
@@ -577,6 +585,8 @@ function buildUnifiedStationFeatures(
           name: s.name,
           source: 'brightsky',
           wind_speed: s.wind_speed_kmh,
+          speed: Math.round(s.wind_speed_kmh),
+          wind_direction: s.wind_direction_deg ?? null,
           color: getWindSpeedColor(s.wind_speed_kmh),
         },
       });
@@ -1033,8 +1043,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         type: 'geojson',
         data: { type: 'FeatureCollection', features: [] },
         cluster: true,
-        clusterMaxZoom: 12,
-        clusterRadius: 60,
+        clusterMaxZoom: 10,
+        clusterRadius: 30,
         clusterProperties: {
           max_wind_speed: ['max', ['get', 'wind_speed']],
         },
@@ -1103,6 +1113,52 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           'circle-color': ['get', 'color'],
           'circle-stroke-width': 2,
           'circle-stroke-color': '#ffffff',
+        },
+      });
+    }
+
+    // Station wind direction arrows
+    if (!map.getLayer(LYR_STATIONS_ARROWS)) {
+      map.addLayer({
+        id: LYR_STATIONS_ARROWS,
+        type: 'symbol',
+        source: SRC_STATIONS,
+        filter: ['all', ['!', ['has', 'point_count']], ['!=', ['get', 'wind_direction'], null]],
+        layout: {
+          'text-field': '➤',
+          'text-size': 13,
+          'text-rotate': ['get', 'wind_direction'],
+          'text-allow-overlap': true,
+          'text-ignore-placement': true,
+          'text-rotation-alignment': 'map',
+        },
+        paint: {
+          'text-color': '#ffffff',
+          'text-halo-color': 'rgba(0,0,0,0.5)',
+          'text-halo-width': 1,
+        },
+      });
+    }
+
+    // Station wind speed labels
+    if (!map.getLayer(LYR_STATIONS_LABELS)) {
+      map.addLayer({
+        id: LYR_STATIONS_LABELS,
+        type: 'symbol',
+        source: SRC_STATIONS,
+        filter: ['all', ['!', ['has', 'point_count']], ['!=', ['get', 'speed'], null]],
+        layout: {
+          'text-field': ['get', 'speed'],
+          'text-size': 11,
+          'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'],
+          'text-offset': [1.2, 0],
+          'text-anchor': 'left',
+          'text-allow-overlap': false,
+        },
+        paint: {
+          'text-color': ['get', 'color'],
+          'text-halo-color': '#ffffff',
+          'text-halo-width': 1.5,
         },
       });
     }
