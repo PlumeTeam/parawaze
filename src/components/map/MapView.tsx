@@ -1524,7 +1524,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
             clusterId,
             100, // limit to 100 stories per cluster
             0, // offset
-            (err: Error | null | undefined, features?: GeoJSON.Feature[]) => {
+            ((err: Error | null | undefined, features: GeoJSON.Feature[] | undefined) => {
               if (err || !features) return;
 
               // Extract story IDs and get full story objects
@@ -1544,7 +1544,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
               if (stories.length > 0) {
                 onStoryClickRef.current?.(stories);
               }
-            }
+            }) as any
           );
         });
 
