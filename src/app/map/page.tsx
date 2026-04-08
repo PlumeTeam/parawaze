@@ -60,6 +60,7 @@ export default function MapPage() {
   const [selectedStory, setSelectedStory] = useState<Story | null>(null);
   const [selectedMeetup, setSelectedMeetup] = useState<Meetup | null>(null);
   const [showGeolocationScreen, setShowGeolocationScreen] = useState<boolean | null>(null);
+  const [mapLoading, setMapLoading] = useState(true);
   const router = useRouter();
   const mapRef = useRef<MapViewHandle>(null);
 
@@ -288,7 +289,16 @@ export default function MapPage() {
           onMapMove={handleMapMove}
           onMarkerPlaced={handleMarkerPlaced}
           enableAutocenter={!showGeolocationScreen}
+          onMapLoaded={() => setMapLoading(false)}
         />
+
+        {/* Loading spinner overlay */}
+        {mapLoading && (
+          <div className="absolute inset-0 z-40 bg-white flex flex-col items-center justify-center">
+            <LoadingSpinner size="lg" />
+            <p className="mt-4 text-gray-600 font-medium">Chargement...</p>
+          </div>
+        )}
 
         <ReportBottomSheet
           reports={reports}

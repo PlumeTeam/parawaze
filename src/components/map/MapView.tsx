@@ -49,6 +49,7 @@ interface MapViewProps {
   onMapMove?: (center: { lat: number; lng: number }) => void;
   onMarkerPlaced?: (pos: MarkerPosition) => void;
   enableAutocenter?: boolean;
+  onMapLoaded?: () => void;
 }
 
 /* ------------------------------------------------------------------ */
@@ -450,7 +451,7 @@ const LYR_MEETUP_LABELS = 'parawaze-meetup-labels';
 /*  Component                                                         */
 /* ------------------------------------------------------------------ */
 const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
-  { reports, shuttles = [], stories = [], pois = [], pioupiouStations = [], ffvlStations = [], windsMobiStations = [], geoSphereStations = [], brightSkyStations = [], meetups = [], onReportClick, onShuttleClick, onPoiClick, onStoryClick, onMeetupClick, onMapMove, onMarkerPlaced, enableAutocenter = true },
+  { reports, shuttles = [], stories = [], pois = [], pioupiouStations = [], ffvlStations = [], windsMobiStations = [], geoSphereStations = [], brightSkyStations = [], meetups = [], onReportClick, onShuttleClick, onPoiClick, onStoryClick, onMeetupClick, onMapMove, onMarkerPlaced, enableAutocenter = true, onMapLoaded },
   ref,
 ) {
   const mapContainer = useRef<HTMLDivElement>(null);
@@ -1193,6 +1194,48 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           updateBrightSkySource(map, brightSkyRef.current);
           updateMeetupSource(map, meetupsRef.current);
           setMapLoaded(true);
+          onMapLoaded?.();
+
+          // Add viewport-based filtering on moveend/zoomend
+          let filterTimeout: NodeJS.Timeout | null = null;
+          const updateVisibleStations = () => {
+            try {
+              const zoom = map.getZoom();
+              const bounds = map.getBounds();
+              // Skip stations if zoomed out too far (zoom < 7)
+              if (zoom < 7) {
+                updatePioupiouSource(map, []);
+                updateFFVLSource(map, []);
+                updateWindsMobiSource(map, []);
+                updateGeoSphereSource(map, []);
+                updateBrightSkySource(map, []);
+              } else {
+                // Filter stations to only visible ones within bounds
+                const filterFeatures = (features: any[]) => {
+                  return features.filter(f => {
+                    if (!f.geometry || f.geometry.type !== 'Point') return false;
+                    const [lng, lat] = f.geometry.coordinates;
+                    return bounds.contains([lng, lat]);
+                  });
+                };
+                updatePioupiouSource(map, pioupiouRef.current);
+                updateFFVLSource(map, ffvlRef.current);
+                updateWindsMobiSource(map, windsMobiRef.current);
+                updateGeoSphereSource(map, geoSphereRef.current);
+                updateBrightSkySource(map, brightSkyRef.current);
+              }
+            } catch (e) {
+              console.debug('Viewport filtering error:', e);
+            }
+          };
+
+          const debouncedUpdate = () => {
+            if (filterTimeout) clearTimeout(filterTimeout);
+            filterTimeout = setTimeout(updateVisibleStations, 350);
+          };
+
+          map.on('moveend', debouncedUpdate);
+          map.on('zoomend', debouncedUpdate);
         };
 
         map.on('load', onStyleReady);
