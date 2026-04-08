@@ -122,6 +122,7 @@ function buildReportFeatures(reports: WeatherReport[]): GeoJSON.Feature[] {
         color: getConditionColor(r),
         wind_angle: getWindAngle(r.wind_direction),
         opacity: getAgeOpacity(r.created_at, r.report_type),
+        wind_speed: r.wind_speed_kmh ?? 0,
       },
     }));
 }
@@ -734,6 +735,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           cluster: true,
           clusterMaxZoom: 14,
           clusterRadius: 50,
+          clusterProperties: { max_wind_speed: ['max', ['get', 'wind_speed']] },
         });
       }
     } catch (e) {
@@ -741,7 +743,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     }
 
     try {
-      // Clustered observations — blue-themed circles
+      // Clustered observations — color based on worst wind condition
       if (!map.getLayer(LYR_OBS_CLUSTER)) {
         map.addLayer({
           id: LYR_OBS_CLUSTER,
@@ -751,12 +753,16 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           paint: {
             'circle-color': [
               'step',
-              ['get', 'point_count'],
-              '#3B82F6', // blue for 2-4
-              5,
-              '#2563EB', // darker blue for 5-9
-              10,
-              '#1E40AF', // dark blue for 10+
+              ['get', 'max_wind_speed'],
+              '#22c55e', // green for < 15
+              15,
+              '#84cc16', // yellow-green for 15-24
+              25,
+              '#eab308', // yellow for 25-34
+              35,
+              '#f97316', // orange for 35-44
+              45,
+              '#ef4444', // red for 45+
             ],
             'circle-radius': [
               'step',
@@ -1064,6 +1070,9 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         id: LYR_PIOUPIOU_CIRCLES,
         type: 'circle',
         source: SRC_PIOUPIOU,
+        layout: {
+          visibility: 'none',
+        },
         paint: {
           'circle-radius': 6,
           'circle-color': ['get', 'color'],
@@ -1081,6 +1090,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         source: SRC_PIOUPIOU,
         filter: ['!=', ['get', 'windLabel'], ''],
         layout: {
+          visibility: 'none',
           'text-field': ['get', 'windLabel'],
           'text-size': 11,
           'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'],
@@ -1104,6 +1114,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         source: SRC_PIOUPIOU,
         filter: ['!=', ['get', 'wind_arrow_angle'], -1],
         layout: {
+          visibility: 'none',
           'text-field': '➤',
           'text-size': 14,
           'text-rotate': ['get', 'wind_arrow_angle'],
@@ -1137,6 +1148,9 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         id: LYR_FFVL_CIRCLES,
         type: 'circle',
         source: SRC_FFVL,
+        layout: {
+          visibility: 'none',
+        },
         paint: {
           'circle-radius': 6,
           'circle-color': ['get', 'color'],
@@ -1160,6 +1174,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           'text-offset': [1.2, 0],
           'text-anchor': 'left',
           'text-allow-overlap': false,
+          'visibility': 'none',
         },
         paint: {
           'text-color': ['get', 'color'],
@@ -1183,6 +1198,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           'text-allow-overlap': true,
           'text-ignore-placement': true,
           'text-rotation-alignment': 'map',
+          'visibility': 'none',
         },
         paint: {
           'text-color': '#ffffff',
@@ -1210,6 +1226,9 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         id: LYR_WINDS_MOBI_CIRCLES,
         type: 'circle',
         source: SRC_WINDS_MOBI,
+        layout: {
+          'visibility': 'none',
+        },
         paint: {
           'circle-radius': 6,
           'circle-color': ['get', 'color'],
@@ -1233,6 +1252,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           'text-offset': [1.2, 0],
           'text-anchor': 'left',
           'text-allow-overlap': false,
+          'visibility': 'none',
         },
         paint: {
           'text-color': ['get', 'color'],
@@ -1256,6 +1276,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           'text-allow-overlap': true,
           'text-ignore-placement': true,
           'text-rotation-alignment': 'map',
+          'visibility': 'none',
         },
         paint: {
           'text-color': '#ffffff',
@@ -1291,6 +1312,9 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         id: LYR_GEOSPHERE_CIRCLES,
         type: 'circle',
         source: SRC_GEOSPHERE,
+        layout: {
+          'visibility': 'none',
+        },
         paint: {
           'circle-radius': 6,
           'circle-color': ['get', 'color'],
@@ -1306,6 +1330,9 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         id: LYR_BRIGHTSKY_CIRCLES,
         type: 'circle',
         source: SRC_BRIGHTSKY,
+        layout: {
+          'visibility': 'none',
+        },
         paint: {
           'circle-radius': 6,
           'circle-color': ['get', 'color'],
@@ -1329,6 +1356,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           'text-offset': [1.2, 0],
           'text-anchor': 'left',
           'text-allow-overlap': false,
+          'visibility': 'none',
         },
         paint: {
           'text-color': ['get', 'color'],
@@ -1352,6 +1380,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           'text-offset': [1.2, 0],
           'text-anchor': 'left',
           'text-allow-overlap': false,
+          'visibility': 'none',
         },
         paint: {
           'text-color': ['get', 'color'],
@@ -1375,6 +1404,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           'text-allow-overlap': true,
           'text-ignore-placement': true,
           'text-rotation-alignment': 'map',
+          'visibility': 'none',
         },
         paint: {
           'text-color': '#ffffff',
@@ -1398,6 +1428,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           'text-allow-overlap': true,
           'text-ignore-placement': true,
           'text-rotation-alignment': 'map',
+          'visibility': 'none',
         },
         paint: {
           'text-color': '#ffffff',
