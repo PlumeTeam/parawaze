@@ -8,7 +8,7 @@ interface StoryRecorderProps {
   onPublished?: () => void;
 }
 
-const RECORD_DURATION = 6; // seconds
+const RECORD_DURATION = 20; // seconds
 
 export default function StoryRecorder({ onClose, onPublished }: StoryRecorderProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -37,9 +37,9 @@ export default function StoryRecorder({ onClose, onPublished }: StoryRecorderPro
   const startStream = useCallback(async (deviceId?: string) => {
     const constraints: MediaStreamConstraints = {
       video: deviceId
-        ? { deviceId: { exact: deviceId }, width: { ideal: 720 }, height: { ideal: 1280 }, frameRate: { ideal: 30 } }
-        : { facingMode: 'environment', width: { ideal: 720 }, height: { ideal: 1280 }, frameRate: { ideal: 30 } },
-      audio: false,
+        ? { deviceId: { exact: deviceId }, width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } }
+        : { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } },
+      audio: true,
     };
     const stream = await navigator.mediaDevices.getUserMedia(constraints);
     streamRef.current = stream;
@@ -126,8 +126,8 @@ export default function StoryRecorder({ onClose, onPublished }: StoryRecorderPro
     const recorder = new MediaRecorder(
       streamRef.current,
       mimeType
-        ? { mimeType, videoBitsPerSecond: 1_000_000 }
-        : { videoBitsPerSecond: 1_000_000 }
+        ? { mimeType, videoBitsPerSecond: 4_000_000 }
+        : { videoBitsPerSecond: 4_000_000 }
     );
     mediaRecorderRef.current = recorder;
 
@@ -350,7 +350,6 @@ export default function StoryRecorder({ onClose, onPublished }: StoryRecorderPro
             src={previewUrl}
             autoPlay
             playsInline
-            muted
             loop
             className="absolute inset-0 w-full h-full object-cover"
           />

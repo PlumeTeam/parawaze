@@ -22,7 +22,7 @@ function timeAgo(dateStr: string): string {
 export default function StoryViewer({ story, onClose }: StoryViewerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  const [muted, setMuted] = useState(true);
+  const [muted, setMuted] = useState(false);
   const [showMuteIcon, setShowMuteIcon] = useState(false);
   const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
