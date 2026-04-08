@@ -312,6 +312,61 @@ export interface StoryFlag {
   reason: string | null;
 }
 
+// Friendship types
+export type FriendshipStatus = 'pending' | 'accepted' | 'rejected' | 'blocked';
+
+export interface Friendship {
+  id: string;
+  requester_id: string;
+  addressee_id: string;
+  status: FriendshipStatus;
+  created_at: string;
+  profiles?: Profile; // joined (the other person's profile)
+}
+
+// Meetup types
+export type MeetupVisibility = 'public' | 'friends_only';
+export type MeetupParticipantStatus = 'going' | 'maybe' | 'cancelled';
+
+export interface Meetup {
+  id: string;
+  author_id: string;
+  title: string;
+  description: string | null;
+  location: { type: 'Point'; coordinates: [number, number] } | null;
+  location_name: string | null;
+  altitude_m: number | null;
+  meeting_time: string;
+  visibility: MeetupVisibility;
+  max_participants: number;
+  is_active: boolean;
+  expires_at: string;
+  created_at: string;
+  profiles?: Profile;
+  meetup_participants?: MeetupParticipant[];
+}
+
+export interface MeetupParticipant {
+  id: string;
+  meetup_id: string;
+  user_id: string;
+  status: MeetupParticipantStatus;
+  created_at: string;
+  profiles?: Profile;
+}
+
+export interface CreateMeetupInput {
+  title: string;
+  description?: string;
+  location_name?: string;
+  latitude?: number;
+  longitude?: number;
+  altitude_m?: number;
+  meeting_time: string;
+  visibility: MeetupVisibility;
+  max_participants: number;
+}
+
 // Database type for supabase-js generics
 export interface Database {
   public: {

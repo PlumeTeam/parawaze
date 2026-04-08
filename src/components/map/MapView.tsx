@@ -9,7 +9,7 @@ import {
   DEFAULT_ZOOM,
   type MapStyleKey,
 } from '@/lib/mapbox';
-import type { WeatherReport, Shuttle, WindDirection, Poi, Story } from '@/lib/types';
+import type { WeatherReport, Shuttle, WindDirection, Poi, Story, Meetup } from '@/lib/types';
 import type { PioupiouStation } from '@/hooks/usePioupiou';
 import type { FFVLStation } from '@/hooks/useFFVL';
 import type { WindsMobiStation } from '@/hooks/useWindsMobi';
@@ -40,7 +40,9 @@ interface MapViewProps {
   geoSphereStations?: GeoSphereStation[];
   brightSkyStations?: BrightSkyStation[];
   stories?: Story[];
+  meetups?: Meetup[];
   onReportClick: (report: WeatherReport) => void;
+  onMeetupClick?: (meetup: Meetup) => void;
   onShuttleClick?: (shuttle: Shuttle) => void;
   onPoiClick?: (poi: Poi) => void;
   onStoryClick?: (story: Story) => void;
@@ -166,6 +168,27 @@ function buildPoiFeatures(pois: Poi[]): GeoJSON.Feature[] {
           p.poi_type === 'weather_station' ? '#eab308' : '#a855f7',
       },
     }));
+}
+
+/* ------------------------------------------------------------------ */
+/*  Meetup GeoJSON                                                    */
+/* ------------------------------------------------------------------ */
+function buildMeetupFeatures(meetups: Meetup[]): GeoJSON.Feature[] {
+  return meetups
+    .filter((m) => m.location && m.location.coordinates && m.location.coordinates.length >= 2)
+    .map((m) => {
+      const participants = m.meetup_participants || [];
+      const count = participants.filter((p) => p.status !== 'cancelled').length;
+      return {
+        type: 'Feature' as const,
+        geometry: { type: 'Point' as const, coordinates: m.location!.coordinates },
+        properties: {
+          id: m.id,
+          title: m.title,
+          label: `${count}`,
+        },
+      };
+    });
 }
 
 /* ------------------------------------------------------------------ */
@@ -418,12 +441,15 @@ const SRC_BRIGHTSKY = 'parawaze-brightsky';
 const LYR_BRIGHTSKY_CIRCLES = 'parawaze-brightsky-circles';
 const LYR_BRIGHTSKY_LABELS = 'parawaze-brightsky-labels';
 const LYR_BRIGHTSKY_ARROWS = 'parawaze-brightsky-arrows';
+const SRC_MEETUPS = 'parawaze-meetups';
+const LYR_MEETUP_CIRCLES = 'parawaze-meetup-circles';
+const LYR_MEETUP_LABELS = 'parawaze-meetup-labels';
 
 /* ------------------------------------------------------------------ */
 /*  Component                                                         */
 /* ------------------------------------------------------------------ */
 const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
-  { reports, shuttles = [], stories = [], pois = [], pioupiouStations = [], ffvlStations = [], windsMobiStations = [], geoSphereStations = [], brightSkyStations = [], onReportClick, onShuttleClick, onPoiClick, onStoryClick, onMapMove, onMarkerPlaced },
+  { reports, shuttles = [], stories = [], pois = [], pioupiouStations = [], ffvlStations = [], windsMobiStations = [], geoSphereStations = [], brightSkyStations = [], meetups = [], onReportClick, onShuttleClick, onPoiClick, onStoryClick, onMeetupClick, onMapMove, onMarkerPlaced },
   ref,
 ) {
   const mapContainer = useRef<HTMLDivElement>(null);
@@ -466,6 +492,10 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   storiesRef.current = stories;
   const onStoryClickRef = useRef(onStoryClick);
   onStoryClickRef.current = onStoryClick;
+  const meetupsRef = useRef<Meetup[]>(meetups);
+  meetupsRef.current = meetups;
+  const onMeetupClickRef = useRef(onMeetupClick);
+  onMeetupClickRef.current = onMeetupClick;
   const popupRef = useRef<mapboxgl.Popup | null>(null);
 
   // Expose getCenter and getMarkerPosition to parent via ref
@@ -1031,6 +1061,51 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         },
       });
     }
+
+    // --- Meetups source ---
+    if (!map.getSource(SRC_MEETUPS)) {
+      map.addSource(SRC_MEETUPS, {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] },
+      });
+    }
+
+    // Meetup circles — amber/orange
+    if (!map.getLayer(LYR_MEETUP_CIRCLES)) {
+      map.addLayer({
+        id: LYR_MEETUP_CIRCLES,
+        type: 'circle',
+        source: SRC_MEETUPS,
+        paint: {
+          'circle-radius': 14,
+          'circle-color': '#F59E0B',
+          'circle-stroke-width': 3,
+          'circle-stroke-color': '#ffffff',
+          'circle-opacity': 0.95,
+        },
+      });
+    }
+
+    // Meetup participant count label
+    if (!map.getLayer(LYR_MEETUP_LABELS)) {
+      map.addLayer({
+        id: LYR_MEETUP_LABELS,
+        type: 'symbol',
+        source: SRC_MEETUPS,
+        layout: {
+          'text-field': ['get', 'label'],
+          'text-size': 11,
+          'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'],
+          'text-allow-overlap': true,
+          'text-ignore-placement': true,
+        },
+        paint: {
+          'text-color': '#ffffff',
+          'text-halo-color': 'rgba(0,0,0,0.3)',
+          'text-halo-width': 1,
+        },
+      });
+    }
   }, []);
 
   /* ---------------------------------------------------------------- */
@@ -1070,6 +1145,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           updateWindsMobiSource(map, windsMobiRef.current);
           updateGeoSphereSource(map, geoSphereRef.current);
           updateBrightSkySource(map, brightSkyRef.current);
+          updateMeetupSource(map, meetupsRef.current);
           setMapLoaded(true);
         };
 
@@ -1087,6 +1163,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           updateWindsMobiSource(map, windsMobiRef.current);
           updateGeoSphereSource(map, geoSphereRef.current);
           updateBrightSkySource(map, brightSkyRef.current);
+          updateMeetupSource(map, meetupsRef.current);
           // Re-add shuttle route lines
           addShuttleRouteLines(map, shuttlesRef.current);
         });
@@ -1100,7 +1177,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         map.on('click', (e) => {
           // Check if the click was on one of our layers
           const layerFeatures = map.queryRenderedFeatures(e.point, {
-            layers: [LYR_OBS_CIRCLES, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS, LYR_POI_CIRCLES, LYR_PIOUPIOU_CIRCLES, LYR_FFVL_CIRCLES, LYR_WINDS_MOBI_CIRCLES, LYR_GEOSPHERE_CIRCLES, LYR_BRIGHTSKY_CIRCLES].filter(
+            layers: [LYR_OBS_CIRCLES, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS, LYR_POI_CIRCLES, LYR_PIOUPIOU_CIRCLES, LYR_FFVL_CIRCLES, LYR_WINDS_MOBI_CIRCLES, LYR_GEOSPHERE_CIRCLES, LYR_BRIGHTSKY_CIRCLES, LYR_MEETUP_CIRCLES].filter(
               (l) => !!map.getLayer(l),
             ),
           });
@@ -1139,6 +1216,14 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
             const poiId = e.features[0].properties?.id;
             const poi = poisRef.current.find((p) => p.id === poiId);
             if (poi) onPoiClickRef.current?.(poi);
+          }
+        });
+
+        map.on('click', LYR_MEETUP_CIRCLES, (e) => {
+          if (e.features && e.features[0]) {
+            const meetupId = e.features[0].properties?.id;
+            const meetup = meetupsRef.current.find((m) => m.id === meetupId);
+            if (meetup) onMeetupClickRef.current?.(meetup);
           }
         });
 
@@ -1394,7 +1479,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         });
 
         // Pointer cursor on interactive layers
-        const interactiveLayers = [LYR_OBS_CIRCLES, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS, LYR_POI_CIRCLES, LYR_POI_LABELS, LYR_PIOUPIOU_CIRCLES, LYR_PIOUPIOU_LABELS, LYR_FFVL_CIRCLES, LYR_FFVL_LABELS, LYR_WINDS_MOBI_CIRCLES, LYR_WINDS_MOBI_LABELS, LYR_GEOSPHERE_CIRCLES, LYR_GEOSPHERE_LABELS, LYR_BRIGHTSKY_CIRCLES, LYR_BRIGHTSKY_LABELS, 'parawaze-shuttle-label', 'parawaze-forecast-label'];
+        const interactiveLayers = [LYR_OBS_CIRCLES, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS, LYR_POI_CIRCLES, LYR_POI_LABELS, LYR_PIOUPIOU_CIRCLES, LYR_PIOUPIOU_LABELS, LYR_FFVL_CIRCLES, LYR_FFVL_LABELS, LYR_WINDS_MOBI_CIRCLES, LYR_WINDS_MOBI_LABELS, LYR_GEOSPHERE_CIRCLES, LYR_GEOSPHERE_LABELS, LYR_BRIGHTSKY_CIRCLES, LYR_BRIGHTSKY_LABELS, LYR_MEETUP_CIRCLES, LYR_MEETUP_LABELS, 'parawaze-shuttle-label', 'parawaze-forecast-label'];
         interactiveLayers.forEach((layerId) => {
           map.on('mouseenter', layerId, () => { map.getCanvas().style.cursor = 'pointer'; });
           map.on('mouseleave', layerId, () => { map.getCanvas().style.cursor = ''; });
@@ -1476,6 +1561,13 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     const src = map.getSource(SRC_BRIGHTSKY) as mapboxgl.GeoJSONSource | undefined;
     if (src) {
       src.setData({ type: 'FeatureCollection', features: buildBrightSkyFeatures(stns) });
+    }
+  }
+
+  function updateMeetupSource(map: mapboxgl.Map, mts: Meetup[]) {
+    const src = map.getSource(SRC_MEETUPS) as mapboxgl.GeoJSONSource | undefined;
+    if (src) {
+      src.setData({ type: 'FeatureCollection', features: buildMeetupFeatures(mts) });
     }
   }
 
@@ -1650,6 +1742,22 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       map.once('idle', doUpdate);
     }
   }, [brightSkyStations]);
+
+  // Update meetup markers
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const doUpdate = () => {
+      if (map.getSource(SRC_MEETUPS)) {
+        updateMeetupSource(map, meetups);
+      }
+    };
+    if (map.isStyleLoaded()) {
+      doUpdate();
+    } else {
+      map.once('idle', doUpdate);
+    }
+  }, [meetups]);
 
   /* ---------------------------------------------------------------- */
   /*  Story DOM markers                                               */

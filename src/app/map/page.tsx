@@ -8,6 +8,7 @@ import { useReports } from '@/hooks/useReports';
 import { useShuttles } from '@/hooks/useShuttles';
 import { useStories } from '@/hooks/useStories';
 import { usePois } from '@/hooks/usePois';
+import { useMeetups } from '@/hooks/useMeetups';
 import { usePioupiou } from '@/hooks/usePioupiou';
 import { useFFVL } from '@/hooks/useFFVL';
 import { useWindsMobi } from '@/hooks/useWindsMobi';
@@ -19,7 +20,7 @@ import BottomNav from '@/components/shared/BottomNav';
 import LoadingSpinner from '@/components/shared/LoadingSpinner';
 import StoryRecorder from '@/components/stories/StoryRecorder';
 import StoryViewer from '@/components/stories/StoryViewer';
-import type { WeatherReport, Shuttle, Poi, Story } from '@/lib/types';
+import type { WeatherReport, Shuttle, Poi, Story, Meetup } from '@/lib/types';
 import type { MapViewHandle } from '@/components/map/MapView';
 
 // Dynamic import MapView to avoid SSR issues with mapbox-gl
@@ -44,6 +45,7 @@ export default function MapPage() {
   const { shuttles, fetchShuttles } = useShuttles();
   const { stories } = useStories();
   const { pois, fetchPois } = usePois();
+  const { meetups } = useMeetups();
   const { stations: pioupiouStations } = usePioupiou();
   const { stations: ffvlStations } = useFFVL();
   const { stations: windsMobiStations } = useWindsMobi();
@@ -55,6 +57,7 @@ export default function MapPage() {
   const [lastMarker, setLastMarker] = useState<{lat: number; lng: number; alt: number | null} | null>(null);
   const [showRecorder, setShowRecorder] = useState(false);
   const [selectedStory, setSelectedStory] = useState<Story | null>(null);
+  const [selectedMeetup, setSelectedMeetup] = useState<Meetup | null>(null);
   const router = useRouter();
   const mapRef = useRef<MapViewHandle>(null);
 
@@ -100,6 +103,10 @@ export default function MapPage() {
 
   const handleStoryClick = (story: Story) => {
     setSelectedStory(story);
+  };
+
+  const handleMeetupClick = (meetup: Meetup) => {
+    router.push('/meetup');
   };
 
   const handleViewDetail = (report: WeatherReport) => {
@@ -200,8 +207,10 @@ export default function MapPage() {
           windsMobiStations={windsMobiStations}
           geoSphereStations={geoSphereStations}
           brightSkyStations={brightSkyStations}
+          meetups={meetups}
           onPoiClick={handlePoiClick}
           onStoryClick={handleStoryClick}
+          onMeetupClick={handleMeetupClick}
           shuttles={shuttles.filter(s => {
             if (!s.departure_time) return false;
             const dep = new Date(s.departure_time);
