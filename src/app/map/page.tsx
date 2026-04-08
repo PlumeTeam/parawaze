@@ -286,11 +286,16 @@ export default function MapPage() {
           meetups={meetups.filter(m => {
             if (!m.meeting_time) return false;
             const meetTime = new Date(m.meeting_time);
+            // Get today's date boundaries in UTC to match database timestamps
             const now = new Date();
-            const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-            const tomorrowStart = new Date(todayStart); tomorrowStart.setDate(tomorrowStart.getDate() + 1);
-            const dayAfter = new Date(tomorrowStart); dayAfter.setDate(dayAfter.getDate() + 1);
-            const yesterdayStart = new Date(todayStart); yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+            const utcYear = now.getUTCFullYear();
+            const utcMonth = now.getUTCMonth();
+            const utcDate = now.getUTCDate();
+            // Create date boundaries at midnight UTC
+            const todayStart = new Date(Date.UTC(utcYear, utcMonth, utcDate, 0, 0, 0));
+            const tomorrowStart = new Date(Date.UTC(utcYear, utcMonth, utcDate + 1, 0, 0, 0));
+            const dayAfter = new Date(Date.UTC(utcYear, utcMonth, utcDate + 2, 0, 0, 0));
+            const yesterdayStart = new Date(Date.UTC(utcYear, utcMonth, utcDate - 1, 0, 0, 0));
             if (selectedDay === 'today') return meetTime >= todayStart && meetTime < tomorrowStart;
             if (selectedDay === 'tomorrow') return meetTime >= tomorrowStart && meetTime < dayAfter;
             if (selectedDay === 'yesterday') return meetTime >= yesterdayStart && meetTime < todayStart;
@@ -302,11 +307,16 @@ export default function MapPage() {
           shuttles={shuttles.filter(s => {
             if (!s.departure_time) return false;
             const dep = new Date(s.departure_time);
+            // Get today's date boundaries in UTC to match database timestamps
             const now = new Date();
-            const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-            const tomorrowStart = new Date(todayStart); tomorrowStart.setDate(tomorrowStart.getDate() + 1);
-            const dayAfter = new Date(tomorrowStart); dayAfter.setDate(dayAfter.getDate() + 1);
-            const yesterdayStart = new Date(todayStart); yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+            const utcYear = now.getUTCFullYear();
+            const utcMonth = now.getUTCMonth();
+            const utcDate = now.getUTCDate();
+            // Create date boundaries at midnight UTC
+            const todayStart = new Date(Date.UTC(utcYear, utcMonth, utcDate, 0, 0, 0));
+            const tomorrowStart = new Date(Date.UTC(utcYear, utcMonth, utcDate + 1, 0, 0, 0));
+            const dayAfter = new Date(Date.UTC(utcYear, utcMonth, utcDate + 2, 0, 0, 0));
+            const yesterdayStart = new Date(Date.UTC(utcYear, utcMonth, utcDate - 1, 0, 0, 0));
             if (selectedDay === 'today') return dep >= todayStart && dep < tomorrowStart;
             if (selectedDay === 'tomorrow') return dep >= tomorrowStart && dep < dayAfter;
             if (selectedDay === 'yesterday') return dep >= yesterdayStart && dep < todayStart;
