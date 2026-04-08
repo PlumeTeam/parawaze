@@ -1413,8 +1413,12 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         if (map.getLayer(circles)) {
           if (showingToday) {
             // Restore normal display: colored circles with data
-            // The actual colors are managed by the updateSource functions
-            // Just restore visibility of labels and arrows
+            // Restore paint properties to show wind-based colors from feature data
+            map.setPaintProperty(circles, 'circle-color', ['get', 'color']);
+            map.setPaintProperty(circles, 'circle-stroke-color', '#ffffff');
+            map.setPaintProperty(circles, 'circle-stroke-width', 2);
+            map.setPaintProperty(circles, 'circle-opacity', 0.9);
+            // Restore visibility of labels and arrows
             if (map.getLayer(labels)) {
               map.setLayoutProperty(labels, 'visibility', 'visible');
             }
