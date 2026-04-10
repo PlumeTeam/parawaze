@@ -19,6 +19,7 @@ export function useShuttles() {
         .select('*, profiles(*)')
         .eq('is_active', true)
         .gt('departure_time', new Date().toISOString())
+        .gt('expires_at', new Date().toISOString())
         .order('departure_time', { ascending: true })
         .limit(50);
 
@@ -64,7 +65,7 @@ export function useShuttles() {
   const createShuttle = useCallback(
     async (input: CreateShuttleInput, userId: string) => {
       const expiresAt = new Date(input.departure_time);
-      expiresAt.setHours(expiresAt.getHours() + 12);
+      expiresAt.setDate(expiresAt.getDate() + 2);
 
       const shuttleData: any = {
         author_id: userId,
