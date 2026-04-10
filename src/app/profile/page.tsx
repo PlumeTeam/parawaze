@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Settings, LogOut, Plus, Pencil, Trash2, X, Check } from 'lucide-react';
+import { ArrowLeft, Settings, LogOut, Plus, Pencil, Trash2, X, Check } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useReports } from '@/hooks/useReports';
 import { useWings, type WingInput } from '@/hooks/useWings';
@@ -216,7 +216,13 @@ export default function ProfilePage() {
     <div className="min-h-screen bg-gray-50 pb-20">
       {/* Header */}
       <header className="bg-gray-900 text-white px-4 py-3 flex items-center justify-between safe-area-top">
-        <h1 className="text-lg font-bold">Mon Profil</h1>
+        <button
+          onClick={() => router.push('/map')}
+          className="p-2 hover:bg-white/10 rounded-full transition-colors"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </button>
+        <h1 className="text-lg font-bold flex-1 text-center">Mon Profil</h1>
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowEdit(true)}
