@@ -1281,6 +1281,25 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           },
         });
       }
+
+      // Camera icon inside story circles
+      if (!map.getLayer('parawaze-stories-camera-icon')) {
+        map.addLayer({
+          id: 'parawaze-stories-camera-icon',
+          type: 'symbol',
+          source: SRC_STORIES,
+          filter: ['!', ['has', 'point_count']],
+          layout: {
+            'text-field': '📷',
+            'text-size': 12,
+            'text-allow-overlap': true,
+            'text-ignore-placement': true,
+          },
+          paint: {
+            'text-color': '#FFFFFF',
+          },
+        });
+      }
     } catch (e) {
       console.error('[ParaWaze] Failed to add stories source/layers:', e);
     }
