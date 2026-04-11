@@ -571,6 +571,10 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   dayFilterRef.current = dayFilter;
   const popupRef = useRef<mapboxgl.Popup | null>(null);
 
+  // GPS location marker
+  const gpsMarkerRef = useRef<mapboxgl.Marker | null>(null);
+  const gpsWatchIdRef = useRef<number | null>(null);
+
   // Expose getCenter and getMarkerPosition to parent via ref
   useImperativeHandle(ref, () => ({
     getCenter: () => {
@@ -1533,6 +1537,13 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           applyDayFilter(map);
           // Re-add shuttle route lines
           addShuttleRouteLines(map, shuttlesRef.current);
+          // Re-add GPS marker if it existed
+          if (gpsMarkerRef.current) {
+            const lngLat = gpsMarkerRef.current.getLngLat();
+            gpsMarkerRef.current.remove();
+            gpsMarkerRef.current = null;
+            // Marker will be re-created by the GPS tracking useEffect
+          }
           // Call onMapLoaded callback to notify parent that map is ready
           onMapLoadedRef.current?.();
         });
@@ -2462,6 +2473,103 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     }
   }, [enableAutocenter, mapLoaded, locateMe]);
 
+  // Continuous GPS tracking with pulsing marker
+  useEffect(() => {
+    if (!mapRef.current || !mbRef.current) return;
+
+    const map = mapRef.current;
+    const mb = mbRef.current;
+
+    // Create DOM element for GPS marker with pulsing animation
+    const createGpsMarker = (lat: number, lng: number) => {
+      // Remove old marker if it exists
+      if (gpsMarkerRef.current) {
+        gpsMarkerRef.current.remove();
+      }
+
+      // Create container div
+      const el = document.createElement('div');
+      el.style.width = '32px';
+      el.style.height = '32px';
+      el.style.position = 'relative';
+      el.style.display = 'flex';
+      el.style.alignItems = 'center';
+      el.style.justifyContent = 'center';
+
+      // Pulse ring (animated)
+      const pulseRing = document.createElement('div');
+      pulseRing.style.position = 'absolute';
+      pulseRing.style.width = '24px';
+      pulseRing.style.height = '24px';
+      pulseRing.style.borderRadius = '50%';
+      pulseRing.style.backgroundColor = 'transparent';
+      pulseRing.style.border = 'none';
+      pulseRing.style.animation = 'gps-pulse 2s infinite';
+      el.appendChild(pulseRing);
+
+      // White outer circle (ring effect)
+      const whiteRing = document.createElement('div');
+      whiteRing.style.position = 'absolute';
+      whiteRing.style.width = '20px';
+      whiteRing.style.height = '20px';
+      whiteRing.style.borderRadius = '50%';
+      whiteRing.style.backgroundColor = '#ffffff';
+      whiteRing.style.boxShadow = '0 0 0 2px #4285F4';
+      el.appendChild(whiteRing);
+
+      // Blue inner dot
+      const blueDot = document.createElement('div');
+      blueDot.style.position = 'absolute';
+      blueDot.style.width = '12px';
+      blueDot.style.height = '12px';
+      blueDot.style.borderRadius = '50%';
+      blueDot.style.backgroundColor = '#4285F4';
+      blueDot.style.zIndex = '2';
+      el.appendChild(blueDot);
+
+      // Create marker
+      const marker = new mb.Marker({ element: el })
+        .setLngLat([lng, lat])
+        .addTo(map);
+
+      gpsMarkerRef.current = marker;
+    };
+
+    // Start watching position
+    if (!navigator?.geolocation) return;
+
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        try {
+          if (pos?.coords) {
+            const { latitude, longitude } = pos.coords;
+            createGpsMarker(latitude, longitude);
+          }
+        } catch (e) {
+          console.debug('GPS watchPosition callback error:', e);
+        }
+      },
+      (error) => {
+        console.debug('GPS watchPosition error:', error?.code, error?.message);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 },
+    );
+
+    gpsWatchIdRef.current = watchId;
+
+    // Cleanup
+    return () => {
+      if (gpsWatchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(gpsWatchIdRef.current);
+        gpsWatchIdRef.current = null;
+      }
+      if (gpsMarkerRef.current) {
+        gpsMarkerRef.current.remove();
+        gpsMarkerRef.current = null;
+      }
+    };
+  }, [mapLoaded]);
+
   const cycleStyle = () => {
     const styles: MapStyleKey[] = ['outdoors', 'satellite', 'standard'];
     const idx = styles.indexOf(mapStyle);
@@ -2488,11 +2596,25 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   /* ---------------------------------------------------------------- */
   return (
     <div className="relative w-full h-full">
-      {/* Pulse animation for story markers */}
+      {/* Pulse animation for story markers and GPS */}
       <style>{`
         @keyframes story-pulse {
           0%, 100% { box-shadow: 0 2px 10px rgba(139,92,246,0.5); }
           50% { box-shadow: 0 2px 20px rgba(236,72,153,0.7), 0 0 0 6px rgba(139,92,246,0.15); }
+        }
+        @keyframes gps-pulse {
+          0% {
+            width: 24px;
+            height: 24px;
+            opacity: 0.6;
+            box-shadow: 0 0 0 0 rgba(66, 133, 244, 0.6);
+          }
+          100% {
+            width: 48px;
+            height: 48px;
+            opacity: 0;
+            box-shadow: 0 0 0 16px rgba(66, 133, 244, 0);
+          }
         }
       `}</style>
 
