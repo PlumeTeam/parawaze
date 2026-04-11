@@ -19,8 +19,18 @@ export default function AdminMarkersPage() {
   const router = useRouter();
 
   useEffect(() => {
-    if (!authLoading && (!user || !profile?.is_admin)) {
-      router.replace('/map');
+    // Only redirect after we know profile has been loaded
+    if (!authLoading) {
+      // No user at all
+      if (!user) {
+        router.replace('/map');
+        return;
+      }
+      // User exists but profile is loaded and is_admin is false
+      if (profile !== null && !profile.is_admin) {
+        router.replace('/map');
+      }
+      // If profile is null/undefined, wait for it to load
     }
   }, [user, profile, authLoading, router]);
 
@@ -204,8 +214,23 @@ export default function AdminMarkersPage() {
                       }
                       maxLength={2}
                       placeholder="Ex: ▶, ●, 📷"
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-lg font-semibold focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-lg font-semibold focus:ring-2 focus:ring-sky-500 focus:border-transparent mb-2"
                     />
+                    <div className="text-xs text-gray-600 mb-2">
+                      Cliquez sur une icône pour la sélectionner:
+                    </div>
+                    <div className="grid grid-cols-6 gap-2">
+                      {['▶', '●', '■', '★', '✚', '⚑', '⛺', '⛰', '🪂', '🎯', '🏁', '📍', '📷', '🎥', '⚠', '☁', '⛅', '☀', '🌤', '🌬'].map((icon) => (
+                        <button
+                          key={icon}
+                          onClick={() => setEditValues({ ...editValues, icon_unicode: icon })}
+                          className="p-2 border border-gray-200 rounded-lg hover:bg-sky-50 active:bg-sky-100 transition-colors text-lg font-semibold"
+                          title={icon}
+                        >
+                          {icon}
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
                   {/* Stroke color and width */}
