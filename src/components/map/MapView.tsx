@@ -2506,41 +2506,42 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         gpsMarkerRef.current.remove();
       }
 
-      // Create container div
+      // Create container div (smaller to reduce visual footprint)
       const el = document.createElement('div');
-      el.style.width = '32px';
-      el.style.height = '32px';
+      el.style.width = '20px';
+      el.style.height = '20px';
       el.style.position = 'relative';
       el.style.display = 'flex';
       el.style.alignItems = 'center';
       el.style.justifyContent = 'center';
+      el.style.zIndex = '1'; // Keep GPS marker behind observations/stories
 
-      // Pulse ring (animated)
+      // Pulse ring (animated) - smaller scale
       const pulseRing = document.createElement('div');
       pulseRing.style.position = 'absolute';
-      pulseRing.style.width = '24px';
-      pulseRing.style.height = '24px';
+      pulseRing.style.width = '10px';
+      pulseRing.style.height = '10px';
       pulseRing.style.borderRadius = '50%';
       pulseRing.style.backgroundColor = 'transparent';
       pulseRing.style.border = 'none';
       pulseRing.style.animation = 'gps-pulse 2s infinite';
       el.appendChild(pulseRing);
 
-      // White outer circle (ring effect)
+      // White outer circle (ring effect) - smaller
       const whiteRing = document.createElement('div');
       whiteRing.style.position = 'absolute';
-      whiteRing.style.width = '20px';
-      whiteRing.style.height = '20px';
+      whiteRing.style.width = '10px';
+      whiteRing.style.height = '10px';
       whiteRing.style.borderRadius = '50%';
       whiteRing.style.backgroundColor = '#ffffff';
-      whiteRing.style.boxShadow = '0 0 0 2px #4285F4';
+      whiteRing.style.boxShadow = '0 0 0 1px #4285F4';
       el.appendChild(whiteRing);
 
-      // Blue inner dot
+      // Blue inner dot - smaller
       const blueDot = document.createElement('div');
       blueDot.style.position = 'absolute';
-      blueDot.style.width = '12px';
-      blueDot.style.height = '12px';
+      blueDot.style.width = '6px';
+      blueDot.style.height = '6px';
       blueDot.style.borderRadius = '50%';
       blueDot.style.backgroundColor = '#4285F4';
       blueDot.style.zIndex = '2';
@@ -2617,16 +2618,16 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         }
         @keyframes gps-pulse {
           0% {
-            width: 24px;
-            height: 24px;
+            width: 10px;
+            height: 10px;
             opacity: 0.6;
             box-shadow: 0 0 0 0 rgba(66, 133, 244, 0.6);
           }
           100% {
-            width: 48px;
-            height: 48px;
+            width: 32px;
+            height: 32px;
             opacity: 0;
-            box-shadow: 0 0 0 16px rgba(66, 133, 244, 0);
+            box-shadow: 0 0 0 8px rgba(66, 133, 244, 0);
           }
         }
       `}</style>

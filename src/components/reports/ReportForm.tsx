@@ -285,7 +285,7 @@ interface ReportFormProps {
 export default function ReportForm({ initialData, reportId }: ReportFormProps) {
   const isEditMode = !!initialData && !!reportId;
   const { user } = useAuth();
-  const { createReport, updateReport, uploadImage } = useReports();
+  const { createReport, updateReport, uploadImage, fetchReports } = useReports();
   const router = useRouter();
   const searchParams = useSearchParams();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -519,6 +519,8 @@ export default function ReportForm({ initialData, reportId }: ReportFormProps) {
             await uploadImage(report.id, images[i], i);
           }
         }
+        // Refetch reports to ensure new observation appears on map
+        await fetchReports();
         router.push('/map');
       }
     } catch (err: any) {
