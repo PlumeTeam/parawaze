@@ -425,50 +425,63 @@ function buildBrightSkyFeatures(stations: BrightSkyStation[]): GeoJSON.Feature[]
 function buildStoryFeatures(stories: Story[]): GeoJSON.Feature[] {
   return stories
     .filter((s) => s.location && s.location.coordinates && s.location.coordinates.length >= 2)
-    .map((s) => ({
-      type: 'Feature' as const,
-      geometry: {
-        type: 'Point' as const,
-        coordinates: s.location!.coordinates,
-      },
-      properties: {
-        id: s.id,
-        content_type: 'story' as const,
-        point_count_abbreviated: '1',
-      },
-    }));
+    .map((s, idx) => {
+      // DEBUG: Log first story coordinates
+      if (idx === 0) {
+        console.log('[ParaWaze DEBUG] First story coordinates:', s.location!.coordinates, 'location_name:', s.location_name);
+      }
+      return {
+        type: 'Feature' as const,
+        geometry: {
+          type: 'Point' as const,
+          coordinates: s.location!.coordinates,
+        },
+        properties: {
+          id: s.id,
+          content_type: 'story' as const,
+          point_count_abbreviated: '1',
+        },
+      };
+    });
 }
 
 function buildObservationFeatures(reports: WeatherReport[]): GeoJSON.Feature[] {
-  return reports
+  const features = reports
     .filter(
       (r) =>
         r.location && r.location.coordinates && r.location.coordinates.length >= 2 &&
         (r.report_type === 'observation' || r.report_type === 'image_share')
     )
-    .map((r) => ({
-      type: 'Feature' as const,
-      geometry: {
-        type: 'Point' as const,
-        coordinates: r.location!.coordinates,
-      },
-      properties: {
-        id: r.id,
-        content_type: 'observation' as const,
-        point_count_abbreviated: '1',
-        report_type: r.report_type,
-        author: r.profiles?.display_name || r.profiles?.username || 'Anonyme',
-        location_name: r.location_name || undefined,
-        altitude_m: r.altitude_m || undefined,
-        wind_speed_kmh: r.wind_speed_kmh != null ? r.wind_speed_kmh : undefined,
-        wind_gust_kmh: r.wind_gust_kmh != null ? r.wind_gust_kmh : undefined,
-        wind_direction: r.wind_direction || undefined,
-        thermal_quality: r.thermal_quality != null ? r.thermal_quality : undefined,
-        turbulence_level: r.turbulence_level != null ? r.turbulence_level : undefined,
-        description: r.description || undefined,
-        created_at: r.created_at,
-      },
-    }));
+    .map((r) => {
+      // DEBUG: Log coordinate order for first few observations
+      if (reports.length > 0 && reports.indexOf(r) === 0) {
+        console.log('[ParaWaze DEBUG] First observation coordinates:', r.location!.coordinates, 'location_name:', r.location_name);
+      }
+      return {
+        type: 'Feature' as const,
+        geometry: {
+          type: 'Point' as const,
+          coordinates: r.location!.coordinates,
+        },
+        properties: {
+          id: r.id,
+          content_type: 'observation' as const,
+          point_count_abbreviated: '1',
+          report_type: r.report_type,
+          author: r.profiles?.display_name || r.profiles?.username || 'Anonyme',
+          location_name: r.location_name || undefined,
+          altitude_m: r.altitude_m || undefined,
+          wind_speed_kmh: r.wind_speed_kmh != null ? r.wind_speed_kmh : undefined,
+          wind_gust_kmh: r.wind_gust_kmh != null ? r.wind_gust_kmh : undefined,
+          wind_direction: r.wind_direction || undefined,
+          thermal_quality: r.thermal_quality != null ? r.thermal_quality : undefined,
+          turbulence_level: r.turbulence_level != null ? r.turbulence_level : undefined,
+          description: r.description || undefined,
+          created_at: r.created_at,
+        },
+      };
+    });
+  return features;
 }
 
 /* ------------------------------------------------------------------ */

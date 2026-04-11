@@ -24,6 +24,19 @@ export function useReports() {
         .limit(100);
 
       if (err) throw err;
+
+      // DEBUG: Log first report location to check coordinate order and type
+      if (data && data.length > 0) {
+        const firstReport = data[0];
+        console.log('[ParaWaze DEBUG] First report location type:', typeof firstReport.location);
+        console.log('[ParaWaze DEBUG] First report location value:', firstReport.location);
+        if (firstReport.location && typeof firstReport.location === 'object') {
+          console.log('[ParaWaze DEBUG] Location.type:', firstReport.location.type);
+          console.log('[ParaWaze DEBUG] Coordinates:', firstReport.location.coordinates);
+          console.log('[ParaWaze DEBUG] Location_name for reference:', firstReport.location_name);
+        }
+      }
+
       setReports(data || []);
     } catch (e: any) {
       setError(e.message);
