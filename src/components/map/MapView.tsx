@@ -605,6 +605,9 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       const map = mapRef.current;
       const mb = mbRef.current;
 
+      // DEBUG: Log incoming click coordinates
+      console.log('[ParaWaze DEBUG] Map click received - lng:', lngLat.lng, 'lat:', lngLat.lat);
+
       const pos: MarkerPosition = { lat: lngLat.lat, lng: lngLat.lng, alt: null };
       markerPositionRef.current = pos;
       setMarkerInfo(pos);
@@ -1598,6 +1601,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           const target = e.originalEvent.target as HTMLElement;
           if (target?.closest('.mapboxgl-marker')) return;
 
+          // DEBUG: Log raw Mapbox event before processing
+          console.log('[ParaWaze DEBUG] Mapbox click event - e.lngLat:', e.lngLat, 'e.lngLat.lng:', e.lngLat.lng, 'e.lngLat.lat:', e.lngLat.lat);
           placeMarker({ lng: e.lngLat.lng, lat: e.lngLat.lat });
         });
 
