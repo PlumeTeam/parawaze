@@ -2,12 +2,45 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Save } from 'lucide-react';
+import { ArrowLeft, Save, X, Search } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useMarkerConfig } from '@/hooks/useMarkerConfig';
 import BottomNav from '@/components/shared/BottomNav';
 import LoadingSpinner from '@/components/shared/LoadingSpinner';
 import type { MarkerConfig } from '@/lib/types';
+
+// Full Maki v8 icon list (base names without -15 suffix)
+const MAKI_ICONS = [
+  'aerialway', 'airfield', 'airport', 'alcohol-shop', 'america-football', 'amusement-park',
+  'aquarium', 'art-gallery', 'attraction', 'bakery', 'bank', 'bar', 'barrier', 'baseball',
+  'basketball', 'beach', 'beer', 'bicycle', 'bicycle-share', 'blood-bank', 'bowling-alley',
+  'bridge', 'building', 'building-alt1', 'bus', 'cafe', 'campsite', 'car', 'car-rental',
+  'car-repair', 'casino', 'castle', 'castle-alt1', 'cemetery', 'charging-station', 'cinema',
+  'circle', 'circle-stroked', 'city', 'clothing-store', 'college', 'commercial',
+  'communications-tower', 'confectionery', 'construction', 'convenience', 'cricket', 'cross',
+  'dam', 'danger', 'dentist', 'diamond', 'doctor', 'dog-park', 'drinking-water', 'electric',
+  'elevator', 'embassy', 'emergency-phone', 'entrance', 'entrance-alt1', 'farm', 'fast-food',
+  'fence', 'ferry', 'fire-station', 'fitness-centre', 'florist', 'fuel', 'furniture', 'gaming',
+  'garden', 'garden-centre', 'gate', 'gift', 'globe', 'golf', 'grocery', 'hairdresser', 'harbor',
+  'hardware', 'heart', 'heliport', 'highway-rest-area', 'historic', 'home', 'horse-riding',
+  'hospital', 'hot-spring', 'ice-cream', 'industry', 'information', 'jewelry-store', 'karaoke',
+  'landmark', 'landuse', 'laundry', 'library', 'lift-gate', 'lighthouse', 'lodging', 'logging',
+  'marker', 'marker-stroked', 'mobile-phone', 'monument', 'mountain', 'museum', 'music',
+  'natural', 'observation-tower', 'optician', 'paint', 'park', 'parking', 'parking-garage',
+  'parking-paid', 'pharmacy', 'picnic-site', 'pitch', 'place-of-worship', 'playground',
+  'police', 'post', 'prison', 'racetrack', 'racetrack-boat', 'racetrack-cycling',
+  'racetrack-horse', 'rail', 'rail-light', 'rail-metro', 'ranger-station', 'recycling',
+  'religious-buddhist', 'religious-christian', 'religious-jewish', 'religious-muslim',
+  'religious-shinto', 'residential-community', 'restaurant', 'restaurant-bbq',
+  'restaurant-noodle', 'restaurant-pizza', 'restaurant-seafood', 'restaurant-sushi',
+  'road-accident', 'rocket', 'school', 'scooter', 'shelter', 'shoe', 'shop', 'skateboard',
+  'skiing', 'slaughterhouse', 'slipway', 'snowmobile', 'soccer', 'square', 'square-stroked',
+  'stadium', 'star', 'star-stroked', 'suitcase', 'sushi', 'swimming', 'table-tennis', 'taxi',
+  'teahouse', 'telephone', 'tennis', 'theatre', 'toilet', 'toll', 'town', 'town-hall',
+  'triangle', 'triangle-stroked', 'tunnel', 'veterinary', 'viewpoint', 'village', 'volcano',
+  'volleyball', 'warehouse', 'waste-basket', 'watch', 'water', 'waterfall', 'watermill',
+  'wetland', 'wheelchair', 'windmill', 'wine', 'zoo'
+];
 
 export default function AdminMarkersPage() {
   const { user, profile, loading: authLoading } = useAuth();
@@ -16,7 +49,13 @@ export default function AdminMarkersPage() {
   const [editValues, setEditValues] = useState<Partial<MarkerConfig>>({});
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [showIconPicker, setShowIconPicker] = useState(false);
+  const [iconSearch, setIconSearch] = useState('');
   const router = useRouter();
+
+  const filteredIcons = MAKI_ICONS.filter((icon) =>
+    icon.toLowerCase().includes(iconSearch.toLowerCase())
+  );
 
   useEffect(() => {
     // Only redirect after we know profile has been loaded
@@ -52,7 +91,7 @@ export default function AdminMarkersPage() {
     setEditingId(config.id);
     setEditValues({
       color: config.color,
-      icon_unicode: config.icon_unicode,
+      icon_name: config.icon_name,
       size: config.size,
       stroke_color: config.stroke_color,
       stroke_width: config.stroke_width,
@@ -91,8 +130,8 @@ export default function AdminMarkersPage() {
       <div className="px-4 pt-4 space-y-4">
         {/* Info banner */}
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-sm text-blue-700">
-          <p className="font-semibold mb-1">Icônes Mapbox</p>
-          <p className="text-xs mb-2">Pour utiliser les icônes Mapbox intégrées (maki-icons), consultez:</p>
+          <p className="font-semibold mb-1">Icônes Mapbox Maki</p>
+          <p className="text-xs mb-2">Utilise les icônes Mapbox Maki v8. Chaque marqueur peut avoir sa propre icône.</p>
           <a
             href="https://labs.mapbox.com/maki-icons/"
             target="_blank"
@@ -201,36 +240,17 @@ export default function AdminMarkersPage() {
                     </div>
                   </div>
 
-                  {/* Icon unicode */}
+                  {/* Icon picker */}
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">
-                      Icône (caractère Unicode)
+                    <label className="block text-xs font-semibold text-gray-700 mb-2">
+                      Icône Mapbox Maki
                     </label>
-                    <input
-                      type="text"
-                      value={editValues.icon_unicode || config.icon_unicode || ''}
-                      onChange={(e) =>
-                        setEditValues({ ...editValues, icon_unicode: e.target.value || null })
-                      }
-                      maxLength={2}
-                      placeholder="Ex: ▶, ●, 📷"
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-lg font-semibold focus:ring-2 focus:ring-sky-500 focus:border-transparent mb-2"
-                    />
-                    <div className="text-xs text-gray-600 mb-2">
-                      Cliquez sur une icône pour la sélectionner:
-                    </div>
-                    <div className="grid grid-cols-6 gap-2">
-                      {['▶', '●', '■', '★', '✚', '⚑', '⛺', '⛰', '🪂', '🎯', '🏁', '📍', '📷', '🎥', '⚠', '☁', '⛅', '☀', '🌤', '🌬'].map((icon) => (
-                        <button
-                          key={icon}
-                          onClick={() => setEditValues({ ...editValues, icon_unicode: icon })}
-                          className="p-2 border border-gray-200 rounded-lg hover:bg-sky-50 active:bg-sky-100 transition-colors text-lg font-semibold"
-                          title={icon}
-                        >
-                          {icon}
-                        </button>
-                      ))}
-                    </div>
+                    <button
+                      onClick={() => setShowIconPicker(true)}
+                      className="w-full px-3 py-2 bg-sky-100 text-sky-700 text-sm font-semibold rounded-lg border border-sky-300 hover:bg-sky-200 transition-colors"
+                    >
+                      {editValues.icon_name || config.icon_name || 'Choisir une icône'}
+                    </button>
                   </div>
 
                   {/* Stroke color and width */}
@@ -282,7 +302,7 @@ export default function AdminMarkersPage() {
                     <span className="font-semibold">Taille:</span> {config.size}
                   </div>
                   <div>
-                    <span className="font-semibold">Icône:</span> {config.icon_unicode}
+                    <span className="font-semibold">Icône:</span> {config.icon_name || 'Aucune'}
                   </div>
                 </div>
               )}
@@ -292,6 +312,75 @@ export default function AdminMarkersPage() {
       </div>
 
       <BottomNav />
+
+      {/* Icon Picker Modal */}
+      {showIconPicker && (
+        <div className="fixed inset-0 bg-black/50 flex items-end z-50">
+          <div className="bg-white w-full rounded-t-2xl shadow-lg max-h-[80vh] flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 sticky top-0 bg-white">
+              <h2 className="text-lg font-bold">Choisir une icône Maki</h2>
+              <button
+                onClick={() => {
+                  setShowIconPicker(false);
+                  setIconSearch('');
+                }}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Search */}
+            <div className="px-4 py-3 border-b border-gray-200 sticky top-12 bg-white">
+              <div className="flex items-center gap-2 bg-gray-100 rounded-lg px-3 py-2">
+                <Search className="h-4 w-4 text-gray-500" />
+                <input
+                  type="text"
+                  placeholder="Rechercher une icône..."
+                  value={iconSearch}
+                  onChange={(e) => setIconSearch(e.target.value)}
+                  className="flex-1 bg-transparent text-sm focus:outline-none"
+                  autoFocus
+                />
+              </div>
+            </div>
+
+            {/* Icon Grid */}
+            <div className="flex-1 overflow-y-auto px-4 py-3">
+              <div className="grid grid-cols-5 gap-3">
+                {filteredIcons.map((icon) => (
+                  <button
+                    key={icon}
+                    onClick={() => {
+                      setEditValues({ ...editValues, icon_name: icon });
+                      setShowIconPicker(false);
+                      setIconSearch('');
+                    }}
+                    className="flex flex-col items-center justify-center p-3 border border-gray-200 rounded-lg hover:bg-sky-50 hover:border-sky-300 transition-colors gap-1"
+                    title={icon}
+                  >
+                    <img
+                      src={`https://raw.githubusercontent.com/mapbox/maki/main/icons/${icon}.svg`}
+                      alt={icon}
+                      className="h-6 w-6"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                    <span className="text-xs text-center break-words">{icon}</span>
+                  </button>
+                ))}
+              </div>
+              {filteredIcons.length === 0 && (
+                <div className="flex items-center justify-center h-32 text-gray-500 text-sm">
+                  Aucune icône trouvée
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
