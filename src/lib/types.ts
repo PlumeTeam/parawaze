@@ -367,6 +367,21 @@ export interface CreateMeetupInput {
   max_participants: number;
 }
 
+// Marker configuration types
+export interface MarkerConfig {
+  id: string;
+  marker_type: string;
+  label: string;
+  icon_name: string | null;
+  icon_unicode: string | null;
+  color: string;
+  size: number;
+  stroke_color: string;
+  stroke_width: number;
+  notes: string | null;
+  updated_at: string;
+}
+
 // Database type for supabase-js generics
 export interface Database {
   public: {

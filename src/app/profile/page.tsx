@@ -242,6 +242,21 @@ export default function ProfilePage() {
       <div className="px-4 pt-4 space-y-6">
         <ProfileCard profile={profile} email={user.email} />
 
+        {/* ========== ADMINISTRATION SECTION ========== */}
+        {profile.is_admin && (
+          <div>
+            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
+              Administration
+            </h3>
+            <button
+              onClick={() => router.push('/admin/markers')}
+              className="w-full bg-purple-50 hover:bg-purple-100 active:bg-purple-200 text-purple-700 font-semibold py-3 px-4 rounded-xl border border-purple-200 transition-colors"
+            >
+              Configuration des marqueurs
+            </button>
+          </div>
+        )}
+
         {/* ========== WINGS SECTION ========== */}
         <div>
           <div className="flex items-center justify-between mb-3">
