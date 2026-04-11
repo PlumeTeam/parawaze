@@ -114,6 +114,7 @@ export interface Profile {
   pilot_level: PilotLevel | null;
   certifications: string[];
   flying_since: number | null;
+  is_admin?: boolean | null;
 }
 
 export interface WeatherReport {
