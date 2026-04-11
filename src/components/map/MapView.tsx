@@ -2113,6 +2113,10 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     const kept: GeoJSON.Feature[] = [];
     for (const f of sorted) {
       const [lng, lat] = (f.geometry as any).coordinates;
+      // DEBUG: Log first deduped observation
+      if (kept.length === 0) {
+        console.log('[ParaWaze DEBUG] First observation after dedup - lng:', lng, 'lat:', lat, 'location_name:', f.properties?.location_name);
+      }
       const tooClose = kept.some(k => {
         const [klng, klat] = (k.geometry as any).coordinates;
         return Math.abs(lng - klng) < 0.002 && Math.abs(lat - klat) < 0.002;
