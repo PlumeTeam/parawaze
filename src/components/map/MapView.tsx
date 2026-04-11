@@ -2576,12 +2576,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     setMapStyle(styles[(idx + 1) % styles.length]);
   };
 
-  const styleLabels: Record<MapStyleKey, string> = {
-    outdoors: 'Topo',
-    satellite: 'Sat',
-    standard: 'Plan',
-  };
-
   /** Format coordinates for the floating label */
   const formatLabel = (pos: MarkerPosition) => {
     const latDir = pos.lat >= 0 ? 'N' : 'S';
@@ -2634,12 +2628,25 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
 
       {/* Map controls */}
       <div className="absolute top-4 right-4 flex flex-col gap-2 z-10">
-        {/* Style toggle */}
+        {/* Map style toggle */}
         <button
           onClick={cycleStyle}
-          className="bg-white rounded-xl shadow-lg px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors border border-gray-100"
+          className="bg-white rounded-xl shadow-lg p-2.5 hover:bg-gray-50 active:bg-gray-100 transition-colors border border-gray-100"
+          title="Changer le style de la carte"
         >
-          {styleLabels[mapStyle]}
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="text-gray-700"
+          >
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+          </svg>
         </button>
 
         {/* Locate me */}
