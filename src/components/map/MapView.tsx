@@ -1282,7 +1282,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         });
       }
 
-      // Camera icon inside story circles
+      // Play triangle icon inside story circles
       if (!map.getLayer('parawaze-stories-camera-icon')) {
         map.addLayer({
           id: 'parawaze-stories-camera-icon',
@@ -1290,8 +1290,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           source: SRC_STORIES,
           filter: ['!', ['has', 'point_count']],
           layout: {
-            'text-field': '📷',
-            'text-size': 12,
+            'text-field': '▶',
+            'text-size': 14,
             'text-allow-overlap': true,
             'text-ignore-placement': true,
           },
