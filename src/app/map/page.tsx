@@ -74,33 +74,39 @@ export default function MapPage() {
   useEffect(() => {
     const checkGeolocationPermission = async () => {
       try {
-        if (!navigator.permissions) {
-          // Permissions API not available, assume we should show the screen
+        // Check if Permissions API is available (not on Safari iOS)
+        if (!navigator.permissions || !navigator.permissions.query) {
+          // Permissions API not available (Safari), show the screen
           setShowGeolocationScreen(true);
           return;
         }
 
         const result = await navigator.permissions.query({ name: 'geolocation' });
 
+        // Handle undefined or invalid result state (can happen on some browsers)
+        if (!result || !result.state) {
+          setShowGeolocationScreen(true);
+          return;
+        }
+
         if (result.state === 'granted') {
           // Permission already granted, skip the screen
           setShowGeolocationScreen(false);
-        } else if (result.state === 'prompt') {
-          // Permission not yet asked, show the screen
-          setShowGeolocationScreen(true);
-        } else if (result.state === 'denied') {
-          // Permission was denied, show the screen
+        } else {
+          // Permission not yet asked ('prompt') or was denied ('denied')
           setShowGeolocationScreen(true);
         }
 
-        // Listen for permission changes
-        result.addEventListener('change', () => {
-          if (result.state === 'granted') {
-            setShowGeolocationScreen(false);
-          }
-        });
+        // Listen for permission changes if addEventListener is supported
+        if (result.addEventListener && typeof result.addEventListener === 'function') {
+          result.addEventListener('change', () => {
+            if (result.state === 'granted') {
+              setShowGeolocationScreen(false);
+            }
+          });
+        }
       } catch (e) {
-        // If permission check fails, show the screen
+        // If permission check fails (common on Safari), show the screen
         console.debug('Permission check error:', e);
         setShowGeolocationScreen(true);
       }

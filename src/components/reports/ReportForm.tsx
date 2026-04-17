@@ -266,6 +266,22 @@ const TURBULENCE_LABELS: Record<number, string> = {
   5: 'Extrême',
 };
 
+const THERMAL_TURBULENCE_LABELS: Record<number, string> = {
+  1: 'Lisse',
+  2: 'Légère',
+  3: 'Modérée',
+  4: 'Forte',
+  5: 'Très forte',
+};
+
+const NEBULOSITY_LABELS: Record<number, string> = {
+  1: 'Ciel clair',
+  2: 'Quelques nuages',
+  3: 'Nuageux',
+  4: 'Couvert',
+  5: 'Orageux',
+};
+
 const FLYABILITY_LABELS: Record<number, string> = {
   1: 'Dangereux',
   2: 'Difficile',
@@ -320,12 +336,17 @@ export default function ReportForm({ initialData, reportId }: ReportFormProps) {
   const [cloudCeiling, setCloudCeiling] = useState(initialData?.cloud_ceiling_m != null ? String(initialData.cloud_ceiling_m) : '');
   const [visibilityKm, setVisibilityKm] = useState(initialData?.visibility_km != null ? String(initialData.visibility_km) : '');
   const [thermalQuality, setThermalQuality] = useState(initialData?.thermal_quality || 3);
+  const [thermalTurbulence, setThermalTurbulence] = useState(initialData?.thermal_turbulence || 1);
   const [turbulenceLevel, setTurbulenceLevel] = useState(initialData?.turbulence_level || 1);
+  const [nebulosity, setNebulosity] = useState(initialData?.nebulosity || 2);
+  const [weatherPhenomena, setWeatherPhenomena] = useState(initialData?.weather_phenomena || 'none');
   const [flyabilityScore, setFlyabilityScore] = useState(initialData?.flyability_score || 3);
   // Track which sliders the user has actually touched
   const initTouched = new Set<string>();
   if (initialData?.thermal_quality) initTouched.add('thermal_quality');
+  if (initialData?.thermal_turbulence) initTouched.add('thermal_turbulence');
   if (initialData?.turbulence_level) initTouched.add('turbulence_level');
+  if (initialData?.nebulosity) initTouched.add('nebulosity');
   if (initialData?.flyability_score) initTouched.add('flyability_score');
   const [touchedFields, setTouchedFields] = useState<Set<string>>(initTouched);
   const markTouched = (field: string) => {
@@ -444,14 +465,15 @@ export default function ReportForm({ initialData, reportId }: ReportFormProps) {
       !!windSpeed ||
       !!windDirection ||
       touchedFields.has('thermal_quality') ||
+      touchedFields.has('thermal_turbulence') ||
       touchedFields.has('turbulence_level') ||
-      touchedFields.has('flyability_score') ||
+      touchedFields.has('nebulosity') ||
+      !!weatherPhenomena ||
       !!temperature ||
-      !!description.trim() ||
       images.length > 0;
 
     if (reportType === 'observation' && !hasWeatherData) {
-      setError('Remplissez au moins un champ météo ou ajoutez une description/photo.');
+      setError('Remplissez au moins un champ météo ou ajoutez une photo.');
       return;
     }
 
@@ -486,7 +508,10 @@ export default function ReportForm({ initialData, reportId }: ReportFormProps) {
         cloud_ceiling_m: cloudCeiling ? parseInt(cloudCeiling) : undefined,
         visibility_km: visibilityKm ? parseFloat(visibilityKm) : undefined,
         thermal_quality: touchedFields.has('thermal_quality') ? thermalQuality : undefined,
+        thermal_turbulence: touchedFields.has('thermal_turbulence') ? thermalTurbulence : undefined,
         turbulence_level: touchedFields.has('turbulence_level') ? turbulenceLevel : undefined,
+        nebulosity: touchedFields.has('nebulosity') ? nebulosity : undefined,
+        weather_phenomena: weatherPhenomena !== 'none' ? weatherPhenomena : undefined,
         flyability_score: touchedFields.has('flyability_score') ? flyabilityScore : undefined,
         tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
         forecast_date: reportType === 'forecast' && forecastDate ? forecastDate : undefined,
@@ -643,113 +668,211 @@ export default function ReportForm({ initialData, reportId }: ReportFormProps) {
         </div>
       )}
 
-      {/* Wind, weather & ratings (not for image_share) */}
-      {reportType !== 'image_share' && (
+      {/* Title & Description (only for observation & image_share) */}
+      {(reportType === 'observation' || reportType === 'image_share') && (
         <>
-          {/* Wind speed & gust */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Vent (km/h)</label>
-              <input
-                type="number"
-                value={windSpeed}
-                onChange={(e) => setWindSpeed(e.target.value)}
-                placeholder="15"
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-sky-500 focus:ring-2 focus:ring-sky-200 outline-none text-sm"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Rafales (km/h)</label>
-              <input
-                type="number"
-                value={windGust}
-                onChange={(e) => setWindGust(e.target.value)}
-                placeholder="25"
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-sky-500 focus:ring-2 focus:ring-sky-200 outline-none text-sm"
-              />
-            </div>
-          </div>
-
-          {/* Wind direction — Interactive compass */}
+          {/* Title (optional) */}
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-3">Direction du vent</label>
-            <CompassWheel
-              value={windDirection}
-              onChange={setWindDirection}
-              variability={windVariability}
-              onVariabilityChange={setWindVariability}
-            />
-          </div>
-
-          {/* Temperature */}
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Température (°C)</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">Titre (optionnel)</label>
             <input
-              type="number"
-              value={temperature}
-              onChange={(e) => setTemperature(e.target.value)}
-              placeholder="18"
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Ex: Belle thermique à Col Forclaz"
               className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-sky-500 focus:ring-2 focus:ring-sky-200 outline-none text-sm"
             />
           </div>
 
-          {/* Cloud ceiling + Visibility */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Plafond nuageux (m)</label>
-              <input
-                type="number"
-                value={cloudCeiling}
-                onChange={(e) => setCloudCeiling(e.target.value)}
-                placeholder="2500"
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-sky-500 focus:ring-2 focus:ring-sky-200 outline-none text-sm"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Visibilité (km)</label>
-              <input
-                type="number"
-                value={visibilityKm}
-                onChange={(e) => setVisibilityKm(e.target.value)}
-                placeholder="30"
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-sky-500 focus:ring-2 focus:ring-sky-200 outline-none text-sm"
-              />
+          {/* Description (optional) */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">Description (optionnel)</label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Notes supplémentaires..."
+              rows={3}
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-sky-500 focus:ring-2 focus:ring-sky-200 outline-none text-sm"
+            />
+          </div>
+        </>
+      )}
+
+      {/* Weather observations (not for image_share) */}
+      {reportType !== 'image_share' && (
+        <>
+          {/* ════════════════════════════════════════════ */}
+          {/* 🌬 VENT (WIND) GROUP                        */}
+          {/* ════════════════════════════════════════════ */}
+          <div className="pt-2 border-t border-gray-200">
+            <h3 className="text-lg font-bold text-gray-900 mb-4">🌬 VENT</h3>
+            <div className="space-y-4">
+              {/* Wind speed & gust */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Vent (km/h)</label>
+                  <input
+                    type="number"
+                    value={windSpeed}
+                    onChange={(e) => setWindSpeed(e.target.value)}
+                    placeholder="15"
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-sky-500 focus:ring-2 focus:ring-sky-200 outline-none text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Rafales (km/h)</label>
+                  <input
+                    type="number"
+                    value={windGust}
+                    onChange={(e) => setWindGust(e.target.value)}
+                    placeholder="25"
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-sky-500 focus:ring-2 focus:ring-sky-200 outline-none text-sm"
+                  />
+                </div>
+              </div>
+
+              {/* Wind direction — Interactive compass */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-3">Direction du vent</label>
+                <CompassWheel
+                  value={windDirection}
+                  onChange={setWindDirection}
+                  variability={windVariability}
+                  onVariabilityChange={setWindVariability}
+                />
+              </div>
             </div>
           </div>
 
-          {/* ── Sliders ── */}
-          <div className="space-y-5">
-            {/* Thermal power */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-3">Puissance des thermiques</label>
-              <LabeledSlider
-                value={thermalQuality}
-                onChange={(v) => { setThermalQuality(v); markTouched('thermal_quality'); }}
-                labels={THERMAL_LABELS}
-                gradient="bg-gradient-to-r from-gray-300 via-green-400 via-orange-400 to-red-500"
-              />
-            </div>
+          {/* ════════════════════════════════════════════ */}
+          {/* 🔥 ASCENDANCES (THERMALS) GROUP            */}
+          {/* ════════════════════════════════════════════ */}
+          <div className="pt-2 border-t border-gray-200">
+            <h3 className="text-lg font-bold text-gray-900 mb-4">🔥 ASCENDANCES</h3>
+            <div className="space-y-5">
+              {/* Thermal power */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-3">Puissance des thermiques</label>
+                <LabeledSlider
+                  value={thermalQuality}
+                  onChange={(v) => { setThermalQuality(v); markTouched('thermal_quality'); }}
+                  labels={THERMAL_LABELS}
+                  gradient="bg-gradient-to-r from-gray-300 via-green-400 via-orange-400 to-red-500"
+                />
+              </div>
 
-            {/* Turbulence */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-3">Turbulences</label>
-              <LabeledSlider
-                value={turbulenceLevel}
-                onChange={(v) => { setTurbulenceLevel(v); markTouched('turbulence_level'); }}
-                labels={TURBULENCE_LABELS}
-                gradient="bg-gradient-to-r from-green-400 via-yellow-400 via-orange-400 to-red-500"
-              />
+              {/* Thermal turbulence */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-3">Turbulences thermiques</label>
+                <LabeledSlider
+                  value={thermalTurbulence}
+                  onChange={(v) => { setThermalTurbulence(v); markTouched('thermal_turbulence'); }}
+                  labels={THERMAL_TURBULENCE_LABELS}
+                  gradient="bg-gradient-to-r from-green-400 via-yellow-400 via-orange-400 to-red-500"
+                />
+              </div>
             </div>
+          </div>
 
-            {/* Flyability score */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-3">Score de volabilité</label>
-              <LabeledSlider
-                value={flyabilityScore}
-                onChange={(v) => { setFlyabilityScore(v); markTouched('flyability_score'); }}
-                labels={FLYABILITY_LABELS}
-                gradient="bg-gradient-to-r from-red-500 via-orange-400 via-yellow-400 to-green-500"
-              />
+          {/* ════════════════════════════════════════════ */}
+          {/* ☁ MÉTÉO GÉNÉRALE (WEATHER) GROUP           */}
+          {/* ════════════════════════════════════════════ */}
+          <div className="pt-2 border-t border-gray-200">
+            <h3 className="text-lg font-bold text-gray-900 mb-4">☁ MÉTÉO GÉNÉRALE</h3>
+            <div className="space-y-4">
+              {/* Temperature */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Température (°C)</label>
+                <input
+                  type="number"
+                  value={temperature}
+                  onChange={(e) => setTemperature(e.target.value)}
+                  placeholder="18"
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-sky-500 focus:ring-2 focus:ring-sky-200 outline-none text-sm"
+                />
+              </div>
+
+              {/* Cloud ceiling + Visibility */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Plafond nuageux (m)</label>
+                  <input
+                    type="number"
+                    value={cloudCeiling}
+                    onChange={(e) => setCloudCeiling(e.target.value)}
+                    placeholder="2500"
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-sky-500 focus:ring-2 focus:ring-sky-200 outline-none text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Visibilité (km)</label>
+                  <input
+                    type="number"
+                    value={visibilityKm}
+                    onChange={(e) => setVisibilityKm(e.target.value)}
+                    placeholder="30"
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-sky-500 focus:ring-2 focus:ring-sky-200 outline-none text-sm"
+                  />
+                </div>
+              </div>
+
+              {/* Nebulosity (cloud cover) */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-3">Couverture nuageuse</label>
+                <LabeledSlider
+                  value={nebulosity}
+                  onChange={(v) => { setNebulosity(v); markTouched('nebulosity'); }}
+                  labels={NEBULOSITY_LABELS}
+                  gradient="bg-gradient-to-r from-blue-400 via-gray-300 via-gray-400 to-gray-600"
+                />
+              </div>
+
+              {/* Weather phenomena */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Phénomènes météo</label>
+                <div className="grid grid-cols-4 gap-2">
+                  {(['none', 'rain', 'snow', 'storm'] as const).map((phenomenon) => (
+                    <button
+                      key={phenomenon}
+                      type="button"
+                      onClick={() => setWeatherPhenomena(phenomenon)}
+                      className={`py-2.5 px-2 rounded-lg text-xs font-medium transition-all ${
+                        weatherPhenomena === phenomenon
+                          ? 'bg-sky-500 text-white shadow-md'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      {{
+                        'none': 'Aucun',
+                        'rain': 'Pluie',
+                        'snow': 'Neige',
+                        'storm': 'Orage',
+                      }[phenomenon]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Wind turbulence (part of weather, not wind) */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-3">Turbulences (vent)</label>
+                <LabeledSlider
+                  value={turbulenceLevel}
+                  onChange={(v) => { setTurbulenceLevel(v); markTouched('turbulence_level'); }}
+                  labels={TURBULENCE_LABELS}
+                  gradient="bg-gradient-to-r from-green-400 via-yellow-400 via-orange-400 to-red-500"
+                />
+              </div>
+
+              {/* Flyability score */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-3">Score de volabilité</label>
+                <LabeledSlider
+                  value={flyabilityScore}
+                  onChange={(v) => { setFlyabilityScore(v); markTouched('flyability_score'); }}
+                  labels={FLYABILITY_LABELS}
+                  gradient="bg-gradient-to-r from-red-500 via-orange-400 via-yellow-400 to-green-500"
+                />
+              </div>
             </div>
           </div>
         </>

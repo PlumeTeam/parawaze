@@ -134,7 +134,10 @@ export interface WeatherReport {
   cloud_ceiling_m: number | null;
   visibility_km: number | null;
   thermal_quality: number | null;
+  thermal_turbulence: number | null;
   turbulence_level: number | null;
+  nebulosity: number | null;
+  weather_phenomena: string | null;
   flyability_score: number | null;
   tags: string[] | null;
   forecast_date: string | null;
@@ -182,7 +185,10 @@ export interface CreateReportInput {
   cloud_ceiling_m?: number;
   visibility_km?: number;
   thermal_quality?: number;
+  thermal_turbulence?: number;
   turbulence_level?: number;
+  nebulosity?: number;
+  weather_phenomena?: string;
   flyability_score?: number;
   tags?: string[];
   forecast_date?: string;
