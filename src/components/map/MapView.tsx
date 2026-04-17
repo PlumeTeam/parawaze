@@ -819,6 +819,46 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       });
     }
 
+    // POI takeoff Maki icons inside circles
+    const takeoffIconName = markerConfigRef.current['site_takeoff']?.icon_name;
+    if (takeoffIconName && !map.getLayer('parawaze-takeoff-icon')) {
+      map.addLayer({
+        id: 'parawaze-takeoff-icon',
+        type: 'symbol',
+        source: SRC_POIS,
+        filter: ['==', ['get', 'poi_type'], 'takeoff'],
+        layout: {
+          'icon-image': takeoffIconName + '-15',
+          'icon-size': 0.7,
+          'icon-allow-overlap': true,
+          'icon-ignore-placement': true,
+        },
+        paint: {
+          'icon-color': '#FFFFFF',
+        },
+      });
+    }
+
+    // POI landing Maki icons inside circles
+    const landingIconName = markerConfigRef.current['site_landing']?.icon_name;
+    if (landingIconName && !map.getLayer('parawaze-landing-icon')) {
+      map.addLayer({
+        id: 'parawaze-landing-icon',
+        type: 'symbol',
+        source: SRC_POIS,
+        filter: ['==', ['get', 'poi_type'], 'landing'],
+        layout: {
+          'icon-image': landingIconName + '-15',
+          'icon-size': 0.7,
+          'icon-allow-overlap': true,
+          'icon-ignore-placement': true,
+        },
+        paint: {
+          'icon-color': '#FFFFFF',
+        },
+      });
+    }
+
     // Shuttle text label "N" for Navette
     if (!map.getLayer('parawaze-shuttle-label')) {
       map.addLayer({
@@ -834,6 +874,46 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         },
         paint: {
           'text-color': '#ffffff',
+        },
+      });
+    }
+
+    // Shuttle departure Maki icons inside circles
+    const shuttleDepIconName = markerConfigRef.current['shuttle_departure']?.icon_name;
+    if (shuttleDepIconName && !map.getLayer('parawaze-shuttle-departure-icon')) {
+      map.addLayer({
+        id: 'parawaze-shuttle-departure-icon',
+        type: 'symbol',
+        source: SRC_SHUTTLES,
+        filter: ['==', ['get', 'shuttle_role'], 'departure'],
+        layout: {
+          'icon-image': shuttleDepIconName + '-15',
+          'icon-size': 0.7,
+          'icon-allow-overlap': true,
+          'icon-ignore-placement': true,
+        },
+        paint: {
+          'icon-color': '#FFFFFF',
+        },
+      });
+    }
+
+    // Shuttle arrival Maki icons inside circles
+    const shuttleArrIconName = markerConfigRef.current['shuttle_arrival']?.icon_name;
+    if (shuttleArrIconName && !map.getLayer('parawaze-shuttle-arrival-icon')) {
+      map.addLayer({
+        id: 'parawaze-shuttle-arrival-icon',
+        type: 'symbol',
+        source: SRC_SHUTTLES,
+        filter: ['==', ['get', 'shuttle_role'], 'arrival'],
+        layout: {
+          'icon-image': shuttleArrIconName + '-15',
+          'icon-size': 0.7,
+          'icon-allow-overlap': true,
+          'icon-ignore-placement': true,
+        },
+        paint: {
+          'icon-color': '#FFFFFF',
         },
       });
     }
@@ -1250,6 +1330,25 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       });
     }
 
+    // Meetup Maki icons inside circles
+    const meetupIconName = markerConfigRef.current['meetup']?.icon_name;
+    if (meetupIconName && !map.getLayer('parawaze-meetup-icon')) {
+      map.addLayer({
+        id: 'parawaze-meetup-icon',
+        type: 'symbol',
+        source: SRC_MEETUPS,
+        layout: {
+          'icon-image': meetupIconName + '-15',
+          'icon-size': 0.7,
+          'icon-allow-overlap': true,
+          'icon-ignore-placement': true,
+        },
+        paint: {
+          'icon-color': '#FFFFFF',
+        },
+      });
+    }
+
     // --- Stories source with clustering ---
     try {
       if (!map.getSource(SRC_STORIES)) {
@@ -1316,21 +1415,22 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         });
       }
 
-      // Play triangle icon inside story circles
-      if (!map.getLayer('parawaze-stories-camera-icon')) {
+      // Story Maki icons inside circles
+      const storyIconName = markerConfigRef.current['story']?.icon_name;
+      if (storyIconName && !map.getLayer('parawaze-stories-icon')) {
         map.addLayer({
-          id: 'parawaze-stories-camera-icon',
+          id: 'parawaze-stories-icon',
           type: 'symbol',
           source: SRC_STORIES,
           filter: ['!', ['has', 'point_count']],
           layout: {
-            'text-field': '▶',
-            'text-size': 14,
-            'text-allow-overlap': true,
-            'text-ignore-placement': true,
+            'icon-image': storyIconName + '-15',
+            'icon-size': 0.7,
+            'icon-allow-overlap': true,
+            'icon-ignore-placement': true,
           },
           paint: {
-            'text-color': '#FFFFFF',
+            'icon-color': '#FFFFFF',
           },
         });
       }
@@ -1413,6 +1513,26 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
             'text-color': '#ffffff',
             'text-halo-color': '#000000',
             'text-halo-width': 0.5,
+          },
+        });
+      }
+
+      // Observation Maki icons inside circles
+      const obsIconName = markerConfigRef.current['observation']?.icon_name;
+      if (obsIconName && !map.getLayer('parawaze-observations-icon')) {
+        map.addLayer({
+          id: 'parawaze-observations-icon',
+          type: 'symbol',
+          source: SRC_OBSERVATIONS,
+          filter: ['!', ['has', 'point_count']],
+          layout: {
+            'icon-image': obsIconName + '-15',
+            'icon-size': 0.7,
+            'icon-allow-overlap': true,
+            'icon-ignore-placement': true,
+          },
+          paint: {
+            'icon-color': '#FFFFFF',
           },
         });
       }
