@@ -9,7 +9,7 @@ import {
   DEFAULT_ZOOM,
   type MapStyleKey,
 } from '@/lib/mapbox';
-import type { WeatherReport, Shuttle, WindDirection, Poi, Story, Meetup } from '@/lib/types';
+import type { WeatherReport, Shuttle, WindDirection, Poi, Story, Meetup, MarkerConfig } from '@/lib/types';
 import type { PioupiouStation } from '@/hooks/usePioupiou';
 import type { FFVLStation } from '@/hooks/useFFVL';
 import type { WindsMobiStation } from '@/hooks/useWindsMobi';
@@ -42,6 +42,7 @@ interface MapViewProps {
   brightSkyStations?: BrightSkyStation[];
   stories?: Story[];
   meetups?: Meetup[];
+  markerConfig?: Record<string, MarkerConfig>;
   onObservationsClick?: (reports: WeatherReport[]) => void;
   onMeetupClick?: (meetup: Meetup) => void;
   onShuttleClick?: (shuttle: Shuttle) => void;
@@ -138,22 +139,26 @@ function buildReportFeatures(reports: WeatherReport[]): GeoJSON.Feature[] {
     }));
 }
 
-function buildShuttleFeatures(shuttles: Shuttle[]): GeoJSON.Feature[] {
+function buildShuttleFeatures(shuttles: Shuttle[], config: Record<string, MarkerConfig> = {}): GeoJSON.Feature[] {
   const features: GeoJSON.Feature[] = [];
+  const departureColor = config['shuttle_departure']?.color || '#22c55e';
+  const departureFull = config['shuttle_departure_full']?.color || '#ef4444';
+  const arrivalColor = config['shuttle_arrival']?.color || '#3b82f6';
+
   shuttles.forEach((s) => {
     if (s.meeting_point?.coordinates && s.meeting_point.coordinates.length >= 2) {
       const isFull = s.taken_seats >= s.total_seats;
       features.push({
         type: 'Feature' as const,
         geometry: { type: 'Point' as const, coordinates: s.meeting_point.coordinates },
-        properties: { id: s.id, shuttle_role: 'departure', color: isFull ? '#ef4444' : '#22c55e' },
+        properties: { id: s.id, shuttle_role: 'departure', color: isFull ? departureFull : departureColor },
       });
     }
     if (s.destination?.coordinates && s.destination.coordinates.length >= 2) {
       features.push({
         type: 'Feature' as const,
         geometry: { type: 'Point' as const, coordinates: s.destination.coordinates },
-        properties: { id: s.id, shuttle_role: 'arrival', color: '#3b82f6' },
+        properties: { id: s.id, shuttle_role: 'arrival', color: arrivalColor },
       });
     }
   });
@@ -163,7 +168,12 @@ function buildShuttleFeatures(shuttles: Shuttle[]): GeoJSON.Feature[] {
 /* ------------------------------------------------------------------ */
 /*  POI GeoJSON                                                       */
 /* ------------------------------------------------------------------ */
-function buildPoiFeatures(pois: Poi[]): GeoJSON.Feature[] {
+function buildPoiFeatures(pois: Poi[], config: Record<string, MarkerConfig> = {}): GeoJSON.Feature[] {
+  const landingColor = config['site_landing']?.color || '#22c55e';
+  const takeoffColor = config['site_takeoff']?.color || '#3b82f6';
+  const weatherColor = config['weather_station']?.color || '#eab308';
+  const otherColor = '#a855f7';
+
   return pois
     .filter((p) => p.location && p.location.coordinates && p.location.coordinates.length >= 2)
     .map((p) => ({
@@ -180,9 +190,9 @@ function buildPoiFeatures(pois: Poi[]): GeoJSON.Feature[] {
           p.poi_type === 'takeoff' ? 'D' :
           p.poi_type === 'weather_station' ? 'M' : 'W',
         color:
-          p.poi_type === 'landing' ? '#22c55e' :
-          p.poi_type === 'takeoff' ? '#3b82f6' :
-          p.poi_type === 'weather_station' ? '#eab308' : '#a855f7',
+          p.poi_type === 'landing' ? landingColor :
+          p.poi_type === 'takeoff' ? takeoffColor :
+          p.poi_type === 'weather_station' ? weatherColor : otherColor,
       },
     }));
 }
@@ -534,7 +544,7 @@ const LYR_OBSERVATIONS_CIRCLES = 'parawaze-observations-circles';
 /*  Component                                                         */
 /* ------------------------------------------------------------------ */
 const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
-  { dayFilter = 'today', reports, shuttles = [], stories = [], pois = [], pioupiouStations = [], ffvlStations = [], windsMobiStations = [], geoSphereStations = [], brightSkyStations = [], meetups = [], onShuttleClick, onPoiClick, onStoryClick, onMeetupClick, onMapMove, onMarkerPlaced, onObservationsClick, onMapLoaded, enableAutocenter = true },
+  { dayFilter = 'today', reports, shuttles = [], stories = [], pois = [], pioupiouStations = [], ffvlStations = [], windsMobiStations = [], geoSphereStations = [], brightSkyStations = [], meetups = [], markerConfig = {}, onShuttleClick, onPoiClick, onStoryClick, onMeetupClick, onMapMove, onMarkerPlaced, onObservationsClick, onMapLoaded, enableAutocenter = true },
   ref,
 ) {
   const mapContainer = useRef<HTMLDivElement>(null);
@@ -587,6 +597,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   const dayFilterRef = useRef<'yesterday' | 'today' | 'tomorrow'>(dayFilter);
   dayFilterRef.current = dayFilter;
   const popupRef = useRef<mapboxgl.Popup | null>(null);
+  const markerConfigRef = useRef<Record<string, MarkerConfig>>(markerConfig);
+  markerConfigRef.current = markerConfig;
 
   // GPS location marker
   const gpsMarkerRef = useRef<mapboxgl.Marker | null>(null);
@@ -1201,6 +1213,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     }
 
     // Meetup circles — amber/orange
+    const meetupColor = markerConfigRef.current['meetup']?.color || '#F59E0B';
     if (!map.getLayer(LYR_MEETUP_CIRCLES)) {
       map.addLayer({
         id: LYR_MEETUP_CIRCLES,
@@ -1208,7 +1221,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         source: SRC_MEETUPS,
         paint: {
           'circle-radius': 14,
-          'circle-color': '#F59E0B',
+          'circle-color': meetupColor,
           'circle-stroke-width': 3,
           'circle-stroke-color': '#ffffff',
           'circle-opacity': 0.95,
@@ -1250,6 +1263,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       }
 
       // Story cluster circles (pink) — fixed size 20
+      const storyColor = markerConfigRef.current['story']?.color || '#EC4899';
       if (!map.getLayer(LYR_STORIES_CLUSTERS)) {
         map.addLayer({
           id: LYR_STORIES_CLUSTERS,
@@ -1257,7 +1271,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           source: SRC_STORIES,
           filter: ['has', 'point_count'],
           paint: {
-            'circle-color': '#EC4899',
+            'circle-color': storyColor,
             'circle-radius': 20,
             'circle-stroke-width': 2,
             'circle-stroke-color': '#ffffff',
@@ -1293,7 +1307,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           source: SRC_STORIES,
           filter: ['!', ['has', 'point_count']],
           paint: {
-            'circle-color': '#EC4899',
+            'circle-color': storyColor,
             'circle-radius': 10,
             'circle-stroke-width': 2,
             'circle-stroke-color': '#ffffff',
@@ -2154,7 +2168,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   }
 
   function updateShuttleSource(map: mapboxgl.Map, sht: Shuttle[]) {
-    const features = buildShuttleFeatures(sht);
+    const features = buildShuttleFeatures(sht, markerConfigRef.current);
     console.log('[ParaWaze] updateShuttleSource:', features.length, 'features, source exists:', !!map.getSource(SRC_SHUTTLES));
     const src = map.getSource(SRC_SHUTTLES) as mapboxgl.GeoJSONSource | undefined;
     if (src) {
@@ -2167,7 +2181,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   function updatePoiSource(map: mapboxgl.Map, poiList: Poi[]) {
     const src = map.getSource(SRC_POIS) as mapboxgl.GeoJSONSource | undefined;
     if (src) {
-      src.setData({ type: 'FeatureCollection', features: buildPoiFeatures(poiList) });
+      src.setData({ type: 'FeatureCollection', features: buildPoiFeatures(poiList, markerConfigRef.current) });
     }
   }
 

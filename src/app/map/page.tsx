@@ -14,6 +14,7 @@ import { useFFVL } from '@/hooks/useFFVL';
 import { useWindsMobi } from '@/hooks/useWindsMobi';
 import { useGeoSphere } from '@/hooks/useGeoSphere';
 import { useBrightSky } from '@/hooks/useBrightSky';
+import { useMarkerConfig } from '@/hooks/useMarkerConfig';
 import type { DayFilter } from '@/hooks/useReports';
 import BottomNav from '@/components/shared/BottomNav';
 import LoadingSpinner from '@/components/shared/LoadingSpinner';
@@ -48,6 +49,7 @@ export default function MapPage() {
   const { meetups } = useMeetups();
   const { stations: pioupiouStations } = usePioupiou();
   const { stations: ffvlStations } = useFFVL();
+  const { getConfigsAsMap } = useMarkerConfig();
   const { stations: windsMobiStations } = useWindsMobi();
   const { stations: geoSphereStations } = useGeoSphere();
   const { stations: brightSkyStations } = useBrightSky();
@@ -234,6 +236,7 @@ export default function MapPage() {
           windsMobiStations={windsMobiStations}
           geoSphereStations={geoSphereStations}
           brightSkyStations={brightSkyStations}
+          markerConfig={getConfigsAsMap()}
           meetups={meetups.filter(m => {
             if (!m.meeting_time) return false;
             const meetTime = new Date(m.meeting_time);

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { MarkerConfig } from '@/lib/types';
 
@@ -61,6 +61,11 @@ export function useMarkerConfig() {
     });
     return map;
   }, [configs]);
+
+  // Auto-fetch marker configs on mount
+  useEffect(() => {
+    fetchMarkerConfigs();
+  }, [fetchMarkerConfigs]);
 
   return {
     configs,
