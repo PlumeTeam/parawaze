@@ -2497,7 +2497,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           // Silently handle permission denied, timeout, or other errors
           console.debug('Geolocation error:', error?.code, error?.message);
         },
-        { enableHighAccuracy: true, timeout: 10000 },
+        { enableHighAccuracy: false, timeout: 8000 },
       );
     } catch (e) {
       // Silently fail if getCurrentPosition throws

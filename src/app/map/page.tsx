@@ -20,7 +20,6 @@ import LoadingSpinner from '@/components/shared/LoadingSpinner';
 import StoryRecorder from '@/components/stories/StoryRecorder';
 import StoryViewer from '@/components/stories/StoryViewer';
 import ObservationViewer from '@/components/observations/ObservationViewer';
-import GeolocationPermissionScreen from '@/components/map/GeolocationPermissionScreen';
 import type { WeatherReport, Shuttle, Poi, Story, Meetup } from '@/lib/types';
 import type { MapViewHandle } from '@/components/map/MapView';
 
@@ -59,7 +58,6 @@ export default function MapPage() {
   const [showRecorder, setShowRecorder] = useState(false);
   const [selectedStories, setSelectedStories] = useState<Story[]>([]);
   const [selectedMeetup, setSelectedMeetup] = useState<Meetup | null>(null);
-  const [showGeolocationScreen, setShowGeolocationScreen] = useState(false);
   const [mapLoading, setMapLoading] = useState(true);
   const router = useRouter();
   const mapRef = useRef<MapViewHandle>(null);
@@ -69,51 +67,6 @@ export default function MapPage() {
       router.replace('/auth');
     }
   }, [user, authLoading, router]);
-
-  // Check geolocation permission status on mount
-  useEffect(() => {
-    const checkGeolocationPermission = async () => {
-      try {
-        // Check if Permissions API is available (not on Safari iOS)
-        if (!navigator.permissions || !navigator.permissions.query) {
-          // Permissions API not available (Safari), show the screen
-          setShowGeolocationScreen(true);
-          return;
-        }
-
-        const result = await navigator.permissions.query({ name: 'geolocation' });
-
-        // Handle undefined or invalid result state (can happen on some browsers)
-        if (!result || !result.state) {
-          setShowGeolocationScreen(true);
-          return;
-        }
-
-        if (result.state === 'granted') {
-          // Permission already granted, skip the screen
-          setShowGeolocationScreen(false);
-        } else {
-          // Permission not yet asked ('prompt') or was denied ('denied')
-          setShowGeolocationScreen(true);
-        }
-
-        // Listen for permission changes if addEventListener is supported
-        if (result.addEventListener && typeof result.addEventListener === 'function') {
-          result.addEventListener('change', () => {
-            if (result.state === 'granted') {
-              setShowGeolocationScreen(false);
-            }
-          });
-        }
-      } catch (e) {
-        // If permission check fails (common on Safari), show the screen
-        console.debug('Permission check error:', e);
-        setShowGeolocationScreen(true);
-      }
-    };
-
-    checkGeolocationPermission();
-  }, []);
 
   // Fetch reports when selectedDay changes
   useEffect(() => {
@@ -221,14 +174,6 @@ export default function MapPage() {
 
   return (
     <div className="h-screen flex flex-col bg-gray-100">
-      {/* Geolocation permission screen overlay */}
-      {showGeolocationScreen && (
-        <GeolocationPermissionScreen
-          onPermissionGranted={() => setShowGeolocationScreen(false)}
-          onSkip={() => setShowGeolocationScreen(false)}
-        />
-      )}
-
       {/* Top bar */}
       <header className="flex-shrink-0 bg-gray-900 text-white px-4 py-3 flex items-center justify-between z-50 safe-area-top">
         <div className="flex items-center gap-2">
@@ -332,7 +277,7 @@ export default function MapPage() {
           onShuttleClick={handleShuttleClick}
           onMapMove={handleMapMove}
           onMarkerPlaced={handleMarkerPlaced}
-          enableAutocenter={!showGeolocationScreen}
+          enableAutocenter={true}
           onMapLoaded={() => setMapLoading(false)}
         />
 
