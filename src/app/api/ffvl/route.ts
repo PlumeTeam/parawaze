@@ -1,6 +1,15 @@
 import { NextResponse } from 'next/server';
 
+let cachedData: any = null;
+let cacheTimestamp = 0;
+const CACHE_TTL = 60_000;
+
 export async function GET() {
+  const now = Date.now();
+  if (cachedData && now - cacheTimestamp < CACHE_TTL) {
+    return NextResponse.json(cachedData);
+  }
+
   try {
     const [baliseRes, relevesRes] = await Promise.all([
       fetch('https://data.ffvl.fr/json/balises.json', {
@@ -38,11 +47,34 @@ export async function GET() {
       }
     }
 
-    // Merge station metadata with its latest reading
-    const merged = (balises as any[]).map((b: any) => ({
-      ...b,
-      reading: latestReading[String(b.idBalise)] ?? null,
-    }));
+    // Merge and strip to only fields the hook consumes
+    const merged = (balises as any[]).map((b: any) => {
+      const r = latestReading[String(b.idBalise)] ?? null;
+      return {
+        idBalise: b.idBalise,
+        nom: b.nom,
+        latitude: b.latitude,
+        longitude: b.longitude,
+        altitude: b.altitude,
+        departement: b.departement,
+        url: b.url,
+        reading: r
+          ? {
+              vitesseVentMoy: r.vitesseVentMoy,
+              vitesseVentMax: r.vitesseVentMax,
+              vitesseVentMin: r.vitesseVentMin,
+              directVentMoy: r.directVentMoy,
+              temperature: r.temperature,
+              hydrometrie: r.hydrometrie,
+              pression: r.pression,
+              date: r.date,
+            }
+          : null,
+      };
+    });
+
+    cachedData = merged;
+    cacheTimestamp = now;
 
     return NextResponse.json(merged);
   } catch (err) {
