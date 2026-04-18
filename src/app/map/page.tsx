@@ -50,6 +50,7 @@ export default function MapPage() {
   const windsMobiStations = weatherStations.windsMobi;
   const geoSphereStations = weatherStations.geoSphere;
   const brightSkyStations = weatherStations.brightSky;
+  const [stationsReady, setStationsReady] = useState(false);
   const [selectedObservations, setSelectedObservations] = useState<WeatherReport[]>([]);
   const [selectedDay, setSelectedDay] = useState<DayFilter>('today');
   const [toast, setToast] = useState<string | null>(null);
@@ -96,6 +97,12 @@ export default function MapPage() {
       window.removeEventListener('focus', handleFocus);
     };
   }, [selectedDay, fetchStories, fetchReportsByDay]);
+
+  // Defer weather station data by 2s so map loads first
+  useEffect(() => {
+    const t = setTimeout(() => setStationsReady(true), 2000);
+    return () => clearTimeout(t);
+  }, []);
 
   // Fetch shuttles once
   useEffect(() => {
@@ -228,11 +235,11 @@ export default function MapPage() {
           reports={reports}
           stories={selectedDay === 'today' ? stories : []}
           pois={pois}
-          pioupiouStations={pioupiouStations}
-          ffvlStations={ffvlStations}
-          windsMobiStations={windsMobiStations}
-          geoSphereStations={geoSphereStations}
-          brightSkyStations={brightSkyStations}
+          pioupiouStations={stationsReady ? pioupiouStations : []}
+          ffvlStations={stationsReady ? ffvlStations : []}
+          windsMobiStations={stationsReady ? windsMobiStations : []}
+          geoSphereStations={stationsReady ? geoSphereStations : []}
+          brightSkyStations={stationsReady ? brightSkyStations : []}
           markerConfig={getConfigsAsMap()}
           meetups={meetups.filter(m => {
             if (!m.meeting_time) return false;

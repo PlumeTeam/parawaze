@@ -5,10 +5,15 @@ import {
   SRC_SHUTTLES, LYR_SHUTTLE_ICONS,
   SRC_POIS, LYR_POI_CIRCLES,
   SRC_PIOUPIOU, LYR_PIOUPIOU_CIRCLES, LYR_PIOUPIOU_LABELS, LYR_PIOUPIOU_ARROWS,
+  LYR_PIOUPIOU_CLUSTERS, LYR_PIOUPIOU_CLUSTER_COUNT,
   SRC_FFVL, LYR_FFVL_CIRCLES, LYR_FFVL_LABELS, LYR_FFVL_ARROWS,
+  LYR_FFVL_CLUSTERS, LYR_FFVL_CLUSTER_COUNT,
   SRC_WINDS_MOBI, LYR_WINDS_MOBI_CIRCLES, LYR_WINDS_MOBI_LABELS, LYR_WINDS_MOBI_ARROWS,
+  LYR_WINDS_MOBI_CLUSTERS, LYR_WINDS_MOBI_CLUSTER_COUNT,
   SRC_GEOSPHERE, LYR_GEOSPHERE_CIRCLES, LYR_GEOSPHERE_LABELS, LYR_GEOSPHERE_ARROWS,
+  LYR_GEOSPHERE_CLUSTERS, LYR_GEOSPHERE_CLUSTER_COUNT,
   SRC_BRIGHTSKY, LYR_BRIGHTSKY_CIRCLES, LYR_BRIGHTSKY_LABELS, LYR_BRIGHTSKY_ARROWS,
+  LYR_BRIGHTSKY_CLUSTERS, LYR_BRIGHTSKY_CLUSTER_COUNT,
   SRC_MEETUPS, LYR_MEETUP_CIRCLES,
   SRC_STORIES, LYR_STORIES_CIRCLES, LYR_STORIES_CLUSTERS, LYR_STORIES_CLUSTER_COUNT,
   SRC_OBSERVATIONS, LYR_OBSERVATIONS_CIRCLES,
@@ -283,7 +288,45 @@ export function addLayersToMap(map: mapboxgl.Map, markerConfig: Record<string, M
   // --- Pioupiou source ---
   try {
     if (!map.getSource(SRC_PIOUPIOU)) {
-      map.addSource(SRC_PIOUPIOU, { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+      map.addSource(SRC_PIOUPIOU, {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] },
+        cluster: true,
+        clusterMaxZoom: 12,
+        clusterRadius: 50,
+      });
+    }
+
+    if (!map.getLayer(LYR_PIOUPIOU_CLUSTERS)) {
+      map.addLayer({
+        id: LYR_PIOUPIOU_CLUSTERS,
+        type: 'circle',
+        source: SRC_PIOUPIOU,
+        filter: ['has', 'point_count'],
+        paint: {
+          'circle-radius': 18,
+          'circle-color': '#64748b',
+          'circle-stroke-width': 2,
+          'circle-stroke-color': '#ffffff',
+          'circle-opacity': 0.85,
+        },
+      });
+    }
+
+    if (!map.getLayer(LYR_PIOUPIOU_CLUSTER_COUNT)) {
+      map.addLayer({
+        id: LYR_PIOUPIOU_CLUSTER_COUNT,
+        type: 'symbol',
+        source: SRC_PIOUPIOU,
+        filter: ['has', 'point_count'],
+        layout: {
+          'text-field': '{point_count_abbreviated}',
+          'text-size': 12,
+          'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'],
+          'text-allow-overlap': true,
+        },
+        paint: { 'text-color': '#ffffff' },
+      });
     }
 
     if (!map.getLayer(LYR_PIOUPIOU_CIRCLES)) {
@@ -291,6 +334,7 @@ export function addLayersToMap(map: mapboxgl.Map, markerConfig: Record<string, M
         id: LYR_PIOUPIOU_CIRCLES,
         type: 'circle',
         source: SRC_PIOUPIOU,
+        filter: ['!', ['has', 'point_count']],
         paint: {
           'circle-radius': 12,
           'circle-color': ['get', 'color'],
@@ -306,7 +350,8 @@ export function addLayersToMap(map: mapboxgl.Map, markerConfig: Record<string, M
         id: LYR_PIOUPIOU_LABELS,
         type: 'symbol',
         source: SRC_PIOUPIOU,
-        filter: ['!=', ['get', 'windLabel'], ''],
+        minzoom: 9,
+        filter: ['all', ['!', ['has', 'point_count']], ['!=', ['get', 'windLabel'], '']],
         layout: {
           'text-field': ['get', 'windLabel'],
           'text-size': 11,
@@ -328,7 +373,8 @@ export function addLayersToMap(map: mapboxgl.Map, markerConfig: Record<string, M
         id: LYR_PIOUPIOU_ARROWS,
         type: 'symbol',
         source: SRC_PIOUPIOU,
-        filter: ['!=', ['get', 'wind_arrow_angle'], -1],
+        minzoom: 9,
+        filter: ['all', ['!', ['has', 'point_count']], ['!=', ['get', 'wind_arrow_angle'], -1]],
         layout: {
           'text-field': '➤',
           'text-size': 15,
@@ -351,7 +397,45 @@ export function addLayersToMap(map: mapboxgl.Map, markerConfig: Record<string, M
   // --- FFVL source ---
   try {
     if (!map.getSource(SRC_FFVL)) {
-      map.addSource(SRC_FFVL, { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+      map.addSource(SRC_FFVL, {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] },
+        cluster: true,
+        clusterMaxZoom: 12,
+        clusterRadius: 50,
+      });
+    }
+
+    if (!map.getLayer(LYR_FFVL_CLUSTERS)) {
+      map.addLayer({
+        id: LYR_FFVL_CLUSTERS,
+        type: 'circle',
+        source: SRC_FFVL,
+        filter: ['has', 'point_count'],
+        paint: {
+          'circle-radius': 18,
+          'circle-color': '#64748b',
+          'circle-stroke-width': 2,
+          'circle-stroke-color': '#ffffff',
+          'circle-opacity': 0.85,
+        },
+      });
+    }
+
+    if (!map.getLayer(LYR_FFVL_CLUSTER_COUNT)) {
+      map.addLayer({
+        id: LYR_FFVL_CLUSTER_COUNT,
+        type: 'symbol',
+        source: SRC_FFVL,
+        filter: ['has', 'point_count'],
+        layout: {
+          'text-field': '{point_count_abbreviated}',
+          'text-size': 12,
+          'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'],
+          'text-allow-overlap': true,
+        },
+        paint: { 'text-color': '#ffffff' },
+      });
     }
 
     if (!map.getLayer(LYR_FFVL_CIRCLES)) {
@@ -359,6 +443,7 @@ export function addLayersToMap(map: mapboxgl.Map, markerConfig: Record<string, M
         id: LYR_FFVL_CIRCLES,
         type: 'circle',
         source: SRC_FFVL,
+        filter: ['!', ['has', 'point_count']],
         paint: {
           'circle-radius': 12,
           'circle-color': ['get', 'color'],
@@ -374,7 +459,8 @@ export function addLayersToMap(map: mapboxgl.Map, markerConfig: Record<string, M
         id: LYR_FFVL_LABELS,
         type: 'symbol',
         source: SRC_FFVL,
-        filter: ['!=', ['get', 'windLabel'], ''],
+        minzoom: 9,
+        filter: ['all', ['!', ['has', 'point_count']], ['!=', ['get', 'windLabel'], '']],
         layout: {
           'text-field': ['get', 'windLabel'],
           'text-size': 11,
@@ -396,7 +482,8 @@ export function addLayersToMap(map: mapboxgl.Map, markerConfig: Record<string, M
         id: LYR_FFVL_ARROWS,
         type: 'symbol',
         source: SRC_FFVL,
-        filter: ['!=', ['get', 'wind_arrow_angle'], -1],
+        minzoom: 9,
+        filter: ['all', ['!', ['has', 'point_count']], ['!=', ['get', 'wind_arrow_angle'], -1]],
         layout: {
           'text-field': '➤',
           'text-size': 15,
@@ -419,7 +506,45 @@ export function addLayersToMap(map: mapboxgl.Map, markerConfig: Record<string, M
   // --- winds.mobi source ---
   try {
     if (!map.getSource(SRC_WINDS_MOBI)) {
-      map.addSource(SRC_WINDS_MOBI, { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+      map.addSource(SRC_WINDS_MOBI, {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] },
+        cluster: true,
+        clusterMaxZoom: 12,
+        clusterRadius: 50,
+      });
+    }
+
+    if (!map.getLayer(LYR_WINDS_MOBI_CLUSTERS)) {
+      map.addLayer({
+        id: LYR_WINDS_MOBI_CLUSTERS,
+        type: 'circle',
+        source: SRC_WINDS_MOBI,
+        filter: ['has', 'point_count'],
+        paint: {
+          'circle-radius': 18,
+          'circle-color': '#64748b',
+          'circle-stroke-width': 2,
+          'circle-stroke-color': '#ffffff',
+          'circle-opacity': 0.85,
+        },
+      });
+    }
+
+    if (!map.getLayer(LYR_WINDS_MOBI_CLUSTER_COUNT)) {
+      map.addLayer({
+        id: LYR_WINDS_MOBI_CLUSTER_COUNT,
+        type: 'symbol',
+        source: SRC_WINDS_MOBI,
+        filter: ['has', 'point_count'],
+        layout: {
+          'text-field': '{point_count_abbreviated}',
+          'text-size': 12,
+          'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'],
+          'text-allow-overlap': true,
+        },
+        paint: { 'text-color': '#ffffff' },
+      });
     }
 
     if (!map.getLayer(LYR_WINDS_MOBI_CIRCLES)) {
@@ -427,6 +552,7 @@ export function addLayersToMap(map: mapboxgl.Map, markerConfig: Record<string, M
         id: LYR_WINDS_MOBI_CIRCLES,
         type: 'circle',
         source: SRC_WINDS_MOBI,
+        filter: ['!', ['has', 'point_count']],
         paint: {
           'circle-radius': 12,
           'circle-color': ['get', 'color'],
@@ -442,7 +568,8 @@ export function addLayersToMap(map: mapboxgl.Map, markerConfig: Record<string, M
         id: LYR_WINDS_MOBI_LABELS,
         type: 'symbol',
         source: SRC_WINDS_MOBI,
-        filter: ['!=', ['get', 'windLabel'], ''],
+        minzoom: 9,
+        filter: ['all', ['!', ['has', 'point_count']], ['!=', ['get', 'windLabel'], '']],
         layout: {
           'text-field': ['get', 'windLabel'],
           'text-size': 11,
@@ -464,7 +591,8 @@ export function addLayersToMap(map: mapboxgl.Map, markerConfig: Record<string, M
         id: LYR_WINDS_MOBI_ARROWS,
         type: 'symbol',
         source: SRC_WINDS_MOBI,
-        filter: ['!=', ['get', 'wind_arrow_angle'], -1],
+        minzoom: 9,
+        filter: ['all', ['!', ['has', 'point_count']], ['!=', ['get', 'wind_arrow_angle'], -1]],
         layout: {
           'text-field': '➤',
           'text-size': 15,
@@ -487,11 +615,87 @@ export function addLayersToMap(map: mapboxgl.Map, markerConfig: Record<string, M
   // --- GeoSphere Austria + Bright Sky sources ---
   try {
     if (!map.getSource(SRC_GEOSPHERE)) {
-      map.addSource(SRC_GEOSPHERE, { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+      map.addSource(SRC_GEOSPHERE, {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] },
+        cluster: true,
+        clusterMaxZoom: 12,
+        clusterRadius: 50,
+      });
     }
 
     if (!map.getSource(SRC_BRIGHTSKY)) {
-      map.addSource(SRC_BRIGHTSKY, { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+      map.addSource(SRC_BRIGHTSKY, {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] },
+        cluster: true,
+        clusterMaxZoom: 12,
+        clusterRadius: 50,
+      });
+    }
+
+    if (!map.getLayer(LYR_GEOSPHERE_CLUSTERS)) {
+      map.addLayer({
+        id: LYR_GEOSPHERE_CLUSTERS,
+        type: 'circle',
+        source: SRC_GEOSPHERE,
+        filter: ['has', 'point_count'],
+        paint: {
+          'circle-radius': 18,
+          'circle-color': '#64748b',
+          'circle-stroke-width': 2,
+          'circle-stroke-color': '#ffffff',
+          'circle-opacity': 0.85,
+        },
+      });
+    }
+
+    if (!map.getLayer(LYR_GEOSPHERE_CLUSTER_COUNT)) {
+      map.addLayer({
+        id: LYR_GEOSPHERE_CLUSTER_COUNT,
+        type: 'symbol',
+        source: SRC_GEOSPHERE,
+        filter: ['has', 'point_count'],
+        layout: {
+          'text-field': '{point_count_abbreviated}',
+          'text-size': 12,
+          'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'],
+          'text-allow-overlap': true,
+        },
+        paint: { 'text-color': '#ffffff' },
+      });
+    }
+
+    if (!map.getLayer(LYR_BRIGHTSKY_CLUSTERS)) {
+      map.addLayer({
+        id: LYR_BRIGHTSKY_CLUSTERS,
+        type: 'circle',
+        source: SRC_BRIGHTSKY,
+        filter: ['has', 'point_count'],
+        paint: {
+          'circle-radius': 18,
+          'circle-color': '#64748b',
+          'circle-stroke-width': 2,
+          'circle-stroke-color': '#ffffff',
+          'circle-opacity': 0.85,
+        },
+      });
+    }
+
+    if (!map.getLayer(LYR_BRIGHTSKY_CLUSTER_COUNT)) {
+      map.addLayer({
+        id: LYR_BRIGHTSKY_CLUSTER_COUNT,
+        type: 'symbol',
+        source: SRC_BRIGHTSKY,
+        filter: ['has', 'point_count'],
+        layout: {
+          'text-field': '{point_count_abbreviated}',
+          'text-size': 12,
+          'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'],
+          'text-allow-overlap': true,
+        },
+        paint: { 'text-color': '#ffffff' },
+      });
     }
 
     if (!map.getLayer(LYR_GEOSPHERE_CIRCLES)) {
@@ -499,6 +703,7 @@ export function addLayersToMap(map: mapboxgl.Map, markerConfig: Record<string, M
         id: LYR_GEOSPHERE_CIRCLES,
         type: 'circle',
         source: SRC_GEOSPHERE,
+        filter: ['!', ['has', 'point_count']],
         paint: {
           'circle-radius': 12,
           'circle-color': ['get', 'color'],
@@ -514,6 +719,7 @@ export function addLayersToMap(map: mapboxgl.Map, markerConfig: Record<string, M
         id: LYR_BRIGHTSKY_CIRCLES,
         type: 'circle',
         source: SRC_BRIGHTSKY,
+        filter: ['!', ['has', 'point_count']],
         paint: {
           'circle-radius': 12,
           'circle-color': ['get', 'color'],
@@ -529,7 +735,8 @@ export function addLayersToMap(map: mapboxgl.Map, markerConfig: Record<string, M
         id: LYR_GEOSPHERE_LABELS,
         type: 'symbol',
         source: SRC_GEOSPHERE,
-        filter: ['!=', ['get', 'windLabel'], ''],
+        minzoom: 9,
+        filter: ['all', ['!', ['has', 'point_count']], ['!=', ['get', 'windLabel'], '']],
         layout: {
           'text-field': ['get', 'windLabel'],
           'text-size': 11,
@@ -551,7 +758,8 @@ export function addLayersToMap(map: mapboxgl.Map, markerConfig: Record<string, M
         id: LYR_BRIGHTSKY_LABELS,
         type: 'symbol',
         source: SRC_BRIGHTSKY,
-        filter: ['!=', ['get', 'windLabel'], ''],
+        minzoom: 9,
+        filter: ['all', ['!', ['has', 'point_count']], ['!=', ['get', 'windLabel'], '']],
         layout: {
           'text-field': ['get', 'windLabel'],
           'text-size': 11,
@@ -573,7 +781,8 @@ export function addLayersToMap(map: mapboxgl.Map, markerConfig: Record<string, M
         id: LYR_GEOSPHERE_ARROWS,
         type: 'symbol',
         source: SRC_GEOSPHERE,
-        filter: ['!=', ['get', 'wind_arrow_angle'], -1],
+        minzoom: 9,
+        filter: ['all', ['!', ['has', 'point_count']], ['!=', ['get', 'wind_arrow_angle'], -1]],
         layout: {
           'text-field': '➤',
           'text-size': 15,
@@ -595,7 +804,8 @@ export function addLayersToMap(map: mapboxgl.Map, markerConfig: Record<string, M
         id: LYR_BRIGHTSKY_ARROWS,
         type: 'symbol',
         source: SRC_BRIGHTSKY,
-        filter: ['!=', ['get', 'wind_arrow_angle'], -1],
+        minzoom: 9,
+        filter: ['all', ['!', ['has', 'point_count']], ['!=', ['get', 'wind_arrow_angle'], -1]],
         layout: {
           'text-field': '➤',
           'text-size': 15,

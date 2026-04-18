@@ -32,22 +32,32 @@ import {
   LYR_PIOUPIOU_CIRCLES,
   LYR_PIOUPIOU_LABELS,
   LYR_PIOUPIOU_ARROWS,
+  LYR_PIOUPIOU_CLUSTERS,
+  LYR_PIOUPIOU_CLUSTER_COUNT,
   SRC_FFVL,
   LYR_FFVL_CIRCLES,
   LYR_FFVL_LABELS,
   LYR_FFVL_ARROWS,
+  LYR_FFVL_CLUSTERS,
+  LYR_FFVL_CLUSTER_COUNT,
   SRC_WINDS_MOBI,
   LYR_WINDS_MOBI_CIRCLES,
   LYR_WINDS_MOBI_LABELS,
   LYR_WINDS_MOBI_ARROWS,
+  LYR_WINDS_MOBI_CLUSTERS,
+  LYR_WINDS_MOBI_CLUSTER_COUNT,
   SRC_GEOSPHERE,
   LYR_GEOSPHERE_CIRCLES,
   LYR_GEOSPHERE_LABELS,
   LYR_GEOSPHERE_ARROWS,
+  LYR_GEOSPHERE_CLUSTERS,
+  LYR_GEOSPHERE_CLUSTER_COUNT,
   SRC_BRIGHTSKY,
   LYR_BRIGHTSKY_CIRCLES,
   LYR_BRIGHTSKY_LABELS,
   LYR_BRIGHTSKY_ARROWS,
+  LYR_BRIGHTSKY_CLUSTERS,
+  LYR_BRIGHTSKY_CLUSTER_COUNT,
   SRC_MEETUPS,
   LYR_MEETUP_CIRCLES,
   LYR_MEETUP_LABELS,
@@ -276,43 +286,42 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     // Update station styling based on whether showing today or future/past
     const showingToday = filter === 'today';
     const stationLayers = [
-      { circles: LYR_PIOUPIOU_CIRCLES, labels: LYR_PIOUPIOU_LABELS, arrows: LYR_PIOUPIOU_ARROWS },
-      { circles: 'parawaze-ffvl-circles', labels: 'parawaze-ffvl-labels', arrows: 'parawaze-ffvl-arrows' },
-      { circles: 'parawaze-winds-mobi-circles', labels: 'parawaze-winds-mobi-labels', arrows: 'parawaze-winds-mobi-arrows' },
-      { circles: 'parawaze-geosphere-circles', labels: 'parawaze-geosphere-labels', arrows: 'parawaze-geosphere-arrows' },
-      { circles: 'parawaze-brightsky-circles', labels: 'parawaze-brightsky-labels', arrows: 'parawaze-brightsky-arrows' },
+      { circles: LYR_PIOUPIOU_CIRCLES, labels: LYR_PIOUPIOU_LABELS, arrows: LYR_PIOUPIOU_ARROWS, clusters: LYR_PIOUPIOU_CLUSTERS, clusterCount: LYR_PIOUPIOU_CLUSTER_COUNT },
+      { circles: LYR_FFVL_CIRCLES, labels: LYR_FFVL_LABELS, arrows: LYR_FFVL_ARROWS, clusters: LYR_FFVL_CLUSTERS, clusterCount: LYR_FFVL_CLUSTER_COUNT },
+      { circles: LYR_WINDS_MOBI_CIRCLES, labels: LYR_WINDS_MOBI_LABELS, arrows: LYR_WINDS_MOBI_ARROWS, clusters: LYR_WINDS_MOBI_CLUSTERS, clusterCount: LYR_WINDS_MOBI_CLUSTER_COUNT },
+      { circles: LYR_GEOSPHERE_CIRCLES, labels: LYR_GEOSPHERE_LABELS, arrows: LYR_GEOSPHERE_ARROWS, clusters: LYR_GEOSPHERE_CLUSTERS, clusterCount: LYR_GEOSPHERE_CLUSTER_COUNT },
+      { circles: LYR_BRIGHTSKY_CIRCLES, labels: LYR_BRIGHTSKY_LABELS, arrows: LYR_BRIGHTSKY_ARROWS, clusters: LYR_BRIGHTSKY_CLUSTERS, clusterCount: LYR_BRIGHTSKY_CLUSTER_COUNT },
     ];
 
-    stationLayers.forEach(({ circles, labels, arrows }) => {
+    stationLayers.forEach(({ circles, labels, arrows, clusters, clusterCount }) => {
       try {
         if (map.getLayer(circles)) {
           if (showingToday) {
-            // Restore normal display: colored circles with data
-            // Restore paint properties to show wind-based colors from feature data
             map.setPaintProperty(circles, 'circle-color', ['get', 'color']);
             map.setPaintProperty(circles, 'circle-stroke-color', '#ffffff');
             map.setPaintProperty(circles, 'circle-stroke-width', 2);
             map.setPaintProperty(circles, 'circle-opacity', 0.9);
-            // Restore visibility of labels and arrows
-            if (map.getLayer(labels)) {
-              map.setLayoutProperty(labels, 'visibility', 'visible');
+            if (map.getLayer(labels)) map.setLayoutProperty(labels, 'visibility', 'visible');
+            if (map.getLayer(arrows)) map.setLayoutProperty(arrows, 'visibility', 'visible');
+            if (map.getLayer(clusters)) {
+              map.setPaintProperty(clusters, 'circle-color', '#64748b');
+              map.setPaintProperty(clusters, 'circle-stroke-color', '#ffffff');
+              map.setPaintProperty(clusters, 'circle-opacity', 0.85);
             }
-            if (map.getLayer(arrows)) {
-              map.setLayoutProperty(arrows, 'visibility', 'visible');
-            }
+            if (map.getLayer(clusterCount)) map.setLayoutProperty(clusterCount, 'visibility', 'visible');
           } else {
-            // Show outline-only circles for future/past dates
-            map.setPaintProperty(circles, 'circle-color', '#f5f5f5'); // Very light gray fill
-            map.setPaintProperty(circles, 'circle-stroke-color', '#aaaaaa'); // Medium gray stroke
+            map.setPaintProperty(circles, 'circle-color', '#f5f5f5');
+            map.setPaintProperty(circles, 'circle-stroke-color', '#aaaaaa');
             map.setPaintProperty(circles, 'circle-stroke-width', 1.5);
             map.setPaintProperty(circles, 'circle-opacity', 0.6);
-            // Hide labels and arrows for non-today dates
-            if (map.getLayer(labels)) {
-              map.setLayoutProperty(labels, 'visibility', 'none');
+            if (map.getLayer(labels)) map.setLayoutProperty(labels, 'visibility', 'none');
+            if (map.getLayer(arrows)) map.setLayoutProperty(arrows, 'visibility', 'none');
+            if (map.getLayer(clusters)) {
+              map.setPaintProperty(clusters, 'circle-color', '#f5f5f5');
+              map.setPaintProperty(clusters, 'circle-stroke-color', '#aaaaaa');
+              map.setPaintProperty(clusters, 'circle-opacity', 0.6);
             }
-            if (map.getLayer(arrows)) {
-              map.setLayoutProperty(arrows, 'visibility', 'none');
-            }
+            if (map.getLayer(clusterCount)) map.setLayoutProperty(clusterCount, 'visibility', 'none');
           }
         }
       } catch (e) {
@@ -428,7 +437,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         map.on('click', (e) => {
           // Check if the click was on one of our layers
           const layerFeatures = map.queryRenderedFeatures(e.point, {
-            layers: [LYR_OBS_CIRCLES, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS, LYR_POI_CIRCLES, LYR_PIOUPIOU_CIRCLES, LYR_FFVL_CIRCLES, LYR_WINDS_MOBI_CIRCLES, LYR_GEOSPHERE_CIRCLES, LYR_BRIGHTSKY_CIRCLES, LYR_MEETUP_CIRCLES].filter(
+            layers: [LYR_OBS_CIRCLES, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS, LYR_POI_CIRCLES, LYR_PIOUPIOU_CIRCLES, LYR_PIOUPIOU_CLUSTERS, LYR_FFVL_CIRCLES, LYR_FFVL_CLUSTERS, LYR_WINDS_MOBI_CIRCLES, LYR_WINDS_MOBI_CLUSTERS, LYR_GEOSPHERE_CIRCLES, LYR_GEOSPHERE_CLUSTERS, LYR_BRIGHTSKY_CIRCLES, LYR_BRIGHTSKY_CLUSTERS, LYR_MEETUP_CIRCLES].filter(
               (l) => !!map.getLayer(l),
             ),
           });
@@ -621,6 +630,31 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           popupRef.current = popup;
         });
 
+        // Weather station cluster click — zoom in to expand
+        const stationClusters: Array<{ layerId: string; sourceId: string }> = [
+          { layerId: LYR_PIOUPIOU_CLUSTERS, sourceId: SRC_PIOUPIOU },
+          { layerId: LYR_FFVL_CLUSTERS, sourceId: SRC_FFVL },
+          { layerId: LYR_WINDS_MOBI_CLUSTERS, sourceId: SRC_WINDS_MOBI },
+          { layerId: LYR_GEOSPHERE_CLUSTERS, sourceId: SRC_GEOSPHERE },
+          { layerId: LYR_BRIGHTSKY_CLUSTERS, sourceId: SRC_BRIGHTSKY },
+        ];
+        stationClusters.forEach(({ layerId, sourceId }) => {
+          map.on('click', layerId, (e) => {
+            if (!e.features || !e.features[0]) return;
+            const clusterId = e.features[0].properties?.cluster_id;
+            if (clusterId == null) return;
+            const src = map.getSource(sourceId) as mapboxgl.GeoJSONSource | undefined;
+            if (!src) return;
+            src.getClusterExpansionZoom(clusterId, (err, zoom) => {
+              if (err) return;
+              map.easeTo({
+                center: (e.features![0].geometry as any).coordinates,
+                zoom,
+              });
+            });
+          });
+        });
+
         // Individual story click
         map.on('click', LYR_STORIES_CIRCLES, (e) => {
           if (!e.features || !e.features[0]) return;
@@ -673,7 +707,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         });
 
         // Pointer cursor on interactive layers
-        const interactiveLayers = [LYR_OBS_CIRCLES, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS, LYR_POI_CIRCLES, LYR_POI_LABELS, LYR_PIOUPIOU_CIRCLES, LYR_PIOUPIOU_LABELS, LYR_FFVL_CIRCLES, LYR_FFVL_LABELS, LYR_WINDS_MOBI_CIRCLES, LYR_WINDS_MOBI_LABELS, LYR_GEOSPHERE_CIRCLES, LYR_GEOSPHERE_LABELS, LYR_BRIGHTSKY_CIRCLES, LYR_BRIGHTSKY_LABELS, LYR_MEETUP_CIRCLES, LYR_MEETUP_LABELS, LYR_STORIES_CIRCLES, LYR_STORIES_CLUSTERS, LYR_OBSERVATIONS_CIRCLES, 'parawaze-shuttle-label', 'parawaze-forecast-label'];
+        const interactiveLayers = [LYR_OBS_CIRCLES, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS, LYR_POI_CIRCLES, LYR_POI_LABELS, LYR_PIOUPIOU_CIRCLES, LYR_PIOUPIOU_CLUSTERS, LYR_PIOUPIOU_LABELS, LYR_FFVL_CIRCLES, LYR_FFVL_CLUSTERS, LYR_FFVL_LABELS, LYR_WINDS_MOBI_CIRCLES, LYR_WINDS_MOBI_CLUSTERS, LYR_WINDS_MOBI_LABELS, LYR_GEOSPHERE_CIRCLES, LYR_GEOSPHERE_CLUSTERS, LYR_GEOSPHERE_LABELS, LYR_BRIGHTSKY_CIRCLES, LYR_BRIGHTSKY_CLUSTERS, LYR_BRIGHTSKY_LABELS, LYR_MEETUP_CIRCLES, LYR_MEETUP_LABELS, LYR_STORIES_CIRCLES, LYR_STORIES_CLUSTERS, LYR_OBSERVATIONS_CIRCLES, 'parawaze-shuttle-label', 'parawaze-forecast-label'];
         interactiveLayers.forEach((layerId) => {
           map.on('mouseenter', layerId, () => { map.getCanvas().style.cursor = 'pointer'; });
           map.on('mouseleave', layerId, () => { map.getCanvas().style.cursor = ''; });
