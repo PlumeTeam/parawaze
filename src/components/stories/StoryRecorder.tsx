@@ -331,7 +331,7 @@ export default function StoryRecorder({ onClose, onPublished, onStoryPublished }
                   strokeDasharray={circumference}
                   strokeDashoffset={circumference - progress}
                   strokeLinecap="round"
-                  style={{ transition: 'stroke-dashoffset 0.9s linear' }}
+                  style={{ transition: 'stroke-dashoffset 0.2s linear' }}
                 />
               </svg>
               {/* Inner button — circle when idle, square when recording */}
