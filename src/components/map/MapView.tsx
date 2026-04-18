@@ -646,7 +646,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
             const src = map.getSource(sourceId) as mapboxgl.GeoJSONSource | undefined;
             if (!src) return;
             src.getClusterExpansionZoom(clusterId, (err, zoom) => {
-              if (err) return;
+              if (err || zoom == null) return;
               map.easeTo({
                 center: (e.features![0].geometry as any).coordinates,
                 zoom,
