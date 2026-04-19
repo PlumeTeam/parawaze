@@ -394,7 +394,12 @@ function PositionEditModal({
     let cancelled = false;
 
     const init = async () => {
-      if (!document.querySelector('link[href*="mapbox-gl"]')) { const link = document.createElement('link'); link.rel = 'stylesheet'; link.href = 'https://api.mapbox.com/mapbox-gl-js/v3.1.0/mapbox-gl.css'; document.head.appendChild(link); }
+      if (!document.querySelector('link[href*="mapbox-gl"]')) {
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = 'https://api.mapbox.com/mapbox-gl-js/v3.1.0/mapbox-gl.css';
+        document.head.appendChild(link);
+      }
       const mb = (await import('mapbox-gl')).default;
       if (cancelled) return;
       mb.accessToken = MAPBOX_TOKEN;
