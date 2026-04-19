@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
@@ -394,7 +394,7 @@ function PositionEditModal({
     let cancelled = false;
 
     const init = async () => {
-      await import('mapbox-gl/dist/mapbox-gl.css');
+      if (!document.querySelector('link[href*="mapbox-gl"]')) { const link = document.createElement('link'); link.rel = 'stylesheet'; link.href = 'https://api.mapbox.com/mapbox-gl-js/v3.1.0/mapbox-gl.css'; document.head.appendChild(link); }
       const mb = (await import('mapbox-gl')).default;
       if (cancelled) return;
       mb.accessToken = MAPBOX_TOKEN;
