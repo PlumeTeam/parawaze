@@ -165,7 +165,7 @@ export function addLayersToMap(map: mapboxgl.Map, markerConfig: Record<string, M
         'circle-color': ['get', 'color'],
         'circle-stroke-width': 4,
         'circle-stroke-color': '#ffffff',
-        'circle-opacity': 0.95,
+        'circle-opacity': ['case', ['boolean', ['get', 'show_circle'], true], 0.95, 0],
       },
     });
   }
@@ -188,7 +188,7 @@ export function addLayersToMap(map: mapboxgl.Map, markerConfig: Record<string, M
         'circle-color': ['get', 'color'],
         'circle-stroke-width': 3,
         'circle-stroke-color': '#ffffff',
-        'circle-opacity': 0.95,
+        'circle-opacity': ['case', ['boolean', ['get', 'show_circle'], true], 0.95, 0],
       },
     });
   }
@@ -209,7 +209,7 @@ export function addLayersToMap(map: mapboxgl.Map, markerConfig: Record<string, M
             ? { 'icon-image': iconImageId, 'icon-size': 1, 'icon-allow-overlap': true, 'icon-ignore-placement': true }
             : { 'text-field': result.fallbackChar || 'T', 'text-size': 13, 'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'], 'text-allow-overlap': true, 'text-ignore-placement': true },
           paint: iconImageId
-            ? { 'icon-color': '#FFFFFF' }
+            ? { 'icon-color': ['coalesce', ['get', 'icon_color'], '#FFFFFF'] }
             : { 'text-color': '#ffffff', 'text-halo-color': 'rgba(0,0,0,0.3)', 'text-halo-width': 1 },
         });
       }
@@ -232,7 +232,7 @@ export function addLayersToMap(map: mapboxgl.Map, markerConfig: Record<string, M
             ? { 'icon-image': iconImageId, 'icon-size': 1, 'icon-allow-overlap': true, 'icon-ignore-placement': true }
             : { 'text-field': result.fallbackChar || 'L', 'text-size': 13, 'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'], 'text-allow-overlap': true, 'text-ignore-placement': true },
           paint: iconImageId
-            ? { 'icon-color': '#FFFFFF' }
+            ? { 'icon-color': ['coalesce', ['get', 'icon_color'], '#FFFFFF'] }
             : { 'text-color': '#ffffff', 'text-halo-color': 'rgba(0,0,0,0.3)', 'text-halo-width': 1 },
         });
       }
@@ -255,7 +255,7 @@ export function addLayersToMap(map: mapboxgl.Map, markerConfig: Record<string, M
             ? { 'icon-image': iconImageId, 'icon-size': 1, 'icon-allow-overlap': true, 'icon-ignore-placement': true }
             : { 'text-field': result.fallbackChar || 'N', 'text-size': 12, 'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'], 'text-allow-overlap': true, 'text-ignore-placement': true },
           paint: iconImageId
-            ? { 'icon-color': '#FFFFFF' }
+            ? { 'icon-color': ['coalesce', ['get', 'icon_color'], '#FFFFFF'] }
             : { 'text-color': '#ffffff', 'text-halo-color': 'rgba(0,0,0,0.3)', 'text-halo-width': 1 },
         });
       }
@@ -278,7 +278,7 @@ export function addLayersToMap(map: mapboxgl.Map, markerConfig: Record<string, M
             ? { 'icon-image': iconImageId, 'icon-size': 1, 'icon-allow-overlap': true, 'icon-ignore-placement': true }
             : { 'text-field': result.fallbackChar || 'N', 'text-size': 12, 'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'], 'text-allow-overlap': true, 'text-ignore-placement': true },
           paint: iconImageId
-            ? { 'icon-color': '#FFFFFF' }
+            ? { 'icon-color': ['coalesce', ['get', 'icon_color'], '#FFFFFF'] }
             : { 'text-color': '#ffffff', 'text-halo-color': 'rgba(0,0,0,0.3)', 'text-halo-width': 1 },
         });
       }

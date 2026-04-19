@@ -91,6 +91,10 @@ export function buildShuttleFeatures(shuttles: Shuttle[], config: Record<string,
   const departureColor = config['shuttle_departure']?.color || '#22c55e';
   const departureFull = config['shuttle_departure_full']?.color || '#ef4444';
   const arrivalColor = config['shuttle_arrival']?.color || '#3b82f6';
+  const departureShowCircle = config['shuttle_departure']?.show_circle !== false;
+  const arrivalShowCircle = config['shuttle_arrival']?.show_circle !== false;
+  const departureIconColor = config['shuttle_departure']?.icon_color || '#FFFFFF';
+  const arrivalIconColor = config['shuttle_arrival']?.icon_color || '#FFFFFF';
 
   shuttles.forEach((s) => {
     if (s.meeting_point?.coordinates && s.meeting_point.coordinates.length >= 2) {
@@ -98,14 +102,14 @@ export function buildShuttleFeatures(shuttles: Shuttle[], config: Record<string,
       features.push({
         type: 'Feature' as const,
         geometry: { type: 'Point' as const, coordinates: s.meeting_point.coordinates },
-        properties: { id: s.id, shuttle_role: 'departure', color: isFull ? departureFull : departureColor },
+        properties: { id: s.id, shuttle_role: 'departure', color: isFull ? departureFull : departureColor, show_circle: departureShowCircle, icon_color: departureIconColor },
       });
     }
     if (s.destination?.coordinates && s.destination.coordinates.length >= 2) {
       features.push({
         type: 'Feature' as const,
         geometry: { type: 'Point' as const, coordinates: s.destination.coordinates },
-        properties: { id: s.id, shuttle_role: 'arrival', color: arrivalColor },
+        properties: { id: s.id, shuttle_role: 'arrival', color: arrivalColor, show_circle: arrivalShowCircle, icon_color: arrivalIconColor },
       });
     }
   });
@@ -123,25 +127,34 @@ export function buildPoiFeatures(pois: Poi[], config: Record<string, MarkerConfi
 
   return pois
     .filter((p) => p.location && p.location.coordinates && p.location.coordinates.length >= 2)
-    .map((p) => ({
-      type: 'Feature' as const,
-      geometry: {
-        type: 'Point' as const,
-        coordinates: p.location!.coordinates,
-      },
-      properties: {
-        id: p.id,
-        poi_type: p.poi_type,
-        label:
-          p.poi_type === 'landing' ? 'A' :
-          p.poi_type === 'takeoff' ? 'D' :
-          p.poi_type === 'weather_station' ? 'M' : 'W',
-        color:
-          p.poi_type === 'landing' ? landingColor :
-          p.poi_type === 'takeoff' ? takeoffColor :
-          p.poi_type === 'weather_station' ? weatherColor : otherColor,
-      },
-    }));
+    .map((p) => {
+      const typeKey =
+        p.poi_type === 'landing' ? 'site_landing' :
+        p.poi_type === 'takeoff' ? 'site_takeoff' :
+        p.poi_type === 'weather_station' ? 'weather_station' : null;
+      const typeConfig = typeKey ? config[typeKey] : null;
+      return {
+        type: 'Feature' as const,
+        geometry: {
+          type: 'Point' as const,
+          coordinates: p.location!.coordinates,
+        },
+        properties: {
+          id: p.id,
+          poi_type: p.poi_type,
+          label:
+            p.poi_type === 'landing' ? 'A' :
+            p.poi_type === 'takeoff' ? 'D' :
+            p.poi_type === 'weather_station' ? 'M' : 'W',
+          color:
+            p.poi_type === 'landing' ? landingColor :
+            p.poi_type === 'takeoff' ? takeoffColor :
+            p.poi_type === 'weather_station' ? weatherColor : otherColor,
+          show_circle: typeConfig?.show_circle !== false,
+          icon_color: typeConfig?.icon_color || '#FFFFFF',
+        },
+      };
+    });
 }
 
 /* ------------------------------------------------------------------ */

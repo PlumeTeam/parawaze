@@ -95,6 +95,8 @@ export default function AdminMarkersPage() {
       size: config.size,
       stroke_color: config.stroke_color,
       stroke_width: config.stroke_width,
+      show_circle: config.show_circle ?? true,
+      icon_color: config.icon_color || '#FFFFFF',
     });
     setSaveError(null);
   };
@@ -289,6 +291,51 @@ export default function AdminMarkersPage() {
                       />
                     </div>
                   </div>
+
+                  {/* Circle visibility and icon color */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-2">
+                        Afficher le cercle
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setEditValues({
+                            ...editValues,
+                            show_circle: !(editValues.show_circle ?? true),
+                          })
+                        }
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                          (editValues.show_circle ?? true) ? 'bg-sky-500' : 'bg-gray-300'
+                        }`}
+                        aria-pressed={editValues.show_circle ?? true}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                            (editValues.show_circle ?? true) ? 'translate-x-6' : 'translate-x-1'
+                          }`}
+                        />
+                      </button>
+                      <span className="ml-2 text-xs text-gray-600">
+                        {(editValues.show_circle ?? true) ? 'Oui' : 'Non'}
+                      </span>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">
+                        Couleur de l&apos;icône
+                      </label>
+                      <input
+                        type="color"
+                        value={editValues.icon_color || '#FFFFFF'}
+                        onChange={(e) =>
+                          setEditValues({ ...editValues, icon_color: e.target.value })
+                        }
+                        className="w-full h-10 rounded-lg border border-gray-200 cursor-pointer"
+                      />
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -303,6 +350,26 @@ export default function AdminMarkersPage() {
                   </div>
                   <div>
                     <span className="font-semibold">Icône:</span> {config.icon_name || 'Aucune'}
+                  </div>
+                  <div>
+                    <span className="font-semibold">Cercle:</span>{' '}
+                    {(config.show_circle ?? true) ? 'Affiché' : 'Masqué'}
+                  </div>
+                  <div>
+                    <span className="font-semibold">Couleur icône:</span>{' '}
+                    <span
+                      style={{
+                        display: 'inline-block',
+                        width: 12,
+                        height: 12,
+                        borderRadius: 2,
+                        backgroundColor: config.icon_color || '#FFFFFF',
+                        border: '1px solid #d1d5db',
+                        verticalAlign: 'middle',
+                        marginRight: 2,
+                      }}
+                    />
+                    {config.icon_color || '#FFFFFF'}
                   </div>
                 </div>
               )}

@@ -387,6 +387,8 @@ export interface MarkerConfig {
   stroke_width: number;
   notes: string | null;
   updated_at: string;
+  show_circle: boolean;
+  icon_color: string | null;
 }
 
 // Database type for supabase-js generics
