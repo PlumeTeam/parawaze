@@ -479,7 +479,7 @@ function PositionEditModal({
         </div>
 
         {/* Map */}
-        <div className="flex-1 relative" style={{ minHeight: 0 }}>
+        <div className="relative" style={{ height: "50vh" }}>
           <div ref={mapContainerRef} className="absolute inset-0" />
           {!initialCoords && (
             <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
