@@ -152,7 +152,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const mbRef = useRef<typeof mapboxgl | null>(null);
   const autoCenteredRef = useRef(false);
-  const [mapStyle, setMapStyle] = useState<MapStyleKey>('outdoors');
+  const [mapStyle, setMapStyle] = useState<MapStyleKey>('satellite');
   const [mapLoaded, setMapLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
