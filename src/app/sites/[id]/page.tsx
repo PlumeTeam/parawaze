@@ -395,10 +395,14 @@ function PositionEditModal({
 
     const init = async () => {
       if (!document.querySelector('link[href*="mapbox-gl"]')) {
-        const link = document.createElement('link');
-        link.rel = 'stylesheet';
-        link.href = 'https://api.mapbox.com/mapbox-gl-js/v3.1.0/mapbox-gl.css';
-        document.head.appendChild(link);
+        await new Promise<void>((resolve) => {
+          const link = document.createElement('link');
+          link.rel = 'stylesheet';
+          link.href = 'https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.css';
+          link.onload = () => resolve();
+          link.onerror = () => resolve();
+          document.head.appendChild(link);
+        });
       }
       const mb = (await import('mapbox-gl')).default;
       if (cancelled) return;
