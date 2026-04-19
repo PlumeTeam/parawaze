@@ -272,6 +272,50 @@ export function usePois() {
     if (err) throw err;
   }, [user]);
 
+  // === Edit POI GPS position (admin: direct update, community: proposal) ===
+  const editPoiPosition = useCallback(async (
+    poiId: string,
+    oldLat: number,
+    oldLng: number,
+    newLat: number,
+    newLng: number,
+    isAdmin: boolean
+  ) => {
+    if (!user) throw new Error('Non connecte');
+
+    if (isAdmin) {
+      const { error: updateErr } = await supabase
+        .from('pois')
+        .update({ location: `SRID=4326;POINT(${newLng} ${newLat})` })
+        .eq('id', poiId);
+      if (updateErr) throw updateErr;
+
+      const { error: editErr } = await supabase
+        .from('poi_edits')
+        .insert({
+          poi_id: poiId,
+          editor_id: user.id,
+          field_name: 'position',
+          old_value: `${oldLat.toFixed(6)},${oldLng.toFixed(6)}`,
+          new_value: `${newLat.toFixed(6)},${newLng.toFixed(6)}`,
+          is_applied: true,
+        });
+      if (editErr) throw editErr;
+    } else {
+      const { error: editErr } = await supabase
+        .from('poi_edits')
+        .insert({
+          poi_id: poiId,
+          editor_id: user.id,
+          field_name: 'position',
+          old_value: `${oldLat.toFixed(6)},${oldLng.toFixed(6)}`,
+          new_value: `${newLat.toFixed(6)},${newLng.toFixed(6)}`,
+          is_applied: false,
+        });
+      if (editErr) throw editErr;
+    }
+  }, [user]);
+
   return {
     pois,
     loading,
@@ -283,6 +327,7 @@ export function usePois() {
     getPoi,
     // Wiki functions
     editPoiField,
+    editPoiPosition,
     getPoiEdits,
     voteOnEdit,
     addComment,

@@ -1,12 +1,13 @@
 ﻿'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { ArrowLeft, Star, ExternalLink, MapPin, Mountain, Wind, Shield, User, Pencil, ChevronDown, ChevronUp, ThumbsUp, ThumbsDown, Send, MessageCircle, History } from 'lucide-react';
+import { ArrowLeft, Star, ExternalLink, MapPin, Mountain, Wind, Shield, User, Pencil, ChevronDown, ChevronUp, ThumbsUp, ThumbsDown, Send, MessageCircle, History, X } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { usePois } from '@/hooks/usePois';
 import BottomNav from '@/components/shared/BottomNav';
 import LoadingSpinner from '@/components/shared/LoadingSpinner';
+import { MAPBOX_TOKEN, MAP_STYLES } from '@/lib/mapbox';
 import type { Poi, PoiType, PoiEdit, PoiComment } from '@/lib/types';
 
 const POI_TYPE_CONFIG: Record<PoiType, { label: string; emoji: string; color: string; bgColor: string }> = {
@@ -29,6 +30,7 @@ const FIELD_LABELS: Record<string, string> = {
   wind_orientations: 'Orientations vent',
   difficulty: 'Difficult\u00e9',
   ffvl_approved: 'Homologation FFVL',
+  position: 'Position GPS',
 };
 
 function timeAgo(dateStr: string): string {
@@ -368,10 +370,155 @@ function CommentsSection({
   );
 }
 
+// === Position Edit Modal ===
+function PositionEditModal({
+  poi,
+  isAdmin,
+  onSave,
+  onClose,
+}: {
+  poi: Poi;
+  isAdmin: boolean;
+  onSave: (newLat: number, newLng: number) => Promise<void>;
+  onClose: () => void;
+}) {
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<any>(null);
+  const markerRef = useRef<any>(null);
+  const initialCoords = poi.location?.coordinates; // [lng, lat]
+  const [newCoords, setNewCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!mapContainerRef.current || !initialCoords) return;
+    let cancelled = false;
+
+    (async () => {
+      const mb = (await import('mapbox-gl')).default;
+      if (cancelled) return;
+      mb.accessToken = MAPBOX_TOKEN;
+
+      const map = new mb.Map({
+        container: mapContainerRef.current!,
+        style: MAP_STYLES.satellite,
+        center: [initialCoords[0], initialCoords[1]],
+        zoom: 14,
+        attributionControl: false,
+      });
+
+      map.on('load', () => {
+        if (cancelled) return;
+        const marker = new mb.Marker({ color: '#0EA5E9', draggable: true })
+          .setLngLat([initialCoords[0], initialCoords[1]])
+          .addTo(map);
+
+        marker.on('drag', () => {
+          const lngLat = marker.getLngLat();
+          setNewCoords({ lat: lngLat.lat, lng: lngLat.lng });
+        });
+
+        marker.on('dragend', () => {
+          const lngLat = marker.getLngLat();
+          setNewCoords({ lat: lngLat.lat, lng: lngLat.lng });
+        });
+
+        markerRef.current = marker;
+      });
+
+      mapRef.current = map;
+    })();
+
+    return () => {
+      cancelled = true;
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleSave = async () => {
+    if (!markerRef.current || !newCoords) return;
+    setSaving(true);
+    try {
+      await onSave(newCoords.lat, newCoords.lng);
+      onClose();
+    } catch (err) {
+      console.error('Position save error:', err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col justify-end bg-black/60">
+      <div className="flex flex-col bg-white rounded-t-2xl" style={{ height: '85vh' }}>
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 shrink-0">
+          <h2 className="text-base font-bold text-gray-800">
+            {isAdmin ? 'Modifier la position' : 'Proposer une nouvelle position'}
+          </h2>
+          <button onClick={onClose} className="p-1.5 rounded-full hover:bg-gray-100">
+            <X className="h-5 w-5 text-gray-500" />
+          </button>
+        </div>
+
+        {/* Map */}
+        <div className="flex-1 relative" style={{ minHeight: 0 }}>
+          <div ref={mapContainerRef} className="absolute inset-0" />
+          {!initialCoords && (
+            <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+              <p className="text-sm text-gray-500">Coordonn&eacute;es non disponibles</p>
+            </div>
+          )}
+        </div>
+
+        {/* Coords + buttons */}
+        <div className="p-4 space-y-3 border-t border-gray-100 shrink-0">
+          <div className="space-y-1">
+            {initialCoords && (
+              <p className="text-xs text-gray-500">
+                Position actuelle&nbsp;: {initialCoords[1].toFixed(5)}&deg;N, {initialCoords[0].toFixed(5)}&deg;E
+              </p>
+            )}
+            {newCoords ? (
+              <p className="text-xs font-medium text-sky-600">
+                Nouvelle position&nbsp;: {newCoords.lat.toFixed(5)}&deg;N, {newCoords.lng.toFixed(5)}&deg;E
+              </p>
+            ) : (
+              <p className="text-xs text-gray-400 italic">D&eacute;placez le marqueur pour choisir la nouvelle position</p>
+            )}
+          </div>
+          {!isAdmin && (
+            <p className="text-xs text-gray-400">
+              Votre proposition sera soumise &agrave; la validation de la communaut&eacute;.
+            </p>
+          )}
+          <div className="flex gap-2">
+            <button
+              onClick={handleSave}
+              disabled={saving || !newCoords}
+              className="flex-1 py-2.5 bg-sky-500 text-white text-sm font-medium rounded-xl hover:bg-sky-600 disabled:opacity-50 transition-colors"
+            >
+              {saving ? 'Enregistrement...' : 'Valider'}
+            </button>
+            <button
+              onClick={onClose}
+              className="flex-1 py-2.5 bg-gray-100 text-gray-600 text-sm font-medium rounded-xl hover:bg-gray-200 transition-colors"
+            >
+              Annuler
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // === Main Page Component ===
 export default function PoiDetailPage() {
-  const { user, loading: authLoading } = useAuth();
-  const { getPoi, votePoi, getUserVote, editPoiField, getPoiEdits, voteOnEdit, addComment, getComments, voteOnComment } = usePois();
+  const { user, profile, loading: authLoading } = useAuth();
+  const { getPoi, votePoi, getUserVote, editPoiField, editPoiPosition, getPoiEdits, voteOnEdit, addComment, getComments, voteOnComment } = usePois();
   const router = useRouter();
   const params = useParams();
   const poiId = params.id as string;
@@ -382,6 +529,7 @@ export default function PoiDetailPage() {
   const [voteLoading, setVoteLoading] = useState(false);
   const [edits, setEdits] = useState<PoiEdit[]>([]);
   const [comments, setComments] = useState<PoiComment[]>([]);
+  const [showPositionEdit, setShowPositionEdit] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -464,6 +612,15 @@ export default function PoiDetailPage() {
     } catch (err) {
       console.error('Comment vote error:', err);
     }
+  };
+
+  const handlePositionSave = async (newLat: number, newLng: number) => {
+    if (!poi?.location?.coordinates) return;
+    const [oldLng, oldLat] = poi.location.coordinates;
+    const isAdmin = !!profile?.is_admin;
+    await editPoiPosition(poiId, oldLat, oldLng, newLat, newLng, isAdmin);
+    await loadPoi();
+    await loadEdits();
   };
 
   if (authLoading || loading) {
@@ -552,10 +709,19 @@ export default function PoiDetailPage() {
         {/* Location */}
         {coords && (
           <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-            <h3 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-1.5">
-              <MapPin className="h-4 w-4" />
-              Coordonn&eacute;es
-            </h3>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
+                <MapPin className="h-4 w-4" />
+                Coordonn&eacute;es
+              </h3>
+              <button
+                onClick={() => setShowPositionEdit(true)}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors bg-sky-50 text-sky-600 hover:bg-sky-100"
+              >
+                <Pencil className="h-3 w-3" />
+                {profile?.is_admin ? 'Modifier la position' : 'Proposer une nouvelle position'}
+              </button>
+            </div>
             <p className="text-sm text-gray-600">
               {coords[1].toFixed(5)}&deg;N, {coords[0].toFixed(5)}&deg;E
             </p>
@@ -723,6 +889,16 @@ export default function PoiDetailPage() {
       </div>
 
       <BottomNav />
+
+      {/* Position edit modal */}
+      {showPositionEdit && poi && (
+        <PositionEditModal
+          poi={poi}
+          isAdmin={!!profile?.is_admin}
+          onSave={handlePositionSave}
+          onClose={() => setShowPositionEdit(false)}
+        />
+      )}
     </div>
   );
 }
