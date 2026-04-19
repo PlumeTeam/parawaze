@@ -393,7 +393,8 @@ function PositionEditModal({
     if (!mapContainerRef.current || !initialCoords) return;
     let cancelled = false;
 
-    (async () => {
+    const init = async () => {
+      await import('mapbox-gl/dist/mapbox-gl.css');
       const mb = (await import('mapbox-gl')).default;
       if (cancelled) return;
       mb.accessToken = MAPBOX_TOKEN;
@@ -408,6 +409,7 @@ function PositionEditModal({
 
       map.on('load', () => {
         if (cancelled) return;
+        map.resize();
         const marker = new mb.Marker({ color: '#0EA5E9', draggable: true })
           .setLngLat([initialCoords[0], initialCoords[1]])
           .addTo(map);
@@ -426,10 +428,14 @@ function PositionEditModal({
       });
 
       mapRef.current = map;
-    })();
+    };
+
+    // Delay init so the modal is fully painted before Mapbox measures container size
+    const timer = setTimeout(init, 150);
 
     return () => {
       cancelled = true;
+      clearTimeout(timer);
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
