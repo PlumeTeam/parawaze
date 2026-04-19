@@ -480,7 +480,7 @@ function PositionEditModal({
 
         {/* Map */}
         <div className="relative" style={{ height: "50vh" }}>
-          <div ref={mapContainerRef} className="absolute inset-0" />
+          <div ref={mapContainerRef} style={{ width: "100%", height: "100%" }} />
           {!initialCoords && (
             <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
               <p className="text-sm text-gray-500">Coordonn&eacute;es non disponibles</p>
