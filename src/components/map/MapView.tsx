@@ -161,7 +161,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   // Tap-to-place marker state
   const placedMarkerRef = useRef<mapboxgl.Marker | null>(null);
   const markerPositionRef = useRef<MarkerPosition | null>(null);
-  const [markerInfo, setMarkerInfo] = useState<MarkerPosition | null>(null);
 
   // Stable refs for callbacks used inside map events
   const reportsRef = useRef<WeatherReport[]>(reports);
@@ -253,7 +252,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
 
       const pos: MarkerPosition = { lat: lngLat.lat, lng: lngLat.lng, alt: null };
       markerPositionRef.current = pos;
-      setMarkerInfo(pos);
 
       if (placedMarkerRef.current) {
         placedMarkerRef.current.remove();
@@ -1269,15 +1267,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     };
   }, [mapLoaded]);
 
-  /** Format coordinates for the floating label */
-  const formatLabel = (pos: MarkerPosition) => {
-    const latDir = pos.lat >= 0 ? 'N' : 'S';
-    const lngDir = pos.lng >= 0 ? 'E' : 'W';
-    const coords = `${Math.abs(pos.lat).toFixed(4)}\u00B0 ${latDir}, ${Math.abs(pos.lng).toFixed(4)}\u00B0 ${lngDir}`;
-    const alt = pos.alt !== null ? ` \u00B7 ${pos.alt}m` : '';
-    return `\u{1F4CD} ${coords}${alt}`;
-  };
-
   /* ---------------------------------------------------------------- */
   /*  Render                                                          */
   /* ---------------------------------------------------------------- */
@@ -1311,16 +1300,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         </div>
       )}
       <div ref={mapContainer} className="absolute inset-0" style={{ height: '100%', width: '100%' }} />
-
-      {/* Marker info label — shown when a marker is placed */}
-      {markerInfo && (
-        <div
-          className="absolute left-1/2 -translate-x-1/2 z-50 bg-gray-900/85 backdrop-blur-sm text-white text-sm px-4 py-2.5 rounded-2xl shadow-lg pointer-events-none whitespace-nowrap font-medium"
-          style={{ bottom: 200 }}
-        >
-          {formatLabel(markerInfo)}
-        </div>
-      )}
 
       {/* Pin drop animation removed — using Mapbox default marker */}
     </div>
