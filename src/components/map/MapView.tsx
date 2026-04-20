@@ -1294,13 +1294,19 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
 
       {/* Marker info label — shown when a marker is placed */}
       {markerInfo && (
-        <div className="absolute bottom-28 left-1/2 -translate-x-1/2 z-50 bg-gray-900/85 backdrop-blur-sm text-white text-sm px-4 py-2.5 rounded-2xl shadow-lg pointer-events-none whitespace-nowrap font-medium">
+        <div
+          className="absolute left-1/2 -translate-x-1/2 z-50 bg-gray-900/85 backdrop-blur-sm text-white text-sm px-4 py-2.5 rounded-2xl shadow-lg pointer-events-none whitespace-nowrap font-medium"
+          style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 120px)' }}
+        >
           {formatLabel(markerInfo)}
         </div>
       )}
 
       {/* Map controls */}
-      <div className="absolute bottom-24 right-4 flex flex-col gap-2 z-10">
+      <div
+        className="absolute right-4 flex flex-col gap-2 z-10"
+        style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 90px)' }}
+      >
         {/* Map style toggle */}
         <button
           onClick={cycleStyle}
