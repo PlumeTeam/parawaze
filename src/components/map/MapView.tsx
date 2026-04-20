@@ -1300,7 +1300,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       )}
 
       {/* Map controls */}
-      <div className="absolute top-4 right-4 flex flex-col gap-2 z-10">
+      <div className="absolute bottom-24 right-4 flex flex-col gap-2 z-10">
         {/* Map style toggle */}
         <button
           onClick={cycleStyle}
@@ -1318,7 +1318,9 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
             strokeLinejoin="round"
             className="text-gray-700"
           >
-            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+            <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6" />
+            <line x1="8" y1="2" x2="8" y2="18" />
+            <line x1="16" y1="6" x2="16" y2="22" />
           </svg>
         </button>
 

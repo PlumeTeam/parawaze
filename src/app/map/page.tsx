@@ -213,7 +213,7 @@ export default function MapPage() {
       {/* Map */}
       <main className="flex-1 relative" style={{ minHeight: 0 }}>
         {/* Day filter tabs */}
-        <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 flex bg-white/80 backdrop-blur-md rounded-full p-1 shadow-lg border border-white/50">
+        <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 flex bg-white/50 backdrop-blur-md rounded-full p-1 shadow-lg border border-white/50">
           {(['yesterday', 'today', 'tomorrow'] as const).map((day) => (
             <button
               key={day}
