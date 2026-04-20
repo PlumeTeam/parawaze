@@ -1023,6 +1023,7 @@ export function addLayersToMap(map: mapboxgl.Map, markerConfig: Record<string, M
             0,
           ],
           'text-allow-overlap': true,
+          'text-ignore-placement': true,
           'icon-allow-overlap': true,
         },
         paint: {

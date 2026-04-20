@@ -281,9 +281,8 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   const applyDayFilter = useCallback((map: mapboxgl.Map) => {
     const filter = dayFilterRef.current;
 
-    // Hide stories and observations when not showing today
+    // Hide stories when not showing today (stories have no historical data)
     const hideStories = filter !== 'today';
-    const hideObservations = filter !== 'today';
 
     // Set visibility for story layers
     [LYR_STORIES_CIRCLES, LYR_STORIES_CLUSTERS, LYR_STORIES_CLUSTER_COUNT].forEach((layer) => {
@@ -296,11 +295,12 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       }
     });
 
-    // Set visibility for observation layers
+    // Observation layers always visible — SRC_OBSERVATIONS is day-filtered at source
+    // (hiding them for non-today caused markers to disappear at low zoom via clustered SRC_REPORTS)
     [LYR_OBSERVATIONS_CIRCLES, 'parawaze-observations-wind-arrows'].forEach((layer) => {
       try {
         if (map.getLayer(layer)) {
-          map.setLayoutProperty(layer, 'visibility', hideObservations ? 'none' : 'visible');
+          map.setLayoutProperty(layer, 'visibility', 'visible');
         }
       } catch (e) {
         // Layer might not exist yet
