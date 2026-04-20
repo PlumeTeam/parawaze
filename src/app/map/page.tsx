@@ -18,7 +18,7 @@ import StoryRecorder from '@/components/stories/StoryRecorder';
 import StoryViewer from '@/components/stories/StoryViewer';
 import ObservationViewer from '@/components/observations/ObservationViewer';
 import type { WeatherReport, Shuttle, Poi, Story, Meetup } from '@/lib/types';
-import type { MapViewHandle } from '@/components/map/MapView';
+import type { MapViewHandle, MarkerPosition } from '@/components/map/MapView';
 
 // Dynamic import MapView to avoid SSR issues with mapbox-gl
 const MapView = dynamic(() => import('@/components/map/MapView'), {
@@ -61,6 +61,8 @@ export default function MapPage() {
   const [mapLoading, setMapLoading] = useState(true);
   const router = useRouter();
   const mapRef = useRef<MapViewHandle>(null);
+  const navRef = useRef<HTMLElement>(null);
+  const [navHeight, setNavHeight] = useState(82);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -154,6 +156,24 @@ export default function MapPage() {
   const handleMarkerPlaced = useCallback((pos: {lat: number; lng: number; alt: number | null}) => {
     setLastMarker(pos);
   }, []);
+
+  // Measure BottomNav height so controls can be positioned exactly above it
+  useEffect(() => {
+    const el = navRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setNavHeight(el.offsetHeight));
+    ro.observe(el);
+    setNavHeight(el.offsetHeight);
+    return () => ro.disconnect();
+  }, []);
+
+  const formatMarkerLabel = (pos: MarkerPosition) => {
+    const latDir = pos.lat >= 0 ? 'N' : 'S';
+    const lngDir = pos.lng >= 0 ? 'E' : 'W';
+    const coords = `${Math.abs(pos.lat).toFixed(4)}\u00B0 ${latDir}, ${Math.abs(pos.lng).toFixed(4)}\u00B0 ${lngDir}`;
+    const alt = pos.alt !== null ? ` \u00B7 ${pos.alt}m` : '';
+    return `\u{1F4CD} ${coords}${alt}`;
+  };
 
   // Called by BottomNav when "Observation" is tapped — uses stored marker position
   const handleCreateReport = useCallback(() => {
@@ -320,7 +340,46 @@ export default function MapPage() {
         )}
       </main>
 
+      {/* Map controls — always exactly 12px above bottom nav */}
+      <div
+        className="fixed right-4 flex flex-col gap-2 z-40"
+        style={{ bottom: navHeight + 12 }}
+      >
+        <button
+          onClick={() => mapRef.current?.cycleStyle()}
+          className="bg-white rounded-xl shadow-lg p-2.5 hover:bg-gray-50 active:bg-gray-100 transition-colors border border-gray-100"
+          title="Changer le style de la carte"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-700">
+            <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6" />
+            <line x1="8" y1="2" x2="8" y2="18" />
+            <line x1="16" y1="6" x2="16" y2="22" />
+          </svg>
+        </button>
+        <button
+          onClick={() => mapRef.current?.locateMe()}
+          className="bg-white rounded-xl shadow-lg p-2.5 hover:bg-gray-50 active:bg-gray-100 transition-colors border border-gray-100"
+          title="Ma position"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-sky-500">
+            <circle cx="12" cy="12" r="3" />
+            <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Marker info label — shown when a marker is placed */}
+      {lastMarker && (
+        <div
+          className="fixed left-1/2 -translate-x-1/2 z-50 bg-gray-900/85 backdrop-blur-sm text-white text-sm px-4 py-2.5 rounded-2xl shadow-lg pointer-events-none whitespace-nowrap font-medium"
+          style={{ bottom: navHeight + 60 }}
+        >
+          {formatMarkerLabel(lastMarker)}
+        </div>
+      )}
+
       <BottomNav
+        ref={navRef}
         onCreateReport={handleCreateReport}
         onCameraOpen={() => setShowRecorder(true)}
       />
