@@ -49,16 +49,25 @@ export async function loadMakiIcon(
     if (!ctx) throw new Error('Cannot get canvas context');
 
     const img = new Image();
-    img.onload = () => {
-      ctx.drawImage(img, 0, 0, 24, 24);
-      const imageData = ctx.getImageData(0, 0, 24, 24);
-      map.addImage(customImageId, imageData, { sdf: true });
-      makiIconCache.set(customImageId, true);
-    };
-    img.onerror = () => {
-      makiIconCache.set(customImageId, false);
-    };
-    img.src = 'data:image/svg+xml;base64,' + btoa(svgText);
+    await new Promise<void>((resolve) => {
+      img.onload = () => {
+        ctx.drawImage(img, 0, 0, 24, 24);
+        const imageData = ctx.getImageData(0, 0, 24, 24);
+        if (!map.hasImage(customImageId)) {
+          map.addImage(customImageId, imageData, { sdf: true });
+        }
+        makiIconCache.set(customImageId, true);
+        resolve();
+      };
+      img.onerror = () => {
+        makiIconCache.set(customImageId, false);
+        resolve();
+      };
+      img.src = 'data:image/svg+xml;base64,' + btoa(svgText);
+    });
+    if (makiIconCache.get(customImageId) === false) {
+      return { useImage: false, fallbackChar: fallbackChar || undefined };
+    }
     return { useImage: true, fallbackChar: fallbackChar || undefined };
   } catch (e) {
     console.warn(`[ParaWaze] Failed to load Maki icon ${iconName}:`, e);
