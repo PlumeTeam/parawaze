@@ -111,6 +111,8 @@ export interface MarkerPosition {
 export interface MapViewHandle {
   getCenter: () => { lat: number; lng: number } | null;
   getMarkerPosition: () => MarkerPosition | null;
+  cycleStyle: () => void;
+  locateMe: () => void;
 }
 
 interface MapViewProps {
@@ -205,7 +207,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   const gpsMarkerRef = useRef<mapboxgl.Marker | null>(null);
   const gpsWatchIdRef = useRef<number | null>(null);
 
-  // Expose getCenter and getMarkerPosition to parent via ref
+  // Expose getCenter, getMarkerPosition, cycleStyle, locateMe to parent via ref
   useImperativeHandle(ref, () => ({
     getCenter: () => {
       if (!mapRef.current) return null;
@@ -213,7 +215,31 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       return { lat: c.lat, lng: c.lng };
     },
     getMarkerPosition: () => markerPositionRef.current,
-  }));
+    cycleStyle: () => {
+      const styles: MapStyleKey[] = ['outdoors', 'satellite', 'standard'];
+      setMapStyle((prev) => styles[(styles.indexOf(prev) + 1) % styles.length]);
+    },
+    locateMe: () => {
+      try {
+        if (!navigator?.geolocation) return;
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            try {
+              if (pos?.coords) {
+                mapRef.current?.flyTo({ center: [pos.coords.longitude, pos.coords.latitude], zoom: 12, duration: 1500 });
+              }
+            } catch (e) {
+              console.debug('Geolocation: flyTo error', e);
+            }
+          },
+          (error) => { console.debug('Geolocation error:', error?.code, error?.message); },
+          { enableHighAccuracy: false, timeout: 8000 },
+        );
+      } catch (e) {
+        console.debug('Geolocation: getCurrentPosition error', e);
+      }
+    },
+  }), []);
 
   /** Place (or move) the red placement marker at given coordinates */
   const placeMarker = useCallback(
@@ -1243,12 +1269,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     };
   }, [mapLoaded]);
 
-  const cycleStyle = () => {
-    const styles: MapStyleKey[] = ['outdoors', 'satellite', 'standard'];
-    const idx = styles.indexOf(mapStyle);
-    setMapStyle(styles[(idx + 1) % styles.length]);
-  };
-
   /** Format coordinates for the floating label */
   const formatLabel = (pos: MarkerPosition) => {
     const latDir = pos.lat >= 0 ? 'N' : 'S';
@@ -1301,57 +1321,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           {formatLabel(markerInfo)}
         </div>
       )}
-
-      {/* Map controls */}
-      <div
-        className="absolute right-4 flex flex-col gap-2 z-10"
-        style={{ bottom: 160 }}
-      >
-        {/* Map style toggle */}
-        <button
-          onClick={cycleStyle}
-          className="bg-white rounded-xl shadow-lg p-2.5 hover:bg-gray-50 active:bg-gray-100 transition-colors border border-gray-100"
-          title="Changer le style de la carte"
-        >
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="text-gray-700"
-          >
-            <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6" />
-            <line x1="8" y1="2" x2="8" y2="18" />
-            <line x1="16" y1="6" x2="16" y2="22" />
-          </svg>
-        </button>
-
-        {/* Locate me */}
-        <button
-          onClick={locateMe}
-          className="bg-white rounded-xl shadow-lg p-2.5 hover:bg-gray-50 active:bg-gray-100 transition-colors border border-gray-100"
-          title="Ma position"
-        >
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="text-sky-500"
-          >
-            <circle cx="12" cy="12" r="3" />
-            <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
-          </svg>
-        </button>
-      </div>
 
       {/* Pin drop animation removed — using Mapbox default marker */}
     </div>
