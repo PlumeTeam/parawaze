@@ -383,12 +383,25 @@ export interface MarkerConfig {
   icon_unicode: string | null;
   color: string;
   size: number;
+  // Circle stroke
   stroke_color: string;
   stroke_width: number;
+  stroke_opacity: number | null;
+  show_stroke: boolean | null;
+  circle_radius: number | null;
+  // Circle fill
+  fill_color: string | null;
+  fill_opacity: number | null;
+  show_fill: boolean | null;
+  // Icon
+  icon_color: string | null;
+  icon_size: number | null;
+  icon_opacity: number | null;
+  show_icon: boolean | null;
+  // Legacy
+  show_circle: boolean;
   notes: string | null;
   updated_at: string;
-  show_circle: boolean;
-  icon_color: string | null;
 }
 
 // Database type for supabase-js generics

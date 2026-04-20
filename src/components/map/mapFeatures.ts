@@ -88,28 +88,66 @@ export function buildReportFeatures(reports: WeatherReport[]): GeoJSON.Feature[]
 
 export function buildShuttleFeatures(shuttles: Shuttle[], config: Record<string, MarkerConfig> = {}): GeoJSON.Feature[] {
   const features: GeoJSON.Feature[] = [];
-  const departureColor = config['shuttle_departure']?.color || '#22c55e';
-  const departureFull = config['shuttle_departure_full']?.color || '#ef4444';
-  const arrivalColor = config['shuttle_arrival']?.color || '#3b82f6';
-  const departureShowCircle = config['shuttle_departure']?.show_circle !== false;
-  const arrivalShowCircle = config['shuttle_arrival']?.show_circle !== false;
-  const departureIconColor = config['shuttle_departure']?.icon_color || '#FFFFFF';
-  const arrivalIconColor = config['shuttle_arrival']?.icon_color || '#FFFFFF';
+  const depCfg = config['shuttle_departure'];
+  const arrCfg = config['shuttle_arrival'];
+  const fullColor = config['shuttle_departure_full']?.color || '#ef4444';
 
   shuttles.forEach((s) => {
     if (s.meeting_point?.coordinates && s.meeting_point.coordinates.length >= 2) {
       const isFull = s.taken_seats >= s.total_seats;
+      const baseColor = depCfg?.color || '#22c55e';
       features.push({
         type: 'Feature' as const,
         geometry: { type: 'Point' as const, coordinates: s.meeting_point.coordinates },
-        properties: { id: s.id, shuttle_role: 'departure', color: isFull ? departureFull : departureColor, show_circle: departureShowCircle, icon_color: departureIconColor },
+        properties: {
+          id: s.id,
+          shuttle_role: 'departure',
+          color: isFull ? fullColor : baseColor,
+          show_circle: depCfg?.show_circle !== false,
+          // Stroke
+          stroke_color: depCfg?.stroke_color || '#ffffff',
+          stroke_width: depCfg?.stroke_width ?? 4,
+          stroke_opacity: depCfg?.stroke_opacity ?? 1.0,
+          show_stroke: depCfg?.show_stroke ?? true,
+          circle_radius: depCfg?.circle_radius ?? 12,
+          // Fill
+          fill_color: isFull ? fullColor : (depCfg?.fill_color || baseColor),
+          fill_opacity: depCfg?.fill_opacity ?? 0.95,
+          show_fill: depCfg?.show_fill ?? true,
+          // Icon
+          icon_color: depCfg?.icon_color || '#FFFFFF',
+          icon_size: depCfg?.icon_size ?? 1.0,
+          icon_opacity: depCfg?.icon_opacity ?? 1.0,
+          show_icon: depCfg?.show_icon ?? true,
+        },
       });
     }
     if (s.destination?.coordinates && s.destination.coordinates.length >= 2) {
+      const baseColor = arrCfg?.color || '#3b82f6';
       features.push({
         type: 'Feature' as const,
         geometry: { type: 'Point' as const, coordinates: s.destination.coordinates },
-        properties: { id: s.id, shuttle_role: 'arrival', color: arrivalColor, show_circle: arrivalShowCircle, icon_color: arrivalIconColor },
+        properties: {
+          id: s.id,
+          shuttle_role: 'arrival',
+          color: baseColor,
+          show_circle: arrCfg?.show_circle !== false,
+          // Stroke
+          stroke_color: arrCfg?.stroke_color || '#ffffff',
+          stroke_width: arrCfg?.stroke_width ?? 4,
+          stroke_opacity: arrCfg?.stroke_opacity ?? 1.0,
+          show_stroke: arrCfg?.show_stroke ?? true,
+          circle_radius: arrCfg?.circle_radius ?? 12,
+          // Fill
+          fill_color: arrCfg?.fill_color || baseColor,
+          fill_opacity: arrCfg?.fill_opacity ?? 0.95,
+          show_fill: arrCfg?.show_fill ?? true,
+          // Icon
+          icon_color: arrCfg?.icon_color || '#FFFFFF',
+          icon_size: arrCfg?.icon_size ?? 1.0,
+          icon_opacity: arrCfg?.icon_opacity ?? 1.0,
+          show_icon: arrCfg?.show_icon ?? true,
+        },
       });
     }
   });
@@ -120,11 +158,6 @@ export function buildShuttleFeatures(shuttles: Shuttle[], config: Record<string,
 /*  POI GeoJSON                                                       */
 /* ------------------------------------------------------------------ */
 export function buildPoiFeatures(pois: Poi[], config: Record<string, MarkerConfig> = {}): GeoJSON.Feature[] {
-  const landingColor = config['site_landing']?.color || '#22c55e';
-  const takeoffColor = config['site_takeoff']?.color || '#3b82f6';
-  const weatherColor = config['weather_station']?.color || '#eab308';
-  const otherColor = '#a855f7';
-
   return pois
     .filter((p) => p.location && p.location.coordinates && p.location.coordinates.length >= 2)
     .map((p) => {
@@ -132,13 +165,14 @@ export function buildPoiFeatures(pois: Poi[], config: Record<string, MarkerConfi
         p.poi_type === 'landing' ? 'site_landing' :
         p.poi_type === 'takeoff' ? 'site_takeoff' :
         p.poi_type === 'weather_station' ? 'weather_station' : null;
-      const typeConfig = typeKey ? config[typeKey] : null;
+      const cfg = typeKey ? config[typeKey] : null;
+      const fallbackColor =
+        p.poi_type === 'landing' ? '#22c55e' :
+        p.poi_type === 'takeoff' ? '#3b82f6' :
+        p.poi_type === 'weather_station' ? '#eab308' : '#a855f7';
       return {
         type: 'Feature' as const,
-        geometry: {
-          type: 'Point' as const,
-          coordinates: p.location!.coordinates,
-        },
+        geometry: { type: 'Point' as const, coordinates: p.location!.coordinates },
         properties: {
           id: p.id,
           poi_type: p.poi_type,
@@ -146,12 +180,23 @@ export function buildPoiFeatures(pois: Poi[], config: Record<string, MarkerConfi
             p.poi_type === 'landing' ? 'A' :
             p.poi_type === 'takeoff' ? 'D' :
             p.poi_type === 'weather_station' ? 'M' : 'W',
-          color:
-            p.poi_type === 'landing' ? landingColor :
-            p.poi_type === 'takeoff' ? takeoffColor :
-            p.poi_type === 'weather_station' ? weatherColor : otherColor,
-          show_circle: typeConfig?.show_circle !== false,
-          icon_color: typeConfig?.icon_color || '#FFFFFF',
+          color: fallbackColor,
+          show_circle: cfg?.show_circle !== false,
+          // Stroke
+          stroke_color: cfg?.stroke_color || '#ffffff',
+          stroke_width: cfg?.stroke_width ?? 3,
+          stroke_opacity: cfg?.stroke_opacity ?? 1.0,
+          show_stroke: cfg?.show_stroke ?? true,
+          circle_radius: cfg?.circle_radius ?? 14,
+          // Fill
+          fill_color: cfg?.fill_color || cfg?.color || fallbackColor,
+          fill_opacity: cfg?.fill_opacity ?? 0.95,
+          show_fill: cfg?.show_fill ?? true,
+          // Icon
+          icon_color: cfg?.icon_color || '#FFFFFF',
+          icon_size: cfg?.icon_size ?? 1.0,
+          icon_opacity: cfg?.icon_opacity ?? 1.0,
+          show_icon: cfg?.show_icon ?? true,
         },
       };
     });

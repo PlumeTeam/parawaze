@@ -161,11 +161,12 @@ export function addLayersToMap(map: mapboxgl.Map, markerConfig: Record<string, M
       type: 'circle',
       source: SRC_SHUTTLES,
       paint: {
-        'circle-radius': 12,
-        'circle-color': ['get', 'color'],
-        'circle-stroke-width': 4,
-        'circle-stroke-color': '#ffffff',
-        'circle-opacity': ['case', ['boolean', ['get', 'show_circle'], true], 0.95, 0],
+        'circle-radius': ['coalesce', ['get', 'circle_radius'], 12] as any,
+        'circle-color': ['coalesce', ['get', 'fill_color'], ['get', 'color']] as any,
+        'circle-opacity': ['case', ['boolean', ['get', 'show_fill'], true], ['coalesce', ['get', 'fill_opacity'], 0.95], 0] as any,
+        'circle-stroke-color': ['coalesce', ['get', 'stroke_color'], '#ffffff'] as any,
+        'circle-stroke-width': ['case', ['boolean', ['get', 'show_stroke'], true], ['coalesce', ['get', 'stroke_width'], 4], 0] as any,
+        'circle-stroke-opacity': ['coalesce', ['get', 'stroke_opacity'], 1.0] as any,
       },
     });
   }
@@ -184,11 +185,12 @@ export function addLayersToMap(map: mapboxgl.Map, markerConfig: Record<string, M
       type: 'circle',
       source: SRC_POIS,
       paint: {
-        'circle-radius': 14,
-        'circle-color': ['get', 'color'],
-        'circle-stroke-width': 3,
-        'circle-stroke-color': '#ffffff',
-        'circle-opacity': ['case', ['boolean', ['get', 'show_circle'], true], 0.95, 0],
+        'circle-radius': ['coalesce', ['get', 'circle_radius'], 14] as any,
+        'circle-color': ['coalesce', ['get', 'fill_color'], ['get', 'color']] as any,
+        'circle-opacity': ['case', ['boolean', ['get', 'show_fill'], true], ['coalesce', ['get', 'fill_opacity'], 0.95], 0] as any,
+        'circle-stroke-color': ['coalesce', ['get', 'stroke_color'], '#ffffff'] as any,
+        'circle-stroke-width': ['case', ['boolean', ['get', 'show_stroke'], true], ['coalesce', ['get', 'stroke_width'], 3], 0] as any,
+        'circle-stroke-opacity': ['coalesce', ['get', 'stroke_opacity'], 1.0] as any,
       },
     });
   }
@@ -206,10 +208,10 @@ export function addLayersToMap(map: mapboxgl.Map, markerConfig: Record<string, M
           source: SRC_POIS,
           filter: ['==', ['get', 'poi_type'], 'takeoff'],
           layout: iconImageId
-            ? { 'icon-image': iconImageId, 'icon-size': 1, 'icon-allow-overlap': true, 'icon-ignore-placement': true }
+            ? { 'icon-image': iconImageId, 'icon-size': ['coalesce', ['get', 'icon_size'], 1.0] as any, 'icon-allow-overlap': true, 'icon-ignore-placement': true }
             : { 'text-field': result.fallbackChar || 'T', 'text-size': 13, 'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'], 'text-allow-overlap': true, 'text-ignore-placement': true },
           paint: iconImageId
-            ? { 'icon-color': ['coalesce', ['get', 'icon_color'], '#FFFFFF'] }
+            ? { 'icon-color': ['coalesce', ['get', 'icon_color'], '#FFFFFF'] as any, 'icon-opacity': ['case', ['boolean', ['get', 'show_icon'], true], ['coalesce', ['get', 'icon_opacity'], 1.0], 0] as any }
             : { 'text-color': '#ffffff', 'text-halo-color': 'rgba(0,0,0,0.3)', 'text-halo-width': 1 },
         });
       }
@@ -229,10 +231,10 @@ export function addLayersToMap(map: mapboxgl.Map, markerConfig: Record<string, M
           source: SRC_POIS,
           filter: ['==', ['get', 'poi_type'], 'landing'],
           layout: iconImageId
-            ? { 'icon-image': iconImageId, 'icon-size': 1, 'icon-allow-overlap': true, 'icon-ignore-placement': true }
+            ? { 'icon-image': iconImageId, 'icon-size': ['coalesce', ['get', 'icon_size'], 1.0] as any, 'icon-allow-overlap': true, 'icon-ignore-placement': true }
             : { 'text-field': result.fallbackChar || 'L', 'text-size': 13, 'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'], 'text-allow-overlap': true, 'text-ignore-placement': true },
           paint: iconImageId
-            ? { 'icon-color': ['coalesce', ['get', 'icon_color'], '#FFFFFF'] }
+            ? { 'icon-color': ['coalesce', ['get', 'icon_color'], '#FFFFFF'] as any, 'icon-opacity': ['case', ['boolean', ['get', 'show_icon'], true], ['coalesce', ['get', 'icon_opacity'], 1.0], 0] as any }
             : { 'text-color': '#ffffff', 'text-halo-color': 'rgba(0,0,0,0.3)', 'text-halo-width': 1 },
         });
       }
@@ -252,10 +254,10 @@ export function addLayersToMap(map: mapboxgl.Map, markerConfig: Record<string, M
           source: SRC_SHUTTLES,
           filter: ['==', ['get', 'shuttle_role'], 'departure'],
           layout: iconImageId
-            ? { 'icon-image': iconImageId, 'icon-size': 1, 'icon-allow-overlap': true, 'icon-ignore-placement': true }
+            ? { 'icon-image': iconImageId, 'icon-size': ['coalesce', ['get', 'icon_size'], 1.0] as any, 'icon-allow-overlap': true, 'icon-ignore-placement': true }
             : { 'text-field': result.fallbackChar || 'N', 'text-size': 12, 'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'], 'text-allow-overlap': true, 'text-ignore-placement': true },
           paint: iconImageId
-            ? { 'icon-color': ['coalesce', ['get', 'icon_color'], '#FFFFFF'] }
+            ? { 'icon-color': ['coalesce', ['get', 'icon_color'], '#FFFFFF'] as any, 'icon-opacity': ['case', ['boolean', ['get', 'show_icon'], true], ['coalesce', ['get', 'icon_opacity'], 1.0], 0] as any }
             : { 'text-color': '#ffffff', 'text-halo-color': 'rgba(0,0,0,0.3)', 'text-halo-width': 1 },
         });
       }
@@ -275,10 +277,10 @@ export function addLayersToMap(map: mapboxgl.Map, markerConfig: Record<string, M
           source: SRC_SHUTTLES,
           filter: ['==', ['get', 'shuttle_role'], 'arrival'],
           layout: iconImageId
-            ? { 'icon-image': iconImageId, 'icon-size': 1, 'icon-allow-overlap': true, 'icon-ignore-placement': true }
+            ? { 'icon-image': iconImageId, 'icon-size': ['coalesce', ['get', 'icon_size'], 1.0] as any, 'icon-allow-overlap': true, 'icon-ignore-placement': true }
             : { 'text-field': result.fallbackChar || 'N', 'text-size': 12, 'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'], 'text-allow-overlap': true, 'text-ignore-placement': true },
           paint: iconImageId
-            ? { 'icon-color': ['coalesce', ['get', 'icon_color'], '#FFFFFF'] }
+            ? { 'icon-color': ['coalesce', ['get', 'icon_color'], '#FFFFFF'] as any, 'icon-opacity': ['case', ['boolean', ['get', 'show_icon'], true], ['coalesce', ['get', 'icon_opacity'], 1.0], 0] as any }
             : { 'text-color': '#ffffff', 'text-halo-color': 'rgba(0,0,0,0.3)', 'text-halo-width': 1 },
         });
       }
