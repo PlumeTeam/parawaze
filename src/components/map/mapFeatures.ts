@@ -382,6 +382,7 @@ export function buildGeoSphereFeatures(stations: GeoSphereStation[]): GeoJSON.Fe
       windDirection: s.windDirection,
       temperature: s.temperature,
       timestamp: s.timestamp,
+      station_provider: 'geosphere',
       wind_arrow_angle:
         s.windDirection != null && s.windAvg != null
           ? (s.windDirection + 180 - 90 + 360) % 360
@@ -427,6 +428,7 @@ export function buildBrightSkyFeatures(stations: BrightSkyStation[]): GeoJSON.Fe
       timestamp: s.timestamp,
       lat: s.lat,
       lon: s.lon,
+      station_provider: 'brightsky',
       wind_arrow_angle:
         s.wind_direction_deg != null
           ? (s.wind_direction_deg + 180 - 90 + 360) % 360

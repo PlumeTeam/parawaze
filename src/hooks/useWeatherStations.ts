@@ -24,12 +24,12 @@ export interface UseWeatherStationsReturn {
 /**
  * Consolidated weather stations hook combining Pioupiou, FFVL, Winds.mobi, GeoSphere, and BrightSky
  */
-export function useWeatherStations(): UseWeatherStationsReturn {
-  const pioupiou = usePioupiou();
-  const ffvl = useFFVL();
-  const windsMobi = useWindsMobi();
-  const geoSphere = useGeoSphere();
-  const brightSky = useBrightSky();
+export function useWeatherStations({ enabled = true }: { enabled?: boolean } = {}): UseWeatherStationsReturn {
+  const pioupiou = usePioupiou({ enabled });
+  const ffvl = useFFVL({ enabled });
+  const windsMobi = useWindsMobi({ enabled });
+  const geoSphere = useGeoSphere({ enabled });
+  const brightSky = useBrightSky({ enabled });
 
   const loading = pioupiou.loading || ffvl.loading || windsMobi.loading || geoSphere.loading || brightSky.loading;
   const error = pioupiou.error || ffvl.error || windsMobi.error || geoSphere.error || brightSky.error;

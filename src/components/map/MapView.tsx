@@ -52,12 +52,6 @@ import {
   LYR_GEOSPHERE_ARROWS,
   LYR_GEOSPHERE_CLUSTERS,
   LYR_GEOSPHERE_CLUSTER_COUNT,
-  SRC_BRIGHTSKY,
-  LYR_BRIGHTSKY_CIRCLES,
-  LYR_BRIGHTSKY_LABELS,
-  LYR_BRIGHTSKY_ARROWS,
-  LYR_BRIGHTSKY_CLUSTERS,
-  LYR_BRIGHTSKY_CLUSTER_COUNT,
   SRC_MEETUPS,
   LYR_MEETUP_CIRCLES,
   LYR_MEETUP_LABELS,
@@ -84,7 +78,6 @@ import {
   buildWindsMobiFeatures,
   getGeoSphereColor,
   buildGeoSphereFeatures,
-  getBrightSkyColor,
   buildBrightSkyFeatures,
   buildStoryFeatures,
   buildObservationFeatures,
@@ -182,7 +175,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   geoSphereRef.current = geoSphereStations;
   const brightSkyRef = useRef<BrightSkyStation[]>(brightSkyStations);
   brightSkyRef.current = brightSkyStations;
-  const storyMarkersRef = useRef<mapboxgl.Marker[]>([]);
   const storiesRef = useRef<Story[]>(stories);
   storiesRef.current = stories;
   const onStoryClickRef = useRef(onStoryClick);
@@ -221,9 +213,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       if (!mapRef.current || !mbRef.current) return;
       const map = mapRef.current;
       const mb = mbRef.current;
-
-      // DEBUG: Log incoming click coordinates
-      console.log('[ParaWaze DEBUG] Map click received - lng:', lngLat.lng, 'lat:', lngLat.lat);
 
       const pos: MarkerPosition = { lat: lngLat.lat, lng: lngLat.lng, alt: null };
       markerPositionRef.current = pos;
@@ -290,7 +279,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       { circles: LYR_FFVL_CIRCLES, labels: LYR_FFVL_LABELS, arrows: LYR_FFVL_ARROWS, clusters: LYR_FFVL_CLUSTERS, clusterCount: LYR_FFVL_CLUSTER_COUNT },
       { circles: LYR_WINDS_MOBI_CIRCLES, labels: LYR_WINDS_MOBI_LABELS, arrows: LYR_WINDS_MOBI_ARROWS, clusters: LYR_WINDS_MOBI_CLUSTERS, clusterCount: LYR_WINDS_MOBI_CLUSTER_COUNT },
       { circles: LYR_GEOSPHERE_CIRCLES, labels: LYR_GEOSPHERE_LABELS, arrows: LYR_GEOSPHERE_ARROWS, clusters: LYR_GEOSPHERE_CLUSTERS, clusterCount: LYR_GEOSPHERE_CLUSTER_COUNT },
-      { circles: LYR_BRIGHTSKY_CIRCLES, labels: LYR_BRIGHTSKY_LABELS, arrows: LYR_BRIGHTSKY_ARROWS, clusters: LYR_BRIGHTSKY_CLUSTERS, clusterCount: LYR_BRIGHTSKY_CLUSTER_COUNT },
     ];
 
     stationLayers.forEach(({ circles, labels, arrows, clusters, clusterCount }) => {
@@ -386,8 +374,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           updatePioupiouSource(map, pioupiouRef.current);
           updateFFVLSource(map, ffvlRef.current);
           updateWindsMobiSource(map, windsMobiRef.current);
-          updateGeoSphereSource(map, geoSphereRef.current);
-          updateBrightSkySource(map, brightSkyRef.current);
+          updateGeoSphereSource(map, geoSphereRef.current, brightSkyRef.current);
           updateMeetupSource(map, meetupsRef.current);
           // Apply day filter styling
           applyDayFilter(map);
@@ -410,8 +397,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           updatePioupiouSource(map, pioupiouRef.current);
           updateFFVLSource(map, ffvlRef.current);
           updateWindsMobiSource(map, windsMobiRef.current);
-          updateGeoSphereSource(map, geoSphereRef.current);
-          updateBrightSkySource(map, brightSkyRef.current);
+          updateGeoSphereSource(map, geoSphereRef.current, brightSkyRef.current);
           updateMeetupSource(map, meetupsRef.current);
           // Apply day filter styling
           applyDayFilter(map);
@@ -437,7 +423,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         map.on('click', (e) => {
           // Check if the click was on one of our layers
           const layerFeatures = map.queryRenderedFeatures(e.point, {
-            layers: [LYR_OBS_CIRCLES, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS, LYR_POI_CIRCLES, LYR_PIOUPIOU_CIRCLES, LYR_PIOUPIOU_CLUSTERS, LYR_FFVL_CIRCLES, LYR_FFVL_CLUSTERS, LYR_WINDS_MOBI_CIRCLES, LYR_WINDS_MOBI_CLUSTERS, LYR_GEOSPHERE_CIRCLES, LYR_GEOSPHERE_CLUSTERS, LYR_BRIGHTSKY_CIRCLES, LYR_BRIGHTSKY_CLUSTERS, LYR_MEETUP_CIRCLES].filter(
+            layers: [LYR_OBS_CIRCLES, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS, LYR_POI_CIRCLES, LYR_PIOUPIOU_CIRCLES, LYR_PIOUPIOU_CLUSTERS, LYR_FFVL_CIRCLES, LYR_FFVL_CLUSTERS, LYR_WINDS_MOBI_CIRCLES, LYR_WINDS_MOBI_CLUSTERS, LYR_GEOSPHERE_CIRCLES, LYR_GEOSPHERE_CLUSTERS, LYR_MEETUP_CIRCLES].filter(
               (l) => !!map.getLayer(l),
             ),
           });
@@ -446,8 +432,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           const target = e.originalEvent.target as HTMLElement;
           if (target?.closest('.mapboxgl-marker')) return;
 
-          // DEBUG: Log raw Mapbox event before processing
-          console.log('[ParaWaze DEBUG] Mapbox click event - e.lngLat:', e.lngLat, 'e.lngLat.lng:', e.lngLat.lng, 'e.lngLat.lat:', e.lngLat.lat);
           placeMarker({ lng: e.lngLat.lng, lat: e.lngLat.lat });
         });
 
@@ -596,30 +580,10 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
             popupRef.current = null;
           }
 
-          const html = createGeoSpherePopupHTML(props, dayFilterRef.current === 'today');
-
-          const popup = new mb.Popup({ closeButton: true, maxWidth: '280px', offset: 12 })
-            .setLngLat(coords)
-            .setHTML(html)
-            .addTo(map);
-
-          popup.on('close', () => { popupRef.current = null; });
-          popupRef.current = popup;
-        });
-
-        // Bright Sky (DWD) click → show popup
-        map.on('click', LYR_BRIGHTSKY_CIRCLES, (e) => {
-          if (!e.features || !e.features[0]) return;
-          const props = e.features[0].properties;
-          if (!props) return;
-          const coords = (e.features[0].geometry as any).coordinates.slice() as [number, number];
-
-          if (popupRef.current) {
-            popupRef.current.remove();
-            popupRef.current = null;
-          }
-
-          const html = createBrightSkyPopupHTML(props, dayFilterRef.current === 'today');
+          const isToday = dayFilterRef.current === 'today';
+          const html = props.station_provider === 'brightsky'
+            ? createBrightSkyPopupHTML(props, isToday)
+            : createGeoSpherePopupHTML(props, isToday);
 
           const popup = new mb.Popup({ closeButton: true, maxWidth: '280px', offset: 12 })
             .setLngLat(coords)
@@ -636,7 +600,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           { layerId: LYR_FFVL_CLUSTERS, sourceId: SRC_FFVL },
           { layerId: LYR_WINDS_MOBI_CLUSTERS, sourceId: SRC_WINDS_MOBI },
           { layerId: LYR_GEOSPHERE_CLUSTERS, sourceId: SRC_GEOSPHERE },
-          { layerId: LYR_BRIGHTSKY_CLUSTERS, sourceId: SRC_BRIGHTSKY },
         ];
         stationClusters.forEach(({ layerId, sourceId }) => {
           map.on('click', layerId, (e) => {
@@ -707,7 +670,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
         });
 
         // Pointer cursor on interactive layers
-        const interactiveLayers = [LYR_OBS_CIRCLES, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS, LYR_POI_CIRCLES, LYR_POI_LABELS, LYR_PIOUPIOU_CIRCLES, LYR_PIOUPIOU_CLUSTERS, LYR_PIOUPIOU_LABELS, LYR_FFVL_CIRCLES, LYR_FFVL_CLUSTERS, LYR_FFVL_LABELS, LYR_WINDS_MOBI_CIRCLES, LYR_WINDS_MOBI_CLUSTERS, LYR_WINDS_MOBI_LABELS, LYR_GEOSPHERE_CIRCLES, LYR_GEOSPHERE_CLUSTERS, LYR_GEOSPHERE_LABELS, LYR_BRIGHTSKY_CIRCLES, LYR_BRIGHTSKY_CLUSTERS, LYR_BRIGHTSKY_LABELS, LYR_MEETUP_CIRCLES, LYR_MEETUP_LABELS, LYR_STORIES_CIRCLES, LYR_STORIES_CLUSTERS, LYR_OBSERVATIONS_CIRCLES, 'parawaze-shuttle-label', 'parawaze-forecast-label'];
+        const interactiveLayers = [LYR_OBS_CIRCLES, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS, LYR_POI_CIRCLES, LYR_POI_LABELS, LYR_PIOUPIOU_CIRCLES, LYR_PIOUPIOU_CLUSTERS, LYR_PIOUPIOU_LABELS, LYR_FFVL_CIRCLES, LYR_FFVL_CLUSTERS, LYR_FFVL_LABELS, LYR_WINDS_MOBI_CIRCLES, LYR_WINDS_MOBI_CLUSTERS, LYR_WINDS_MOBI_LABELS, LYR_GEOSPHERE_CIRCLES, LYR_GEOSPHERE_CLUSTERS, LYR_GEOSPHERE_LABELS, LYR_MEETUP_CIRCLES, LYR_MEETUP_LABELS, LYR_STORIES_CIRCLES, LYR_STORIES_CLUSTERS, LYR_OBSERVATIONS_CIRCLES, 'parawaze-shuttle-label', 'parawaze-forecast-label'];
         interactiveLayers.forEach((layerId) => {
           map.on('mouseenter', layerId, () => { map.getCanvas().style.cursor = 'pointer'; });
           map.on('mouseleave', layerId, () => { map.getCanvas().style.cursor = ''; });
@@ -744,10 +707,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     const kept: GeoJSON.Feature[] = [];
     for (const f of sorted) {
       const [lng, lat] = (f.geometry as any).coordinates;
-      // DEBUG: Log first deduped observation
-      if (kept.length === 0) {
-        console.log('[ParaWaze DEBUG] First observation after dedup - lng:', lng, 'lat:', lat, 'location_name:', f.properties?.location_name);
-      }
       const tooClose = kept.some(k => {
         const [klng, klat] = (k.geometry as any).coordinates;
         return Math.abs(lng - klng) < 0.002 && Math.abs(lat - klat) < 0.002;
@@ -782,12 +741,9 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
 
   function updateShuttleSource(map: mapboxgl.Map, sht: Shuttle[]) {
     const features = buildShuttleFeatures(sht, markerConfigRef.current);
-    console.log('[ParaWaze] updateShuttleSource:', features.length, 'features, source exists:', !!map.getSource(SRC_SHUTTLES));
     const src = map.getSource(SRC_SHUTTLES) as mapboxgl.GeoJSONSource | undefined;
     if (src) {
       src.setData({ type: 'FeatureCollection', features });
-    } else {
-      console.warn('[ParaWaze] shuttle source not found!');
     }
   }
 
@@ -831,25 +787,18 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     }
   }
 
-  function updateGeoSphereSource(map: mapboxgl.Map, stns: GeoSphereStation[]) {
+  function updateGeoSphereSource(map: mapboxgl.Map, geoStns: GeoSphereStation[], bsStns: BrightSkyStation[]) {
     try {
       const src = map.getSource(SRC_GEOSPHERE) as mapboxgl.GeoJSONSource | undefined;
       if (src) {
-        src.setData({ type: 'FeatureCollection', features: buildGeoSphereFeatures(stns) });
+        const features = [
+          ...buildGeoSphereFeatures(geoStns),
+          ...buildBrightSkyFeatures(bsStns),
+        ];
+        src.setData({ type: 'FeatureCollection', features });
       }
     } catch (e) {
-      console.error('[ParaWaze] Failed to update GeoSphere source:', e);
-    }
-  }
-
-  function updateBrightSkySource(map: mapboxgl.Map, stns: BrightSkyStation[]) {
-    try {
-      const src = map.getSource(SRC_BRIGHTSKY) as mapboxgl.GeoJSONSource | undefined;
-      if (src) {
-        src.setData({ type: 'FeatureCollection', features: buildBrightSkyFeatures(stns) });
-      }
-    } catch (e) {
-      console.error('[ParaWaze] Failed to update BrightSky source:', e);
+      console.error('[ParaWaze] Failed to update national weather station source:', e);
     }
   }
 
@@ -1003,13 +952,13 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     }
   }, [windsMobiStations]);
 
-  // Update GeoSphere Austria data — always visible regardless of day
+  // Update national weather stations (GeoSphere + BrightSky merged) — always visible
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
     const doUpdate = () => {
       if (map.getSource(SRC_GEOSPHERE)) {
-        updateGeoSphereSource(map, geoSphereStations);
+        updateGeoSphereSource(map, geoSphereStations, brightSkyStations);
       }
     };
     if (map.isStyleLoaded()) {
@@ -1017,23 +966,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     } else {
       map.once('idle', doUpdate);
     }
-  }, [geoSphereStations]);
-
-  // Update Bright Sky (DWD) data — always visible regardless of day
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-    const doUpdate = () => {
-      if (map.getSource(SRC_BRIGHTSKY)) {
-        updateBrightSkySource(map, brightSkyStations);
-      }
-    };
-    if (map.isStyleLoaded()) {
-      doUpdate();
-    } else {
-      map.once('idle', doUpdate);
-    }
-  }, [brightSkyStations]);
+  }, [geoSphereStations, brightSkyStations]);
 
   // Update meetup markers
   useEffect(() => {
@@ -1054,22 +987,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   /* ---------------------------------------------------------------- */
   /*  Update stories GeoJSON source (clustering)                       */
   /* ---------------------------------------------------------------- */
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-    const doUpdate = () => {
-      if (map.getSource(SRC_STORIES)) {
-        updateStoriesSource(map, stories);
-      }
-    };
-    if (map.isStyleLoaded()) {
-      doUpdate();
-    } else {
-      map.once('idle', doUpdate);
-    }
-  }, [stories]); // Only update when stories array changes
-
-  // Update mixed source (stories + observations clustering) when stories change
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -1225,7 +1142,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       (error) => {
         console.debug('GPS watchPosition error:', error?.code, error?.message);
       },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 },
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 10000 },
     );
 
     gpsWatchIdRef.current = watchId;

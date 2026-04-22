@@ -24,7 +24,7 @@ export interface WindsMobiStation {
  * (Switzerland, Austria, Germany, Italy, Slovenia). Excludes Pioupiou and FFVL
  * stations which have their own dedicated integrations.
  */
-export function useWindsMobi() {
+export function useWindsMobi({ enabled = true }: { enabled?: boolean } = {}) {
   const [stations, setStations] = useState<WindsMobiStation[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -69,12 +69,12 @@ export function useWindsMobi() {
     }
   }, []);
 
-  // Auto-fetch on mount and refresh every 5 minutes
   useEffect(() => {
+    if (!enabled) return;
     fetchStations();
     const interval = setInterval(fetchStations, 5 * 60 * 1000);
     return () => clearInterval(interval);
-  }, [fetchStations]);
+  }, [fetchStations, enabled]);
 
   return { stations, loading, error, fetchStations };
 }

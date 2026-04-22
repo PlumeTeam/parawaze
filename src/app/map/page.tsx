@@ -19,6 +19,7 @@ import StoryViewer from '@/components/stories/StoryViewer';
 import ObservationViewer from '@/components/observations/ObservationViewer';
 import type { WeatherReport, Shuttle, Poi, Story, Meetup } from '@/lib/types';
 import type { MapViewHandle } from '@/components/map/MapView';
+import { MapErrorBoundary } from '@/components/map/MapErrorBoundary';
 
 // Dynamic import MapView to avoid SSR issues with mapbox-gl
 const MapView = dynamic(() => import('@/components/map/MapView'), {
@@ -43,7 +44,8 @@ export default function MapPage() {
   const { stories, fetchStories } = useStories();
   const { pois, fetchPois } = usePois();
   const { meetups } = useMeetups();
-  const { stations: weatherStations } = useWeatherStations();
+  const [stationsEnabled, setStationsEnabled] = useState(false);
+  const { stations: weatherStations } = useWeatherStations({ enabled: stationsEnabled });
   const { getConfigsAsMap } = useMarkerConfig();
   const pioupiouStations = weatherStations.pioupiou;
   const ffvlStations = weatherStations.ffvl;
@@ -51,6 +53,7 @@ export default function MapPage() {
   const geoSphereStations = weatherStations.geoSphere;
   const brightSkyStations = weatherStations.brightSky;
   const [stationsReady, setStationsReady] = useState(false);
+
   const [selectedObservations, setSelectedObservations] = useState<WeatherReport[]>([]);
   const [selectedDay, setSelectedDay] = useState<DayFilter>('today');
   const [toast, setToast] = useState<string | null>(null);
@@ -98,9 +101,12 @@ export default function MapPage() {
     };
   }, [selectedDay, fetchStories, fetchReportsByDay]);
 
-  // Defer weather station data by 2s so map loads first
+  // Defer weather station API calls by 5s so map tiles + core data load first
   useEffect(() => {
-    const t = setTimeout(() => setStationsReady(true), 2000);
+    const t = setTimeout(() => {
+      setStationsEnabled(true);
+      setStationsReady(true);
+    }, 5000);
     return () => clearTimeout(t);
   }, []);
 
@@ -229,6 +235,7 @@ export default function MapPage() {
           ))}
         </div>
 
+        <MapErrorBoundary>
         <MapView
           ref={mapRef}
           dayFilter={selectedDay}
@@ -287,6 +294,7 @@ export default function MapPage() {
           enableAutocenter={true}
           onMapLoaded={() => setMapLoading(false)}
         />
+        </MapErrorBoundary>
 
         {/* Loading spinner overlay */}
         {mapLoading && (

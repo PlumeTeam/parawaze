@@ -17,7 +17,7 @@ export interface BrightSkyStation {
   timestamp: string | null;
 }
 
-export function useBrightSky() {
+export function useBrightSky({ enabled = true }: { enabled?: boolean } = {}) {
   const [stations, setStations] = useState<BrightSkyStation[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,10 +40,11 @@ export function useBrightSky() {
   }, []);
 
   useEffect(() => {
+    if (!enabled) return;
     fetchStations();
-    const interval = setInterval(fetchStations, 5 * 60 * 1000); // refresh every 5 min
+    const interval = setInterval(fetchStations, 5 * 60 * 1000);
     return () => clearInterval(interval);
-  }, [fetchStations]);
+  }, [fetchStations, enabled]);
 
   return { stations, loading, error, refetch: fetchStations };
 }

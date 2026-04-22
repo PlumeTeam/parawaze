@@ -12,8 +12,6 @@ import {
   LYR_WINDS_MOBI_CLUSTERS, LYR_WINDS_MOBI_CLUSTER_COUNT,
   SRC_GEOSPHERE, LYR_GEOSPHERE_CIRCLES, LYR_GEOSPHERE_LABELS, LYR_GEOSPHERE_ARROWS,
   LYR_GEOSPHERE_CLUSTERS, LYR_GEOSPHERE_CLUSTER_COUNT,
-  SRC_BRIGHTSKY, LYR_BRIGHTSKY_CIRCLES, LYR_BRIGHTSKY_LABELS, LYR_BRIGHTSKY_ARROWS,
-  LYR_BRIGHTSKY_CLUSTERS, LYR_BRIGHTSKY_CLUSTER_COUNT,
   SRC_MEETUPS, LYR_MEETUP_CIRCLES,
   SRC_STORIES, LYR_STORIES_CIRCLES, LYR_STORIES_CLUSTERS, LYR_STORIES_CLUSTER_COUNT,
   SRC_OBSERVATIONS, LYR_OBSERVATIONS_CIRCLES,
@@ -313,6 +311,7 @@ export function addLayersToMap(map: mapboxgl.Map, markerConfig: Record<string, M
         id: LYR_PIOUPIOU_CLUSTERS,
         type: 'circle',
         source: SRC_PIOUPIOU,
+        minzoom: 5,
         filter: ['has', 'point_count'],
         paint: {
           'circle-radius': 18,
@@ -422,6 +421,7 @@ export function addLayersToMap(map: mapboxgl.Map, markerConfig: Record<string, M
         id: LYR_FFVL_CLUSTERS,
         type: 'circle',
         source: SRC_FFVL,
+        minzoom: 5,
         filter: ['has', 'point_count'],
         paint: {
           'circle-radius': 18,
@@ -531,6 +531,7 @@ export function addLayersToMap(map: mapboxgl.Map, markerConfig: Record<string, M
         id: LYR_WINDS_MOBI_CLUSTERS,
         type: 'circle',
         source: SRC_WINDS_MOBI,
+        minzoom: 5,
         filter: ['has', 'point_count'],
         paint: {
           'circle-radius': 18,
@@ -623,20 +624,10 @@ export function addLayersToMap(map: mapboxgl.Map, markerConfig: Record<string, M
     console.error('[ParaWaze] Failed to add Winds Mobi source/layers:', e);
   }
 
-  // --- GeoSphere Austria + Bright Sky sources ---
+  // --- National weather stations (GeoSphere Austria + Bright Sky/DWD merged into one source) ---
   try {
     if (!map.getSource(SRC_GEOSPHERE)) {
       map.addSource(SRC_GEOSPHERE, {
-        type: 'geojson',
-        data: { type: 'FeatureCollection', features: [] },
-        cluster: true,
-        clusterMaxZoom: 12,
-        clusterRadius: 50,
-      });
-    }
-
-    if (!map.getSource(SRC_BRIGHTSKY)) {
-      map.addSource(SRC_BRIGHTSKY, {
         type: 'geojson',
         data: { type: 'FeatureCollection', features: [] },
         cluster: true,
@@ -650,6 +641,7 @@ export function addLayersToMap(map: mapboxgl.Map, markerConfig: Record<string, M
         id: LYR_GEOSPHERE_CLUSTERS,
         type: 'circle',
         source: SRC_GEOSPHERE,
+        minzoom: 5,
         filter: ['has', 'point_count'],
         paint: {
           'circle-radius': 18,
@@ -666,38 +658,7 @@ export function addLayersToMap(map: mapboxgl.Map, markerConfig: Record<string, M
         id: LYR_GEOSPHERE_CLUSTER_COUNT,
         type: 'symbol',
         source: SRC_GEOSPHERE,
-        filter: ['has', 'point_count'],
-        layout: {
-          'text-field': '{point_count_abbreviated}',
-          'text-size': 12,
-          'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'],
-          'text-allow-overlap': true,
-        },
-        paint: { 'text-color': '#ffffff' },
-      });
-    }
-
-    if (!map.getLayer(LYR_BRIGHTSKY_CLUSTERS)) {
-      map.addLayer({
-        id: LYR_BRIGHTSKY_CLUSTERS,
-        type: 'circle',
-        source: SRC_BRIGHTSKY,
-        filter: ['has', 'point_count'],
-        paint: {
-          'circle-radius': 18,
-          'circle-color': '#64748b',
-          'circle-stroke-width': 2,
-          'circle-stroke-color': '#ffffff',
-          'circle-opacity': 0.85,
-        },
-      });
-    }
-
-    if (!map.getLayer(LYR_BRIGHTSKY_CLUSTER_COUNT)) {
-      map.addLayer({
-        id: LYR_BRIGHTSKY_CLUSTER_COUNT,
-        type: 'symbol',
-        source: SRC_BRIGHTSKY,
+        minzoom: 5,
         filter: ['has', 'point_count'],
         layout: {
           'text-field': '{point_count_abbreviated}',
@@ -714,22 +675,7 @@ export function addLayersToMap(map: mapboxgl.Map, markerConfig: Record<string, M
         id: LYR_GEOSPHERE_CIRCLES,
         type: 'circle',
         source: SRC_GEOSPHERE,
-        filter: ['!', ['has', 'point_count']],
-        paint: {
-          'circle-radius': 12,
-          'circle-color': ['get', 'color'],
-          'circle-stroke-width': 2,
-          'circle-stroke-color': '#ffffff',
-          'circle-opacity': 0.9,
-        },
-      });
-    }
-
-    if (!map.getLayer(LYR_BRIGHTSKY_CIRCLES)) {
-      map.addLayer({
-        id: LYR_BRIGHTSKY_CIRCLES,
-        type: 'circle',
-        source: SRC_BRIGHTSKY,
+        minzoom: 5,
         filter: ['!', ['has', 'point_count']],
         paint: {
           'circle-radius': 12,
@@ -746,29 +692,6 @@ export function addLayersToMap(map: mapboxgl.Map, markerConfig: Record<string, M
         id: LYR_GEOSPHERE_LABELS,
         type: 'symbol',
         source: SRC_GEOSPHERE,
-        minzoom: 9,
-        filter: ['all', ['!', ['has', 'point_count']], ['!=', ['get', 'windLabel'], '']],
-        layout: {
-          'text-field': ['get', 'windLabel'],
-          'text-size': 11,
-          'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'],
-          'text-offset': [1.2, 0],
-          'text-anchor': 'left',
-          'text-allow-overlap': false,
-        },
-        paint: {
-          'text-color': ['get', 'color'],
-          'text-halo-color': '#ffffff',
-          'text-halo-width': 1.5,
-        },
-      });
-    }
-
-    if (!map.getLayer(LYR_BRIGHTSKY_LABELS)) {
-      map.addLayer({
-        id: LYR_BRIGHTSKY_LABELS,
-        type: 'symbol',
-        source: SRC_BRIGHTSKY,
         minzoom: 9,
         filter: ['all', ['!', ['has', 'point_count']], ['!=', ['get', 'windLabel'], '']],
         layout: {
@@ -809,31 +732,8 @@ export function addLayersToMap(map: mapboxgl.Map, markerConfig: Record<string, M
         },
       });
     }
-
-    if (!map.getLayer(LYR_BRIGHTSKY_ARROWS)) {
-      map.addLayer({
-        id: LYR_BRIGHTSKY_ARROWS,
-        type: 'symbol',
-        source: SRC_BRIGHTSKY,
-        minzoom: 9,
-        filter: ['all', ['!', ['has', 'point_count']], ['!=', ['get', 'wind_arrow_angle'], -1]],
-        layout: {
-          'text-field': '➤',
-          'text-size': 15,
-          'text-rotate': ['get', 'wind_arrow_angle'],
-          'text-allow-overlap': true,
-          'text-ignore-placement': true,
-          'text-rotation-alignment': 'map',
-        },
-        paint: {
-          'text-color': '#ffffff',
-          'text-halo-color': 'rgba(0,0,0,0.3)',
-          'text-halo-width': 0.5,
-        },
-      });
-    }
   } catch (e) {
-    console.error('[ParaWaze] Failed to add GeoSphere/BrightSky source/layers:', e);
+    console.error('[ParaWaze] Failed to add national weather station source/layers:', e);
   }
 
   // --- Meetups source ---
