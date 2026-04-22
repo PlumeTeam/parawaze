@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname, useRouter } from 'next/navigation';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, forwardRef } from 'react';
 
 interface BottomNavProps {
   /** When provided, the "Observation" button calls this instead of navigating directly */
@@ -10,7 +10,7 @@ interface BottomNavProps {
   onCameraOpen?: () => void;
 }
 
-export default function BottomNav({ onCreateReport, onCameraOpen }: BottomNavProps) {
+const BottomNav = forwardRef<HTMLElement, BottomNavProps>(function BottomNav({ onCreateReport, onCameraOpen }, ref) {
   const pathname = usePathname();
   const router = useRouter();
   const [communauteMenuOpen, setCommunauteMenuOpen] = useState(false);
@@ -48,6 +48,7 @@ export default function BottomNav({ onCreateReport, onCameraOpen }: BottomNavPro
 
   return (
     <nav
+      ref={ref as React.RefObject<HTMLElement>}
       className="fixed bottom-0 left-0 right-0 z-50 bg-white safe-area-bottom"
       style={{ borderTop: '1px solid #F3F4F6' }}
     >
@@ -327,4 +328,6 @@ export default function BottomNav({ onCreateReport, onCameraOpen }: BottomNavPro
       </div>
     </nav>
   );
-}
+});
+
+export default BottomNav;

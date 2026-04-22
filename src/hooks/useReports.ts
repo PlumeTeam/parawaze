@@ -63,7 +63,8 @@ export function useReports() {
         .order('created_at', { ascending: false })
         .limit(100);
 
-      const todayStr = todayStart.toISOString().split('T')[0];
+      // Build local date strings directly to avoid UTC offset skewing the date
+      const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
       if (day === 'yesterday') {
         // Only observations/image_shares from yesterday — NEVER forecasts
@@ -83,7 +84,7 @@ export function useReports() {
           );
       } else {
         // Tomorrow: ONLY forecasts with forecast_date = tomorrow
-        const tomorrowStr = tomorrowStart.toISOString().split('T')[0];
+        const tomorrowStr = `${tomorrowStart.getFullYear()}-${String(tomorrowStart.getMonth() + 1).padStart(2, '0')}-${String(tomorrowStart.getDate()).padStart(2, '0')}`;
         query = query
           .eq('report_type', 'forecast')
           .eq('forecast_date', tomorrowStr)
@@ -334,10 +335,6 @@ export function useReports() {
     if (error) throw error;
     return data || [];
   }, []);
-
-  useEffect(() => {
-    fetchReports();
-  }, [fetchReports]);
 
   return {
     reports,
