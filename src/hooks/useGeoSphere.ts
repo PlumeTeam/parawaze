@@ -27,7 +27,7 @@ export interface GeoSphereStation {
  * 271+ official Austrian weather stations, updated every 10 minutes.
  * Open data (CC BY 4.0), no authentication required.
  */
-export function useGeoSphere() {
+export function useGeoSphere(enabled = true) {
   const [stations, setStations] = useState<GeoSphereStation[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,12 +52,12 @@ export function useGeoSphere() {
     }
   }, []);
 
-  // Auto-fetch on mount and refresh every 5 minutes
   useEffect(() => {
+    if (!enabled) return;
     fetchStations();
     const interval = setInterval(fetchStations, 5 * 60 * 1000);
     return () => clearInterval(interval);
-  }, [fetchStations]);
+  }, [fetchStations, enabled]);
 
   return { stations, loading, error, fetchStations };
 }

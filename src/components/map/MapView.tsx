@@ -222,9 +222,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       const map = mapRef.current;
       const mb = mbRef.current;
 
-      // DEBUG: Log incoming click coordinates
-      console.log('[ParaWaze DEBUG] Map click received - lng:', lngLat.lng, 'lat:', lngLat.lat);
-
       const pos: MarkerPosition = { lat: lngLat.lat, lng: lngLat.lng, alt: null };
       markerPositionRef.current = pos;
       setMarkerInfo(pos);
@@ -446,8 +443,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           const target = e.originalEvent.target as HTMLElement;
           if (target?.closest('.mapboxgl-marker')) return;
 
-          // DEBUG: Log raw Mapbox event before processing
-          console.log('[ParaWaze DEBUG] Mapbox click event - e.lngLat:', e.lngLat, 'e.lngLat.lng:', e.lngLat.lng, 'e.lngLat.lat:', e.lngLat.lat);
           placeMarker({ lng: e.lngLat.lng, lat: e.lngLat.lat });
         });
 
@@ -734,7 +729,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   /* ---------------------------------------------------------------- */
 
   function deduplicateObservations(features: GeoJSON.Feature[]): GeoJSON.Feature[] {
-    // Sort newest first
     const sorted = [...features].sort((a, b) => {
       const ta = new Date(a.properties?.created_at || 0).getTime();
       const tb = new Date(b.properties?.created_at || 0).getTime();
@@ -744,10 +738,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     const kept: GeoJSON.Feature[] = [];
     for (const f of sorted) {
       const [lng, lat] = (f.geometry as any).coordinates;
-      // DEBUG: Log first deduped observation
-      if (kept.length === 0) {
-        console.log('[ParaWaze DEBUG] First observation after dedup - lng:', lng, 'lat:', lat, 'location_name:', f.properties?.location_name);
-      }
       const tooClose = kept.some(k => {
         const [klng, klat] = (k.geometry as any).coordinates;
         return Math.abs(lng - klng) < 0.002 && Math.abs(lat - klat) < 0.002;
@@ -782,12 +772,9 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
 
   function updateShuttleSource(map: mapboxgl.Map, sht: Shuttle[]) {
     const features = buildShuttleFeatures(sht, markerConfigRef.current);
-    console.log('[ParaWaze] updateShuttleSource:', features.length, 'features, source exists:', !!map.getSource(SRC_SHUTTLES));
     const src = map.getSource(SRC_SHUTTLES) as mapboxgl.GeoJSONSource | undefined;
     if (src) {
       src.setData({ type: 'FeatureCollection', features });
-    } else {
-      console.warn('[ParaWaze] shuttle source not found!');
     }
   }
 
@@ -1069,22 +1056,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
     }
   }, [stories]); // Only update when stories array changes
 
-  // Update mixed source (stories + observations clustering) when stories change
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-    const doUpdate = () => {
-      if (map.getSource(SRC_STORIES)) {
-        updateStoriesSource(map, stories);
-      }
-    };
-    if (map.isStyleLoaded()) {
-      doUpdate();
-    } else {
-      map.once('idle', doUpdate);
-    }
-  }, [stories]);
-
   // Apply day filter styling when dayFilter changes
   useEffect(() => {
     const map = mapRef.current;
@@ -1225,7 +1196,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       (error) => {
         console.debug('GPS watchPosition error:', error?.code, error?.message);
       },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 },
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 10000 },
     );
 
     gpsWatchIdRef.current = watchId;

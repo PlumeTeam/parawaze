@@ -24,7 +24,7 @@ export interface FFVLStation {
  * Hook to fetch live wind data from FFVL (Fédération Française de Vol Libre) stations.
  * Open data, no API key required.
  */
-export function useFFVL() {
+export function useFFVL(enabled = true) {
   const [stations, setStations] = useState<FFVLStation[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -72,12 +72,12 @@ export function useFFVL() {
     }
   }, []);
 
-  // Auto-fetch on mount and refresh every 5 minutes
   useEffect(() => {
+    if (!enabled) return;
     fetchStations();
     const interval = setInterval(fetchStations, 5 * 60 * 1000);
     return () => clearInterval(interval);
-  }, [fetchStations]);
+  }, [fetchStations, enabled]);
 
   return { stations, loading, error, fetchStations };
 }

@@ -19,7 +19,7 @@ export interface PioupiouStation {
  * Hook to fetch live wind data from all Pioupiou / OpenWindMap stations.
  * API is free, no key required, CORS enabled.
  */
-export function usePioupiou() {
+export function usePioupiou(enabled = true) {
   const [stations, setStations] = useState<PioupiouStation[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -62,12 +62,12 @@ export function usePioupiou() {
     }
   }, []);
 
-  // Auto-fetch on mount and refresh every 5 minutes
   useEffect(() => {
+    if (!enabled) return;
     fetchStations();
     const interval = setInterval(fetchStations, 5 * 60 * 1000);
     return () => clearInterval(interval);
-  }, [fetchStations]);
+  }, [fetchStations, enabled]);
 
   return { stations, loading, error, fetchStations };
 }

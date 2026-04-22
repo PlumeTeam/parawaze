@@ -439,10 +439,7 @@ export function buildBrightSkyFeatures(stations: BrightSkyStation[]): GeoJSON.Fe
 export function buildStoryFeatures(stories: Story[]): GeoJSON.Feature[] {
   return stories
     .filter((s) => s.location && s.location.coordinates && s.location.coordinates.length >= 2)
-    .map((s, idx) => {
-      if (idx === 0) {
-        console.log('[ParaWaze DEBUG] First story coordinates:', s.location!.coordinates, 'location_name:', s.location_name);
-      }
+    .map((s) => {
       return {
         type: 'Feature' as const,
         geometry: {
@@ -466,9 +463,6 @@ export function buildObservationFeatures(reports: WeatherReport[]): GeoJSON.Feat
         (r.report_type === 'observation' || r.report_type === 'image_share')
     )
     .map((r) => {
-      if (reports.length > 0 && reports.indexOf(r) === 0) {
-        console.log('[ParaWaze DEBUG] First observation coordinates:', r.location!.coordinates, 'location_name:', r.location_name);
-      }
       return {
         type: 'Feature' as const,
         geometry: {
