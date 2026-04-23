@@ -11,8 +11,8 @@ import { MAPBOX_TOKEN, MAP_STYLES } from '@/lib/mapbox';
 import type { Poi, PoiType, PoiEdit, PoiComment } from '@/lib/types';
 
 const POI_TYPE_CONFIG: Record<PoiType, { label: string; emoji: string; color: string; bgColor: string }> = {
-  official: { label: 'Site officiel', emoji: 'O', color: 'text-sky-600', bgColor: 'bg-sky-100' },
-  wild: { label: 'Site sauvage', emoji: 'S', color: 'text-green-600', bgColor: 'bg-green-100' },
+  official: { label: 'Site officiel', emoji: 'O', color: 'text-blue-600', bgColor: 'bg-blue-100' },
+  wild: { label: 'Site sauvage', emoji: 'S', color: 'text-orange-600', bgColor: 'bg-orange-100' },
 };
 
 const DIFFICULTY_LABELS: Record<string, { label: string; color: string }> = {
@@ -661,7 +661,6 @@ export default function PoiDetailPage() {
   }
 
   const config = POI_TYPE_CONFIG[poi.poi_type];
-  const isFlightSite = true;
   const coords = poi.location?.coordinates;
 
   return (
@@ -759,50 +758,46 @@ export default function PoiDetailPage() {
         </div>
 
         {/* Wind orientations (editable) */}
-        {isFlightSite && (
-          <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
-                <Wind className="h-4 w-4" />
-                Orientations favorables
-              </h3>
-              <InlineEditField
-                fieldName="wind_orientations"
-                label="Orientations vent"
-                currentValue={JSON.stringify(poi.wind_orientations)}
-                onSave={handleFieldEdit}
-              />
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {poi.wind_orientations.length > 0 ? poi.wind_orientations.map((dir) => (
-                <span key={dir} className="bg-sky-50 text-sky-700 px-2.5 py-1 rounded-full text-xs font-medium">
-                  {dir}
-                </span>
-              )) : (
-                <span className="text-xs text-gray-400 italic">Non renseign&eacute;</span>
-              )}
-            </div>
+        <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
+              <Wind className="h-4 w-4" />
+              Orientations favorables
+            </h3>
+            <InlineEditField
+              fieldName="wind_orientations"
+              label="Orientations vent"
+              currentValue={JSON.stringify(poi.wind_orientations)}
+              onSave={handleFieldEdit}
+            />
           </div>
-        )}
+          <div className="flex flex-wrap gap-2">
+            {poi.wind_orientations.length > 0 ? poi.wind_orientations.map((dir) => (
+              <span key={dir} className="bg-sky-50 text-sky-700 px-2.5 py-1 rounded-full text-xs font-medium">
+                {dir}
+              </span>
+            )) : (
+              <span className="text-xs text-gray-400 italic">Non renseign&eacute;</span>
+            )}
+          </div>
+        </div>
 
         {/* Difficulty (editable) */}
-        {isFlightSite && (
-          <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-semibold text-gray-700">Difficult&eacute;</h3>
-              <InlineEditField
-                fieldName="difficulty"
-                label="Difficult&eacute;"
-                currentValue={poi.difficulty || ''}
-                onSave={handleFieldEdit}
-                type="select"
-              />
-            </div>
-            <p className="text-sm text-gray-600">
-              {poi.difficulty ? (DIFFICULTY_LABELS[poi.difficulty]?.label || poi.difficulty) : <span className="italic text-gray-400">Non d&eacute;finie</span>}
-            </p>
+        <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-semibold text-gray-700">Difficult&eacute;</h3>
+            <InlineEditField
+              fieldName="difficulty"
+              label="Difficult&eacute;"
+              currentValue={poi.difficulty || ''}
+              onSave={handleFieldEdit}
+              type="select"
+            />
           </div>
-        )}
+          <p className="text-sm text-gray-600">
+            {poi.difficulty ? (DIFFICULTY_LABELS[poi.difficulty]?.label || poi.difficulty) : <span className="italic text-gray-400">Non d&eacute;finie</span>}
+          </p>
+        </div>
 
         {/* Rating / Voting */}
         <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">

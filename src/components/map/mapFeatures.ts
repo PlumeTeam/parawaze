@@ -161,12 +161,9 @@ export function buildPoiFeatures(pois: Poi[], config: Record<string, MarkerConfi
   return pois
     .filter((p) => p.location && p.location.coordinates && p.location.coordinates.length >= 2)
     .map((p) => {
-      const typeKey =
-        p.poi_type === 'official' ? 'site_official' :
-        p.poi_type === 'wild' ? 'site_wild' : null;
-      const cfg = typeKey ? config[typeKey] : null;
-      const fallbackColor =
-        p.poi_type === 'official' ? '#0ea5e9' : '#22c55e';
+      const typeKey = p.poi_type === 'official' ? 'site_official' : 'site_wild';
+      const cfg = config[typeKey] || null;
+      const fallbackColor = p.poi_type === 'official' ? '#3b82f6' : '#f97316';
       return {
         type: 'Feature' as const,
         geometry: { type: 'Point' as const, coordinates: p.location!.coordinates },
