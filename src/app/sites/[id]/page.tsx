@@ -661,14 +661,7 @@ export default function PoiDetailPage() {
   }
 
   const config = POI_TYPE_CONFIG[poi.poi_type];
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
   const isFlightSite = true;
-=======
-  const isFlightSite = poi.poi_type === 'official' || poi.poi_type === 'wild';
->>>>>>> 245ea70 (feat(sites): replace POI types takeoff/landing/weather_station/webcam with official/wild)
->>>>>>> 26e5e71 (feat(sites): replace POI types takeoff/landing/weather_station/webcam with official/wild)
   const coords = poi.location?.coordinates;
 
   return (
