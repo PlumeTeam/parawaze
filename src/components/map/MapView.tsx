@@ -111,7 +111,7 @@ export interface MapActions {
   locateMe: () => void;
 }
 
-interface MapViewProps {
+export interface MapViewProps {
   dayFilter?: 'yesterday' | 'today' | 'tomorrow';
   reports: WeatherReport[];
   shuttles?: Shuttle[];

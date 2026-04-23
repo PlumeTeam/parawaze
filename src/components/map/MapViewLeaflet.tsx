@@ -1,160 +1,304 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import type { WeatherReport, Shuttle, Poi } from '@/lib/types';
-import type { DayFilter } from '@/hooks/useReports';
+import 'leaflet/dist/leaflet.css';
+import { useEffect, useRef, useImperativeHandle, forwardRef } from 'react';
+import type L from 'leaflet';
+import { DEFAULT_CENTER, DEFAULT_ZOOM, flyabilityColor } from '@/lib/mapbox';
+import type { MapViewProps, MapViewHandle } from './MapView';
 
-export interface MapViewLeafletProps {
-  reports: WeatherReport[];
-  pois: Poi[];
-  shuttles: Shuttle[];
-  dayFilter: DayFilter;
-  onObservationsClick?: (observations: WeatherReport[]) => void;
-  onPoiClick?: (poi: Poi) => void;
-  onShuttleClick?: (shuttle: Shuttle) => void;
-  onMarkerPlaced?: (pos: { lat: number; lng: number; alt: number | null }) => void;
-  onMapLoaded?: () => void;
+type LType = typeof L;
+
+const TILE_LAYERS = [
+  {
+    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+  },
+  {
+    url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+    attribution: '© OpenTopoMap contributors',
+  },
+  {
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    attribution: '© Esri',
+  },
+];
+
+function makeCircleIcon(L: LType, color: string, size = 14): L.DivIcon {
+  return L.divIcon({
+    html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,.4)"></div>`,
+    className: '',
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+  });
 }
 
-function obsColor(report: WeatherReport): string {
-  const w = report.wind_speed_kmh;
-  if (w == null) return '#3B82F6';
-  if (w < 15) return '#22c55e';
-  if (w < 25) return '#84cc16';
-  if (w < 35) return '#eab308';
-  if (w < 45) return '#f97316';
-  return '#ef4444';
+function makeShuttleIcon(L: LType): L.DivIcon {
+  return L.divIcon({
+    html: `<div style="width:28px;height:28px;border-radius:6px;background:#f97316;display:flex;align-items:center;justify-content:center;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,.4);font-size:14px">🚗</div>`,
+    className: '',
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
+  });
 }
 
-export default function MapViewLeaflet({
-  reports,
-  pois,
-  shuttles,
-  onObservationsClick,
-  onPoiClick,
-  onShuttleClick,
-  onMarkerPlaced,
-  onMapLoaded,
-}: MapViewLeafletProps) {
+function makePoiIcon(L: LType): L.DivIcon {
+  return L.divIcon({
+    html: `<div style="width:28px;height:28px;border-radius:50%;background:#0ea5e9;display:flex;align-items:center;justify-content:center;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,.4);font-size:14px">🪂</div>`,
+    className: '',
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
+  });
+}
+
+function makeMeetupIcon(L: LType): L.DivIcon {
+  return L.divIcon({
+    html: `<div style="width:28px;height:28px;border-radius:50%;background:#8b5cf6;display:flex;align-items:center;justify-content:center;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,.4);font-size:14px">📅</div>`,
+    className: '',
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
+  });
+}
+
+function makeStoryIcon(L: LType, count: number): L.DivIcon {
+  return L.divIcon({
+    html: `<div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#ec4899,#f97316);display:flex;align-items:center;justify-content:center;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,.4);color:white;font-size:11px;font-weight:700">${count > 1 ? count : '▶'}</div>`,
+    className: '',
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
+  });
+}
+
+const MapViewLeaflet = forwardRef<MapViewHandle, MapViewProps>(function MapViewLeaflet(
+  {
+    reports = [],
+    shuttles = [],
+    pois = [],
+    stories = [],
+    meetups = [],
+    onObservationsClick,
+    onShuttleClick,
+    onPoiClick,
+    onStoryClick,
+    onMeetupClick,
+    onMapMove,
+    onMarkerPlaced,
+    onMapLoaded,
+    onMapReady,
+  },
+  ref,
+) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<any>(null);
-  const markersRef = useRef<any>(null);
-  const [mapReady, setMapReady] = useState(false);
+  const mapInstanceRef = useRef<L.Map | null>(null);
+  const tileIndexRef = useRef(0);
+  const tileLayerRef = useRef<L.TileLayer | null>(null);
+  const markerPosRef = useRef<{ lat: number; lng: number; alt: number | null } | null>(null);
+  const placedMarkerRef = useRef<L.Marker | null>(null);
+  const layerGroupRef = useRef<L.LayerGroup | null>(null);
 
-  const cbMarkerPlaced = useRef(onMarkerPlaced);
-  cbMarkerPlaced.current = onMarkerPlaced;
-  const cbMapLoaded = useRef(onMapLoaded);
-  cbMapLoaded.current = onMapLoaded;
+  // Stable callback refs so layer effects don't re-run when callbacks change identity
+  const onObsClickRef = useRef(onObservationsClick);
+  const onShuttleClickRef = useRef(onShuttleClick);
+  const onPoiClickRef = useRef(onPoiClick);
+  const onStoryClickRef = useRef(onStoryClick);
+  const onMeetupClickRef = useRef(onMeetupClick);
+  const onMarkerPlacedRef = useRef(onMarkerPlaced);
+  const onMapMoveRef = useRef(onMapMove);
 
-  // Initialise Leaflet map once
+  useEffect(() => { onObsClickRef.current = onObservationsClick; }, [onObservationsClick]);
+  useEffect(() => { onShuttleClickRef.current = onShuttleClick; }, [onShuttleClick]);
+  useEffect(() => { onPoiClickRef.current = onPoiClick; }, [onPoiClick]);
+  useEffect(() => { onStoryClickRef.current = onStoryClick; }, [onStoryClick]);
+  useEffect(() => { onMeetupClickRef.current = onMeetupClick; }, [onMeetupClick]);
+  useEffect(() => { onMarkerPlacedRef.current = onMarkerPlaced; }, [onMarkerPlaced]);
+  useEffect(() => { onMapMoveRef.current = onMapMove; }, [onMapMove]);
+
+  useImperativeHandle(ref, () => ({
+    getCenter() {
+      const c = mapInstanceRef.current?.getCenter();
+      return c ? { lat: c.lat, lng: c.lng } : { lat: DEFAULT_CENTER[1], lng: DEFAULT_CENTER[0] };
+    },
+    getMarkerPosition() {
+      return markerPosRef.current;
+    },
+  }));
+
+  // Initialize map once
   useEffect(() => {
-    if (!containerRef.current || mapRef.current) return;
-    let cancelled = false;
+    if (!containerRef.current || mapInstanceRef.current) return;
 
-    (async () => {
-      // Inject Leaflet CSS
-      if (!document.getElementById('leaflet-css')) {
-        const link = document.createElement('link');
-        link.id = 'leaflet-css';
-        link.rel = 'stylesheet';
-        link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-        document.head.appendChild(link);
-        await new Promise<void>((res) => { link.onload = () => res(); link.onerror = () => res(); });
-      }
+    import('leaflet').then((L) => {
+      if (!containerRef.current || mapInstanceRef.current) return;
 
-      const L = (await import('leaflet')).default;
-      if (cancelled || !containerRef.current) return;
-
-      const map = L.map(containerRef.current, { center: [45.5, 6.5], zoom: 9 });
-
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-        maxZoom: 19,
-      }).addTo(map);
-
-      markersRef.current = L.layerGroup().addTo(map);
-
-      map.on('click', (e: any) => {
-        cbMarkerPlaced.current?.({ lat: e.latlng.lat, lng: e.latlng.lng, alt: null });
+      // Fix default icon paths broken by webpack
+      delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl;
+      L.Icon.Default.mergeOptions({
+        iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+        iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+        shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
       });
 
-      mapRef.current = map;
-      setMapReady(true);
-      cbMapLoaded.current?.();
-    })();
+      const map = L.map(containerRef.current, {
+        center: [DEFAULT_CENTER[1], DEFAULT_CENTER[0]],
+        zoom: DEFAULT_ZOOM,
+        zoomControl: false,
+      });
+
+      L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+      const firstTile = TILE_LAYERS[0];
+      tileLayerRef.current = L.tileLayer(firstTile.url, { attribution: firstTile.attribution }).addTo(map);
+      layerGroupRef.current = L.layerGroup().addTo(map);
+
+      map.on('click', (e) => {
+        const { lat, lng } = e.latlng;
+        markerPosRef.current = { lat, lng, alt: null };
+        if (placedMarkerRef.current) {
+          placedMarkerRef.current.setLatLng([lat, lng]);
+        } else {
+          placedMarkerRef.current = L.marker([lat, lng], {
+            icon: L.divIcon({
+              html: `<div style="width:20px;height:20px;border-radius:50%;background:#ef4444;border:3px solid white;box-shadow:0 1px 4px rgba(0,0,0,.5)"></div>`,
+              className: '',
+              iconSize: [20, 20],
+              iconAnchor: [10, 10],
+            }),
+          }).addTo(map);
+        }
+        onMarkerPlacedRef.current?.({ lat, lng, alt: null });
+      });
+
+      map.on('moveend', () => {
+        const c = map.getCenter();
+        onMapMoveRef.current?.({ lat: c.lat, lng: c.lng });
+      });
+
+      mapInstanceRef.current = map;
+      onMapLoaded?.();
+      onMapReady?.({
+        cycleStyle: () => {
+          if (!mapInstanceRef.current || !tileLayerRef.current) return;
+          tileIndexRef.current = (tileIndexRef.current + 1) % TILE_LAYERS.length;
+          const next = TILE_LAYERS[tileIndexRef.current];
+          mapInstanceRef.current.removeLayer(tileLayerRef.current);
+          tileLayerRef.current = L.tileLayer(next.url, { attribution: next.attribution }).addTo(mapInstanceRef.current);
+        },
+        locateMe: () => {
+          mapInstanceRef.current?.locate({ setView: true, maxZoom: 14 });
+        },
+      });
+    });
 
     return () => {
-      cancelled = true;
-      if (mapRef.current) {
-        mapRef.current.remove();
-        mapRef.current = null;
-        markersRef.current = null;
-      }
+      mapInstanceRef.current?.remove();
+      mapInstanceRef.current = null;
+      placedMarkerRef.current = null;
+      tileLayerRef.current = null;
+      layerGroupRef.current = null;
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // Redraw markers whenever data changes
+  // Redraw all data markers when data props change
   useEffect(() => {
-    if (!mapReady || !markersRef.current) return;
+    const group = layerGroupRef.current;
+    const map = mapInstanceRef.current;
+    if (!group || !map) return;
 
-    (async () => {
-      const L = (await import('leaflet')).default;
-      const group = markersRef.current;
-      if (!group) return;
+    import('leaflet').then((L) => {
       group.clearLayers();
 
-      // Observations
-      reports
-        .filter((r) => r.location && r.report_type !== 'forecast')
-        .forEach((r) => {
-          const [lng, lat] = r.location!.coordinates;
-          const m = L.circleMarker([lat, lng], {
-            radius: 10,
-            fillColor: obsColor(r),
-            color: '#fff',
-            weight: 2,
-            fillOpacity: 0.9,
-          });
-          const author = r.profiles?.display_name || r.profiles?.username || 'Anonyme';
-          const wind = r.wind_speed_kmh != null ? `<br/>${r.wind_speed_kmh} km/h` : '';
-          m.bindPopup(`<b>${author}</b>${r.location_name ? `<br/>${r.location_name}` : ''}${wind}`);
-          m.on('click', (e: any) => { e.originalEvent?.stopPropagation(); onObservationsClick?.([r]); });
-          m.addTo(group);
-        });
+      // Observations: group by ~200m proximity
+      const obsFeatures = reports.filter(
+        (r) => r.report_type === 'observation' && r.location?.coordinates,
+      );
+
+      // Simple grid-based grouping (0.002° ≈ 200m)
+      const obsGroups = new Map<string, typeof obsFeatures>();
+      for (const r of obsFeatures) {
+        const [lng, lat] = r.location!.coordinates;
+        const key = `${(lat / 0.002).toFixed(0)},${(lng / 0.002).toFixed(0)}`;
+        if (!obsGroups.has(key)) obsGroups.set(key, []);
+        obsGroups.get(key)!.push(r);
+      }
+
+      for (const group_reports of Array.from(obsGroups.values())) {
+        const rep = group_reports[0];
+        const [lng, lat] = rep.location!.coordinates;
+        const score = rep.flyability_score ?? 0;
+        const color = flyabilityColor(score);
+        const size = group_reports.length > 1 ? 20 : 14;
+        const marker = L.marker([lat, lng], { icon: makeCircleIcon(L, color, size) });
+        if (group_reports.length > 1) {
+          marker.bindTooltip(String(group_reports.length), { permanent: true, className: 'obs-count-tooltip', direction: 'center', offset: [0, 0] });
+        }
+        marker.on('click', () => onObsClickRef.current?.(group_reports));
+        group.addLayer(marker);
+      }
+
+      // Forecasts
+      for (const r of reports.filter((r) => r.report_type === 'forecast' && r.location?.coordinates)) {
+        const [lng, lat] = r.location!.coordinates;
+        const color = flyabilityColor(r.flyability_score ?? 0);
+        const marker = L.marker([lat, lng], { icon: makeCircleIcon(L, color, 12) });
+        marker.on('click', () => onObsClickRef.current?.([r]));
+        group.addLayer(marker);
+      }
+
+      // Shuttles
+      for (const s of shuttles) {
+        if (!s.meeting_point?.coordinates) continue;
+        const [lng, lat] = s.meeting_point.coordinates;
+        const marker = L.marker([lat, lng], { icon: makeShuttleIcon(L) });
+        marker.bindTooltip(s.profiles?.display_name ?? 'Shuttle', { direction: 'top', offset: [0, -14] });
+        marker.on('click', () => onShuttleClickRef.current?.(s));
+        group.addLayer(marker);
+      }
 
       // POIs
-      pois.forEach((p) => {
-        if (!p.location) return;
+      for (const p of pois) {
+        if (!p.location?.coordinates) continue;
         const [lng, lat] = p.location.coordinates;
-        const m = L.circleMarker([lat, lng], {
-          radius: 12,
-          fillColor: p.poi_type === 'official' ? '#0ea5e9' : '#22c55e',
-          color: '#fff',
-          weight: 2,
-          fillOpacity: 0.95,
-        });
-        m.bindPopup(`<b>${p.location_name}</b><br/>${p.poi_type === 'official' ? 'Site officiel' : 'Site sauvage'}`);
-        m.on('click', (e: any) => { e.originalEvent?.stopPropagation(); onPoiClick?.(p); });
-        m.addTo(group);
-      });
+        const marker = L.marker([lat, lng], { icon: makePoiIcon(L) });
+        marker.bindTooltip(p.location_name, { direction: 'top', offset: [0, -14] });
+        marker.on('click', () => onPoiClickRef.current?.(p));
+        group.addLayer(marker);
+      }
 
-      // Shuttles (departure point only)
-      shuttles.forEach((s) => {
-        if (!s.meeting_point) return;
-        const [lng, lat] = s.meeting_point.coordinates;
-        const m = L.circleMarker([lat, lng], {
-          radius: 10,
-          fillColor: '#22c55e',
-          color: '#fff',
-          weight: 2,
-          fillOpacity: 0.95,
-        });
-        m.bindPopup(`<b>Navette</b><br/>${s.meeting_point_name || ''}`);
-        m.on('click', (e: any) => { e.originalEvent?.stopPropagation(); onShuttleClick?.(s); });
-        m.addTo(group);
-      });
-    })();
-  }, [mapReady, reports, pois, shuttles, onObservationsClick, onPoiClick, onShuttleClick]);
+      // Stories — group by proximity
+      const storyGroups = new Map<string, typeof stories>();
+      for (const s of stories) {
+        if (!s.location?.coordinates) continue;
+        const [lng, lat] = s.location.coordinates;
+        const key = `${(lat / 0.005).toFixed(0)},${(lng / 0.005).toFixed(0)}`;
+        if (!storyGroups.has(key)) storyGroups.set(key, []);
+        storyGroups.get(key)!.push(s);
+      }
+      for (const group_stories of Array.from(storyGroups.values())) {
+        const first = group_stories[0];
+        const [lng, lat] = first.location!.coordinates;
+        const marker = L.marker([lat, lng], { icon: makeStoryIcon(L, group_stories.length) });
+        marker.on('click', () => onStoryClickRef.current?.(group_stories));
+        group.addLayer(marker);
+      }
 
-  return <div ref={containerRef} style={{ width: '100%', height: '100%' }} />;
-}
+      // Meetups
+      for (const m of meetups) {
+        if (!m.location?.coordinates) continue;
+        const [lng, lat] = m.location.coordinates;
+        const marker = L.marker([lat, lng], { icon: makeMeetupIcon(L) });
+        marker.bindTooltip(m.title, { direction: 'top', offset: [0, -14] });
+        marker.on('click', () => onMeetupClickRef.current?.(m));
+        group.addLayer(marker);
+      }
+    });
+  }, [reports, shuttles, pois, stories, meetups]);
+
+  return (
+    <div
+      ref={containerRef}
+      style={{ width: '100%', height: '100%' }}
+    />
+  );
+});
+
+export default MapViewLeaflet;

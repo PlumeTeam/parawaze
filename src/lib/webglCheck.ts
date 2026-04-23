@@ -3,8 +3,8 @@ export function isWebGLSupported(): boolean {
   try {
     const canvas = document.createElement('canvas');
     return !!(
-      canvas.getContext('webgl') ||
-      (canvas.getContext as any)('experimental-webgl')
+      window.WebGLRenderingContext &&
+      (canvas.getContext('webgl') || canvas.getContext('experimental-webgl'))
     );
   } catch {
     return false;

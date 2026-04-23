@@ -22,6 +22,7 @@ import type { MapViewHandle, MapActions, MarkerPosition } from '@/components/map
 import { MapErrorBoundary } from '@/components/map/MapErrorBoundary';
 import { isWebGLSupported } from '@/lib/webglCheck';
 
+// Dynamic import MapView to avoid SSR issues with mapbox-gl
 const MapView = dynamic(() => import('@/components/map/MapView'), {
   ssr: false,
   loading: () => (
@@ -63,7 +64,8 @@ export default function MapPage() {
   const brightSkyStations = weatherStations.brightSky;
   const [stationsReady, setStationsReady] = useState(false);
 
-  const [useLeaflet, setUseLeaflet] = useState(false);
+  // null = check pending, false = Mapbox, true = Leaflet
+  const [useLeaflet, setUseLeaflet] = useState<boolean | null>(null);
   const [selectedObservations, setSelectedObservations] = useState<WeatherReport[]>([]);
   const [selectedDay, setSelectedDay] = useState<DayFilter>('today');
   const [toast, setToast] = useState<string | null>(null);
@@ -84,11 +86,10 @@ export default function MapPage() {
     }
   }, [user, authLoading, router]);
 
-  // Check WebGL support once on mount; fall back to Leaflet if broken or ?leaflet=true
+  // Determine map engine: Leaflet if WebGL fails or ?leaflet=true
   useEffect(() => {
-    if (window.location.search.includes('leaflet=true') || !isWebGLSupported()) {
-      setUseLeaflet(true);
-    }
+    const params = new URLSearchParams(window.location.search);
+    setUseLeaflet(params.get('leaflet') === 'true' || !isWebGLSupported());
   }, []);
 
   // Fetch reports when selectedDay changes
@@ -270,77 +271,72 @@ export default function MapPage() {
           ))}
         </div>
 
-        {useLeaflet ? (
-          <MapViewLeaflet
-            dayFilter={selectedDay}
-            reports={reports}
-            pois={pois}
-            shuttles={shuttles}
-            onObservationsClick={handleObservationsClick}
-            onPoiClick={handlePoiClick}
-            onShuttleClick={handleShuttleClick}
-            onMarkerPlaced={handleMarkerPlaced}
-            onMapLoaded={() => setMapLoading(false)}
-          />
-        ) : (
         <MapErrorBoundary>
-        <MapView
-          ref={mapRef}
-          dayFilter={selectedDay}
-          reports={reports}
-          stories={selectedDay === 'today' ? stories : []}
-          pois={pois}
-          pioupiouStations={stationsReady ? pioupiouStations : []}
-          ffvlStations={stationsReady ? ffvlStations : []}
-          windsMobiStations={stationsReady ? windsMobiStations : []}
-          geoSphereStations={stationsReady ? geoSphereStations : []}
-          brightSkyStations={stationsReady ? brightSkyStations : []}
-          markerConfig={getConfigsAsMap()}
-          meetups={meetups.filter(m => {
+        {useLeaflet !== null && (() => {
+          const now = new Date();
+          const utcYear = now.getUTCFullYear();
+          const utcMonth = now.getUTCMonth();
+          const utcDate = now.getUTCDate();
+          const todayStart = new Date(Date.UTC(utcYear, utcMonth, utcDate, 0, 0, 0));
+          const tomorrowStart = new Date(Date.UTC(utcYear, utcMonth, utcDate + 1, 0, 0, 0));
+          const dayAfter = new Date(Date.UTC(utcYear, utcMonth, utcDate + 2, 0, 0, 0));
+          const yesterdayStart = new Date(Date.UTC(utcYear, utcMonth, utcDate - 1, 0, 0, 0));
+
+          const filteredMeetups = meetups.filter(m => {
             if (!m.meeting_time) return false;
-            const meetTime = new Date(m.meeting_time);
-            const now = new Date();
-            const utcYear = now.getUTCFullYear();
-            const utcMonth = now.getUTCMonth();
-            const utcDate = now.getUTCDate();
-            const todayStart = new Date(Date.UTC(utcYear, utcMonth, utcDate, 0, 0, 0));
-            const tomorrowStart = new Date(Date.UTC(utcYear, utcMonth, utcDate + 1, 0, 0, 0));
-            const dayAfter = new Date(Date.UTC(utcYear, utcMonth, utcDate + 2, 0, 0, 0));
-            const yesterdayStart = new Date(Date.UTC(utcYear, utcMonth, utcDate - 1, 0, 0, 0));
-            if (selectedDay === 'today') return meetTime >= todayStart && meetTime < tomorrowStart;
-            if (selectedDay === 'tomorrow') return meetTime >= tomorrowStart && meetTime < dayAfter;
-            if (selectedDay === 'yesterday') return meetTime >= yesterdayStart && meetTime < todayStart;
+            const t = new Date(m.meeting_time);
+            if (selectedDay === 'today') return t >= todayStart && t < tomorrowStart;
+            if (selectedDay === 'tomorrow') return t >= tomorrowStart && t < dayAfter;
+            if (selectedDay === 'yesterday') return t >= yesterdayStart && t < todayStart;
             return true;
-          })}
-          onPoiClick={handlePoiClick}
-          onStoryClick={handleStoryClick}
-          onMeetupClick={handleMeetupClick}
-          shuttles={shuttles.filter(s => {
+          });
+
+          const filteredShuttles = shuttles.filter(s => {
             if (!s.departure_time) return false;
             const dep = new Date(s.departure_time);
-            const now = new Date();
-            const utcYear = now.getUTCFullYear();
-            const utcMonth = now.getUTCMonth();
-            const utcDate = now.getUTCDate();
-            const todayStart = new Date(Date.UTC(utcYear, utcMonth, utcDate, 0, 0, 0));
-            const tomorrowStart = new Date(Date.UTC(utcYear, utcMonth, utcDate + 1, 0, 0, 0));
-            const dayAfter = new Date(Date.UTC(utcYear, utcMonth, utcDate + 2, 0, 0, 0));
-            const yesterdayStart = new Date(Date.UTC(utcYear, utcMonth, utcDate - 1, 0, 0, 0));
             if (selectedDay === 'today') return dep >= todayStart && dep < tomorrowStart;
             if (selectedDay === 'tomorrow') return dep >= tomorrowStart && dep < dayAfter;
             if (selectedDay === 'yesterday') return dep >= yesterdayStart && dep < todayStart;
             return true;
-          })}
-          onObservationsClick={handleObservationsClick}
-          onShuttleClick={handleShuttleClick}
-          onMapMove={handleMapMove}
-          onMarkerPlaced={handleMarkerPlaced}
-          enableAutocenter={true}
-          onMapLoaded={() => setMapLoading(false)}
-          onMapReady={(actions) => { mapActionsRef.current = actions; }}
-        />
+          });
+
+          const sharedProps = {
+            ref: mapRef,
+            dayFilter: selectedDay,
+            reports,
+            stories: selectedDay === 'today' ? stories : [],
+            pois,
+            meetups: filteredMeetups,
+            shuttles: filteredShuttles,
+            onPoiClick: handlePoiClick,
+            onStoryClick: handleStoryClick,
+            onMeetupClick: handleMeetupClick,
+            onObservationsClick: handleObservationsClick,
+            onShuttleClick: handleShuttleClick,
+            onMapMove: handleMapMove,
+            onMarkerPlaced: handleMarkerPlaced,
+            enableAutocenter: true,
+            onMapLoaded: () => setMapLoading(false),
+            onMapReady: (actions: MapActions) => { mapActionsRef.current = actions; },
+          };
+
+          if (useLeaflet) {
+            return <MapViewLeaflet {...sharedProps} />;
+          }
+
+          return (
+            <MapView
+              {...sharedProps}
+              pioupiouStations={stationsReady ? pioupiouStations : []}
+              ffvlStations={stationsReady ? ffvlStations : []}
+              windsMobiStations={stationsReady ? windsMobiStations : []}
+              geoSphereStations={stationsReady ? geoSphereStations : []}
+              brightSkyStations={stationsReady ? brightSkyStations : []}
+              markerConfig={getConfigsAsMap()}
+            />
+          );
+        })()}
         </MapErrorBoundary>
-        )}
 
         {/* Loading spinner overlay */}
         {mapLoading && (
@@ -374,33 +370,35 @@ export default function MapPage() {
         )}
       </main>
 
-      {/* Map controls — Mapbox only (hidden in Leaflet fallback) */}
-      {!useLeaflet && <div
-        className="fixed right-4 flex flex-col gap-2 z-40"
-        style={{ bottom: navHeight + 12 }}
-      >
-        <button
-          onClick={() => mapActionsRef.current?.cycleStyle()}
-          className="bg-white rounded-xl shadow-lg p-2.5 hover:bg-gray-50 active:bg-gray-100 transition-colors border border-gray-100"
-          title="Changer le style de la carte"
+      {/* Map controls — always above BottomNav */}
+      {useLeaflet !== null && (
+        <div
+          className="fixed right-4 flex flex-col gap-2 z-40"
+          style={{ bottom: navHeight + 12 }}
         >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-700">
-            <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6" />
-            <line x1="8" y1="2" x2="8" y2="18" />
-            <line x1="16" y1="6" x2="16" y2="22" />
-          </svg>
-        </button>
-        <button
-          onClick={() => mapActionsRef.current?.locateMe()}
-          className="bg-white rounded-xl shadow-lg p-2.5 hover:bg-gray-50 active:bg-gray-100 transition-colors border border-gray-100"
-          title="Ma position"
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-sky-500">
-            <circle cx="12" cy="12" r="3" />
-            <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
-          </svg>
-        </button>
-      </div>}
+          <button
+            onClick={() => mapActionsRef.current?.cycleStyle()}
+            className="bg-white rounded-xl shadow-lg p-2.5 hover:bg-gray-50 active:bg-gray-100 transition-colors border border-gray-100"
+            title="Changer le style de la carte"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-700">
+              <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6" />
+              <line x1="8" y1="2" x2="8" y2="18" />
+              <line x1="16" y1="6" x2="16" y2="22" />
+            </svg>
+          </button>
+          <button
+            onClick={() => mapActionsRef.current?.locateMe()}
+            className="bg-white rounded-xl shadow-lg p-2.5 hover:bg-gray-50 active:bg-gray-100 transition-colors border border-gray-100"
+            title="Ma position"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-sky-500">
+              <circle cx="12" cy="12" r="3" />
+              <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
+            </svg>
+          </button>
+        </div>
+      )}
 
       {/* Marker info label — shown when a marker is placed */}
       {lastMarker && (
