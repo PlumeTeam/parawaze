@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { useAuth } from '@/hooks/useAuth';
 import { useReports } from '@/hooks/useReports';
@@ -76,9 +76,6 @@ export default function MapPage() {
   const [selectedMeetup, setSelectedMeetup] = useState<Meetup | null>(null);
   const [mapLoading, setMapLoading] = useState(true);
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const liteMode = searchParams.get('lite') === 'true';
-  const skipData = liteMode;
   const mapRef = useRef<MapViewHandle>(null);
   const mapActionsRef = useRef<MapActions | null>(null);
   const navRef = useRef<HTMLElement>(null);
@@ -102,7 +99,6 @@ export default function MapPage() {
 
   // Fetch reports when selectedDay changes
   useEffect(() => {
-    if (skipData) return;
     fetchReportsByDay(selectedDay);
   }, [selectedDay, fetchReportsByDay]);
 
@@ -148,13 +144,11 @@ export default function MapPage() {
 
   // Fetch shuttles once
   useEffect(() => {
-    if (skipData) return;
     fetchShuttles();
   }, [fetchShuttles]);
 
   // Fetch POIs once (always visible)
   useEffect(() => {
-    if (skipData) return;
     fetchPois();
   }, [fetchPois]);
 
