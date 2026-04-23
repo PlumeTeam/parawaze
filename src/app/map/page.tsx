@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { useAuth } from '@/hooks/useAuth';
 import { useReports } from '@/hooks/useReports';
@@ -45,6 +45,9 @@ export default function MapPage() {
   const { pois, fetchPois } = usePois();
   const { meetups } = useMeetups();
   const [stationsEnabled, setStationsEnabled] = useState(false);
+
+  // LITE MODE: skip all data loading for diagnosis
+  const skipData = liteMode;
   const { stations: weatherStations } = useWeatherStations({ enabled: stationsEnabled });
   const { getConfigsAsMap } = useMarkerConfig();
   const pioupiouStations = weatherStations.pioupiou;
@@ -63,6 +66,9 @@ export default function MapPage() {
   const [selectedMeetup, setSelectedMeetup] = useState<Meetup | null>(null);
   const [mapLoading, setMapLoading] = useState(true);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const liteMode = searchParams.get('lite') === 'true';
+  const skipData = liteMode;
   const mapRef = useRef<MapViewHandle>(null);
   const mapActionsRef = useRef<MapActions | null>(null);
   const navRef = useRef<HTMLElement>(null);
@@ -76,6 +82,7 @@ export default function MapPage() {
 
   // Fetch reports when selectedDay changes
   useEffect(() => {
+    if (skipData) return;
     fetchReportsByDay(selectedDay);
   }, [selectedDay, fetchReportsByDay]);
 
@@ -110,13 +117,24 @@ export default function MapPage() {
     setStationsReady(prev => !prev);
   }, []);
 
+  // Auto-enable stations after 5s
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setStationsEnabled(true);
+      setStationsReady(true);
+    }, 5000);
+    return () => clearTimeout(t);
+  }, []);
+
   // Fetch shuttles once
   useEffect(() => {
+    if (skipData) return;
     fetchShuttles();
   }, [fetchShuttles]);
 
   // Fetch POIs once (always visible)
   useEffect(() => {
+    if (skipData) return;
     fetchPois();
   }, [fetchPois]);
 
