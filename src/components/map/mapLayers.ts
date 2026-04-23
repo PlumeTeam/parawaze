@@ -299,6 +299,10 @@ export function addLayersToMap(map: mapboxgl.Map, markerConfig: Record<string, M
     });
   }
 
+  // --- Weather station layers are created on-demand when data arrives ---
+  // Skip creating empty sources/layers to save WebGL resources on low-end devices
+  // They will be created by the useEffect that updates each station source
+
   // --- Pioupiou source ---
   try {
     if (!map.getSource(SRC_PIOUPIOU)) {
