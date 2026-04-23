@@ -110,15 +110,6 @@ export default function MapPage() {
     setStationsReady(prev => !prev);
   }, []);
 
-  // Auto-enable stations after 5s
-  useEffect(() => {
-    const t = setTimeout(() => {
-      setStationsEnabled(true);
-      setStationsReady(true);
-    }, 5000);
-    return () => clearTimeout(t);
-  }, []);
-
   // Fetch shuttles once
   useEffect(() => {
     fetchShuttles();

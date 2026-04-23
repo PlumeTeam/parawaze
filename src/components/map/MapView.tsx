@@ -151,7 +151,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const mbRef = useRef<typeof mapboxgl | null>(null);
   const autoCenteredRef = useRef(false);
-  const [mapStyle, setMapStyle] = useState<MapStyleKey>('satellite');
+  const [mapStyle, setMapStyle] = useState<MapStyleKey>('outdoors');
   const [mapLoaded, setMapLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -339,11 +339,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           throw new Error('Votre navigateur ne supporte pas WebGL. Essayez de fermer d\'autres onglets ou utilisez Chrome.');
         }
 
-        // Prewarm the map if available
-        if (typeof mb.prewarm === 'function') {
-          mb.prewarm();
-        }
-
         mb.accessToken = MAPBOX_TOKEN;
         mbRef.current = mb;
 
@@ -353,7 +348,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           center: DEFAULT_CENTER,
           zoom: DEFAULT_ZOOM,
           attributionControl: false,
-          maxTileCacheSize: 50, // Reduce GPU memory usage
+          maxTileCacheSize: 20, // Reduce GPU memory usage on low-end devices
           fadeDuration: 0, // Reduce GPU memory pressure
         });
 
@@ -673,12 +668,15 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
           });
         });
 
-        // Pointer cursor on interactive layers
-        const interactiveLayers = [LYR_OBS_CIRCLES, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS, LYR_POI_CIRCLES, LYR_POI_LABELS, LYR_PIOUPIOU_CIRCLES, LYR_PIOUPIOU_CLUSTERS, LYR_PIOUPIOU_LABELS, LYR_FFVL_CIRCLES, LYR_FFVL_CLUSTERS, LYR_FFVL_LABELS, LYR_WINDS_MOBI_CIRCLES, LYR_WINDS_MOBI_CLUSTERS, LYR_WINDS_MOBI_LABELS, LYR_GEOSPHERE_CIRCLES, LYR_GEOSPHERE_CLUSTERS, LYR_GEOSPHERE_LABELS, LYR_MEETUP_CIRCLES, LYR_MEETUP_LABELS, LYR_STORIES_CIRCLES, LYR_STORIES_CLUSTERS, LYR_OBSERVATIONS_CIRCLES, 'parawaze-shuttle-label', 'parawaze-forecast-label'];
-        interactiveLayers.forEach((layerId) => {
-          map.on('mouseenter', layerId, () => { map.getCanvas().style.cursor = 'pointer'; });
-          map.on('mouseleave', layerId, () => { map.getCanvas().style.cursor = ''; });
-        });
+        // Pointer cursor on interactive layers — skip on touch devices (no hover events, pure overhead)
+        const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+        if (!isTouchDevice) {
+          const interactiveLayers = [LYR_OBS_CIRCLES, LYR_FORECAST_CIRCLES, LYR_SHUTTLE_ICONS, LYR_POI_CIRCLES, LYR_POI_LABELS, LYR_PIOUPIOU_CIRCLES, LYR_PIOUPIOU_CLUSTERS, LYR_PIOUPIOU_LABELS, LYR_FFVL_CIRCLES, LYR_FFVL_CLUSTERS, LYR_FFVL_LABELS, LYR_WINDS_MOBI_CIRCLES, LYR_WINDS_MOBI_CLUSTERS, LYR_WINDS_MOBI_LABELS, LYR_GEOSPHERE_CIRCLES, LYR_GEOSPHERE_CLUSTERS, LYR_GEOSPHERE_LABELS, LYR_MEETUP_CIRCLES, LYR_MEETUP_LABELS, LYR_STORIES_CIRCLES, LYR_STORIES_CLUSTERS, LYR_OBSERVATIONS_CIRCLES, 'parawaze-shuttle-label', 'parawaze-forecast-label'];
+          interactiveLayers.forEach((layerId) => {
+            map.on('mouseenter', layerId, () => { map.getCanvas().style.cursor = 'pointer'; });
+            map.on('mouseleave', layerId, () => { map.getCanvas().style.cursor = ''; });
+          });
+        }
 
         mapRef.current = map;
       } catch (err) {
