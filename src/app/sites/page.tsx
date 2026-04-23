@@ -2,28 +2,24 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Plus, MapPin, Star, Plane, Camera, Thermometer } from 'lucide-react';
+import { ArrowLeft, Plus, MapPin, Star } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { usePois } from '@/hooks/usePois';
 import BottomNav from '@/components/shared/BottomNav';
 import LoadingSpinner from '@/components/shared/LoadingSpinner';
 import type { Poi, PoiType } from '@/lib/types';
 
-type FilterTab = 'all' | 'landing' | 'takeoff' | 'weather_station' | 'webcam';
+type FilterTab = 'all' | 'official' | 'wild';
 
 const TAB_LABELS: Record<FilterTab, string> = {
   all: 'Tous',
-  landing: 'Atterrissages',
-  takeoff: 'Décollages',
-  weather_station: 'Balises',
-  webcam: 'Webcams',
+  official: 'Sites officiels',
+  wild: 'Sites sauvages',
 };
 
 const POI_TYPE_CONFIG: Record<PoiType, { label: string; emoji: string; color: string; bgColor: string }> = {
-  landing: { label: 'Atterrissage', emoji: 'A', color: 'text-green-600', bgColor: 'bg-green-100' },
-  takeoff: { label: 'Décollage', emoji: 'D', color: 'text-blue-600', bgColor: 'bg-blue-100' },
-  weather_station: { label: 'Balise météo', emoji: 'M', color: 'text-yellow-600', bgColor: 'bg-yellow-100' },
-  webcam: { label: 'Webcam', emoji: 'W', color: 'text-purple-600', bgColor: 'bg-purple-100' },
+  official: { label: 'Site officiel', emoji: 'O', color: 'text-sky-600', bgColor: 'bg-sky-100' },
+  wild: { label: 'Site sauvage', emoji: 'S', color: 'text-green-600', bgColor: 'bg-green-100' },
 };
 
 const DIFFICULTY_LABELS: Record<string, string> = {

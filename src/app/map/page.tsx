@@ -18,7 +18,7 @@ import StoryRecorder from '@/components/stories/StoryRecorder';
 import StoryViewer from '@/components/stories/StoryViewer';
 import ObservationViewer from '@/components/observations/ObservationViewer';
 import type { WeatherReport, Shuttle, Poi, Story, Meetup } from '@/lib/types';
-import type { MapViewHandle, MarkerPosition } from '@/components/map/MapView';
+import type { MapViewHandle, MapActions, MarkerPosition } from '@/components/map/MapView';
 import { MapErrorBoundary } from '@/components/map/MapErrorBoundary';
 
 // Dynamic import MapView to avoid SSR issues with mapbox-gl
@@ -64,6 +64,7 @@ export default function MapPage() {
   const [mapLoading, setMapLoading] = useState(true);
   const router = useRouter();
   const mapRef = useRef<MapViewHandle>(null);
+  const mapActionsRef = useRef<MapActions | null>(null);
   const navRef = useRef<HTMLElement>(null);
   const [navHeight, setNavHeight] = useState(82);
 
@@ -313,6 +314,7 @@ export default function MapPage() {
           onMarkerPlaced={handleMarkerPlaced}
           enableAutocenter={true}
           onMapLoaded={() => setMapLoading(false)}
+          onMapReady={(actions) => { mapActionsRef.current = actions; }}
         />
         </MapErrorBoundary>
 
@@ -354,7 +356,7 @@ export default function MapPage() {
         style={{ bottom: navHeight + 12 }}
       >
         <button
-          onClick={() => mapRef.current?.cycleStyle()}
+          onClick={() => mapActionsRef.current?.cycleStyle()}
           className="bg-white rounded-xl shadow-lg p-2.5 hover:bg-gray-50 active:bg-gray-100 transition-colors border border-gray-100"
           title="Changer le style de la carte"
         >
@@ -365,7 +367,7 @@ export default function MapPage() {
           </svg>
         </button>
         <button
-          onClick={() => mapRef.current?.locateMe()}
+          onClick={() => mapActionsRef.current?.locateMe()}
           className="bg-white rounded-xl shadow-lg p-2.5 hover:bg-gray-50 active:bg-gray-100 transition-colors border border-gray-100"
           title="Ma position"
         >
