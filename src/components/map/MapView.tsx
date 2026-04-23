@@ -384,9 +384,11 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
 
         map.on('load', onStyleReady);
 
-        // Re-add layers after style change (style.load fires after setStyle)
+        // Re-add layers after style change ONLY (skip initial load — handled by 'load')
+        let initialStyleLoaded = false;
         map.on('style.load', () => {
           if (cancelled) return;
+          if (!initialStyleLoaded) { initialStyleLoaded = true; return; }
           addLayersToMap(map);
           updateReportSource(map, reportsRef.current);
           updateStoriesSource(map, storiesRef.current);
