@@ -162,7 +162,7 @@ export function buildPoiFeatures(pois: Poi[], config: Record<string, MarkerConfi
     .filter((p) => p.location && p.location.coordinates && p.location.coordinates.length >= 2)
     .map((p) => {
       const typeKey = p.poi_type === 'official' ? 'site_official' : 'site_wild';
-      const cfg = config[typeKey] || null;
+      const cfg = config[typeKey] || config['site_takeoff'] || config['site_landing'] || null;
       const fallbackColor = p.poi_type === 'official' ? '#3b82f6' : '#f97316';
       return {
         type: 'Feature' as const,

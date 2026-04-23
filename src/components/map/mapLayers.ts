@@ -208,8 +208,9 @@ export function addLayersToMap(map: mapboxgl.Map, markerConfig: Record<string, M
   }
 
   // POI official site icons inside circles
-  const officialIconName = markerConfig['site_official']?.icon_name;
-  const officialFallback = markerConfig['site_official']?.icon_unicode || undefined;
+  const officialCfg = markerConfig['site_official'] || markerConfig['site_takeoff'];
+  const officialIconName = officialCfg?.icon_name;
+  const officialFallback = officialCfg?.icon_unicode || undefined;
   if (officialIconName && !map.getLayer('parawaze-official-icon')) {
     loadMakiIcon(map, officialIconName, officialFallback).then((result) => {
       if (!map.getLayer('parawaze-official-icon')) {
@@ -231,8 +232,9 @@ export function addLayersToMap(map: mapboxgl.Map, markerConfig: Record<string, M
   }
 
   // POI wild site icons inside circles
-  const wildIconName = markerConfig['site_wild']?.icon_name;
-  const wildFallback = markerConfig['site_wild']?.icon_unicode;
+  const wildCfg = markerConfig['site_wild'] || markerConfig['site_landing'];
+  const wildIconName = wildCfg?.icon_name;
+  const wildFallback = wildCfg?.icon_unicode;
   if (wildIconName && !map.getLayer('parawaze-wild-icon')) {
     loadMakiIcon(map, wildIconName, wildFallback).then((result) => {
       if (!map.getLayer('parawaze-wild-icon')) {
