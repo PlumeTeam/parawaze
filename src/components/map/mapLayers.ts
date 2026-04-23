@@ -29,8 +29,8 @@ export async function loadMakiIcon(
 ): Promise<{ useImage: boolean; fallbackChar?: string }> {
   if (!iconName) return { useImage: false };
 
-  // Skip SVG loading on mobile — use text fallback instead (prevents Firefox Android crash)
-  if (typeof window !== 'undefined' && 'ontouchstart' in window) {
+  // Skip SVG loading on Android only — prevents WebGL crash on some Android GPUs
+  if (typeof window !== 'undefined' && /Android/i.test(navigator.userAgent)) {
     return { useImage: false, fallbackChar: fallbackChar || undefined };
   }
 
