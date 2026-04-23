@@ -104,6 +104,9 @@ export interface MarkerPosition {
 export interface MapViewHandle {
   getCenter: () => { lat: number; lng: number } | null;
   getMarkerPosition: () => MarkerPosition | null;
+}
+
+export interface MapActions {
   cycleStyle: () => void;
   locateMe: () => void;
 }
@@ -130,6 +133,7 @@ interface MapViewProps {
   onMarkerPlaced?: (pos: MarkerPosition) => void;
   enableAutocenter?: boolean;
   onMapLoaded?: () => void;
+  onMapReady?: (actions: MapActions) => void;
 }
 
 
@@ -140,7 +144,7 @@ interface MapViewProps {
 /*  Component                                                         */
 /* ------------------------------------------------------------------ */
 const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
-  { dayFilter = 'today', reports, shuttles = [], stories = [], pois = [], pioupiouStations = [], ffvlStations = [], windsMobiStations = [], geoSphereStations = [], brightSkyStations = [], meetups = [], markerConfig = {}, onShuttleClick, onPoiClick, onStoryClick, onMeetupClick, onMapMove, onMarkerPlaced, onObservationsClick, onMapLoaded, enableAutocenter = true },
+  { dayFilter = 'today', reports, shuttles = [], stories = [], pois = [], pioupiouStations = [], ffvlStations = [], windsMobiStations = [], geoSphereStations = [], brightSkyStations = [], meetups = [], markerConfig = {}, onShuttleClick, onPoiClick, onStoryClick, onMeetupClick, onMapMove, onMarkerPlaced, onObservationsClick, onMapLoaded, onMapReady, enableAutocenter = true },
   ref,
 ) {
   const mapContainer = useRef<HTMLDivElement>(null);
@@ -198,7 +202,7 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
   const gpsMarkerRef = useRef<mapboxgl.Marker | null>(null);
   const gpsWatchIdRef = useRef<number | null>(null);
 
-  // Expose getCenter, getMarkerPosition, cycleStyle, locateMe to parent via ref
+  // Expose getCenter and getMarkerPosition to parent via ref
   useImperativeHandle(ref, () => ({
     getCenter: () => {
       if (!mapRef.current) return null;
@@ -206,30 +210,6 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       return { lat: c.lat, lng: c.lng };
     },
     getMarkerPosition: () => markerPositionRef.current,
-    cycleStyle: () => {
-      const styles: MapStyleKey[] = ['outdoors', 'satellite', 'standard'];
-      setMapStyle((prev) => styles[(styles.indexOf(prev) + 1) % styles.length]);
-    },
-    locateMe: () => {
-      try {
-        if (!navigator?.geolocation) return;
-        navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            try {
-              if (pos?.coords) {
-                mapRef.current?.flyTo({ center: [pos.coords.longitude, pos.coords.latitude], zoom: 12, duration: 1500 });
-              }
-            } catch (e) {
-              console.debug('Geolocation: flyTo error', e);
-            }
-          },
-          (error) => { console.debug('Geolocation error:', error?.code, error?.message); },
-          { enableHighAccuracy: false, timeout: 8000 },
-        );
-      } catch (e) {
-        console.debug('Geolocation: getCurrentPosition error', e);
-      }
-    },
   }), []);
 
   /** Place (or move) the red placement marker at given coordinates */
@@ -1072,6 +1052,20 @@ const MapView = forwardRef<MapViewHandle, MapViewProps>(function MapView(
       console.debug('Geolocation: getCurrentPosition error', e);
     }
   }, [flyToLocation]);
+
+  const cycleStyle = useCallback(() => {
+    const styles: MapStyleKey[] = ['outdoors', 'satellite', 'standard'];
+    setMapStyle((prev) => styles[(styles.indexOf(prev) + 1) % styles.length]);
+  }, []);
+
+  // Fire onMapReady with stable action handles once the map is loaded
+  const onMapReadyRef = useRef(onMapReady);
+  onMapReadyRef.current = onMapReady;
+  useEffect(() => {
+    if (mapLoaded) {
+      onMapReadyRef.current?.({ cycleStyle, locateMe });
+    }
+  }, [mapLoaded, cycleStyle, locateMe]);
 
   // Auto-center on GPS when map first loads (only once, on initial load)
   useEffect(() => {
