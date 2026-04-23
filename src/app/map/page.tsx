@@ -20,7 +20,7 @@ import ObservationViewer from '@/components/observations/ObservationViewer';
 import type { WeatherReport, Shuttle, Poi, Story, Meetup } from '@/lib/types';
 import type { MapViewHandle, MapActions, MarkerPosition } from '@/components/map/MapView';
 import { MapErrorBoundary } from '@/components/map/MapErrorBoundary';
-import { isWebGLSupported } from '@/lib/webglCheck';
+import { detectWebGLSupport } from '@/lib/webglCheck';
 
 // Dynamic import MapView to avoid SSR issues with mapbox-gl
 const MapView = dynamic(() => import('@/components/map/MapView'), {
@@ -89,7 +89,11 @@ export default function MapPage() {
   // Determine map engine: Leaflet if WebGL fails or ?leaflet=true
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    setUseLeaflet(params.get('leaflet') === 'true' || !isWebGLSupported());
+    if (params.get('leaflet') === 'true') {
+      setUseLeaflet(true);
+      return;
+    }
+    detectWebGLSupport().then(supported => setUseLeaflet(!supported));
   }, []);
 
   // Fetch reports when selectedDay changes
