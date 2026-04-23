@@ -104,10 +104,19 @@ export default function MapPage() {
     };
   }, [selectedDay, fetchStories, fetchReportsByDay]);
 
-  // Weather stations are opt-in — user toggles them via button
+  // Toggle stations on/off
   const toggleStations = useCallback(() => {
     setStationsEnabled(prev => !prev);
     setStationsReady(prev => !prev);
+  }, []);
+
+  // Auto-enable stations after 5s
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setStationsEnabled(true);
+      setStationsReady(true);
+    }, 5000);
+    return () => clearTimeout(t);
   }, []);
 
   // Fetch shuttles once
