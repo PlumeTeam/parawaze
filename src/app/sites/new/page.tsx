@@ -11,7 +11,7 @@ import type { PoiType, PoiDifficulty, CreatePoiInput } from '@/lib/types';
 
 const POI_TYPES: { value: PoiType; label: string; emoji: string }[] = [
   { value: 'official', label: 'Site officiel', emoji: 'O' },
-  { value: 'wild', label: 'Site sauvage', emoji: 'S' },
+  { value: 'wild', label: 'Site sauvage', emoji: 'W' },
 ];
 
 const WIND_DIRS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
@@ -77,11 +77,10 @@ function NewSiteForm() {
         altitude_m: alt,
         latitude: lat ? parseFloat(lat) : undefined,
         longitude: lng ? parseFloat(lng) : undefined,
+        wind_orientations: windOrientations,
+        difficulty: difficulty as PoiDifficulty || undefined,
+        ffvl_approved: ffvlApproved,
       };
-
-      input.wind_orientations = windOrientations;
-      input.difficulty = difficulty as PoiDifficulty || undefined;
-      input.ffvl_approved = ffvlApproved;
 
       await createPoi(input);
       router.push('/sites');
@@ -91,8 +90,6 @@ function NewSiteForm() {
       setSubmitting(false);
     }
   };
-
-  const isFlightSite = true;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
@@ -173,69 +170,26 @@ function NewSiteForm() {
         />
       </div>
 
-      {/* Flight site specific fields */}
-      {isFlightSite && (
-        <>
-          {/* Wind orientations */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Orientations de vent favorables</label>
-            <div className="flex flex-wrap gap-2">
-              {WIND_DIRS.map((dir) => (
-                <button
-                  key={dir}
-                  type="button"
-                  onClick={() => toggleWind(dir)}
-                  className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
-                    windOrientations.includes(dir)
-                      ? 'bg-sky-500 text-white'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  {dir}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Difficulty */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Difficulté</label>
-            <div className="flex flex-wrap gap-2">
-              {DIFFICULTIES.map(({ value, label }) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setDifficulty(difficulty === value ? '' : value)}
-                  className={`px-3.5 py-1.5 rounded-full text-sm font-medium transition-all ${
-                    difficulty === value
-                      ? 'bg-sky-500 text-white'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* FFVL approved */}
-          <label className="flex items-center gap-3 cursor-pointer">
-            <div
-              className={`w-11 h-6 rounded-full relative transition-colors ${
-                ffvlApproved ? 'bg-sky-500' : 'bg-gray-300'
+      {/* Wind orientations */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Orientations de vent favorables</label>
+        <div className="flex flex-wrap gap-2">
+          {WIND_DIRS.map((dir) => (
+            <button
+              key={dir}
+              type="button"
+              onClick={() => toggleWind(dir)}
+              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
+                windOrientations.includes(dir)
+                  ? 'bg-sky-500 text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
-              onClick={() => setFfvlApproved(!ffvlApproved)}
             >
-              <div
-                className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                  ffvlApproved ? 'translate-x-5' : ''
-                }`}
-              />
-            </div>
-            <span className="text-sm text-gray-700">Approuvé FFVL</span>
-          </label>
-        </>
-      )}
+              {dir}
+            </button>
+          ))}
+        </div>
+      </div>
 
       {/* Error message */}
       {error && (

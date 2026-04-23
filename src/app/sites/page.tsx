@@ -18,8 +18,8 @@ const TAB_LABELS: Record<FilterTab, string> = {
 };
 
 const POI_TYPE_CONFIG: Record<PoiType, { label: string; emoji: string; color: string; bgColor: string }> = {
-  official: { label: 'Site officiel', emoji: 'O', color: 'text-sky-600', bgColor: 'bg-sky-100' },
-  wild: { label: 'Site sauvage', emoji: 'S', color: 'text-green-600', bgColor: 'bg-green-100' },
+  official: { label: 'Site officiel', emoji: 'O', color: 'text-blue-600', bgColor: 'bg-blue-100' },
+  wild: { label: 'Site sauvage', emoji: 'W', color: 'text-orange-600', bgColor: 'bg-orange-100' },
 };
 
 const DIFFICULTY_LABELS: Record<string, string> = {
