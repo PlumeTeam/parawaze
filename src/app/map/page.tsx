@@ -20,9 +20,18 @@ import ObservationViewer from '@/components/observations/ObservationViewer';
 import type { WeatherReport, Shuttle, Poi, Story, Meetup } from '@/lib/types';
 import type { MapViewHandle, MapActions, MarkerPosition } from '@/components/map/MapView';
 import { MapErrorBoundary } from '@/components/map/MapErrorBoundary';
+import { isWebGLSupported } from '@/lib/webglCheck';
 
-// Dynamic import MapView to avoid SSR issues with mapbox-gl
 const MapView = dynamic(() => import('@/components/map/MapView'), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center h-full bg-gray-100">
+      <LoadingSpinner size="lg" />
+    </div>
+  ),
+});
+
+const MapViewLeaflet = dynamic(() => import('@/components/map/MapViewLeaflet'), {
   ssr: false,
   loading: () => (
     <div className="flex items-center justify-center h-full bg-gray-100">
@@ -54,6 +63,7 @@ export default function MapPage() {
   const brightSkyStations = weatherStations.brightSky;
   const [stationsReady, setStationsReady] = useState(false);
 
+  const [useLeaflet, setUseLeaflet] = useState(false);
   const [selectedObservations, setSelectedObservations] = useState<WeatherReport[]>([]);
   const [selectedDay, setSelectedDay] = useState<DayFilter>('today');
   const [toast, setToast] = useState<string | null>(null);
@@ -73,6 +83,13 @@ export default function MapPage() {
       router.replace('/auth');
     }
   }, [user, authLoading, router]);
+
+  // Check WebGL support once on mount; fall back to Leaflet if broken or ?leaflet=true
+  useEffect(() => {
+    if (window.location.search.includes('leaflet=true') || !isWebGLSupported()) {
+      setUseLeaflet(true);
+    }
+  }, []);
 
   // Fetch reports when selectedDay changes
   useEffect(() => {
@@ -253,6 +270,19 @@ export default function MapPage() {
           ))}
         </div>
 
+        {useLeaflet ? (
+          <MapViewLeaflet
+            dayFilter={selectedDay}
+            reports={reports}
+            pois={pois}
+            shuttles={shuttles}
+            onObservationsClick={handleObservationsClick}
+            onPoiClick={handlePoiClick}
+            onShuttleClick={handleShuttleClick}
+            onMarkerPlaced={handleMarkerPlaced}
+            onMapLoaded={() => setMapLoading(false)}
+          />
+        ) : (
         <MapErrorBoundary>
         <MapView
           ref={mapRef}
@@ -269,12 +299,10 @@ export default function MapPage() {
           meetups={meetups.filter(m => {
             if (!m.meeting_time) return false;
             const meetTime = new Date(m.meeting_time);
-            // Get today's date boundaries in UTC to match database timestamps
             const now = new Date();
             const utcYear = now.getUTCFullYear();
             const utcMonth = now.getUTCMonth();
             const utcDate = now.getUTCDate();
-            // Create date boundaries at midnight UTC
             const todayStart = new Date(Date.UTC(utcYear, utcMonth, utcDate, 0, 0, 0));
             const tomorrowStart = new Date(Date.UTC(utcYear, utcMonth, utcDate + 1, 0, 0, 0));
             const dayAfter = new Date(Date.UTC(utcYear, utcMonth, utcDate + 2, 0, 0, 0));
@@ -290,12 +318,10 @@ export default function MapPage() {
           shuttles={shuttles.filter(s => {
             if (!s.departure_time) return false;
             const dep = new Date(s.departure_time);
-            // Get today's date boundaries in UTC to match database timestamps
             const now = new Date();
             const utcYear = now.getUTCFullYear();
             const utcMonth = now.getUTCMonth();
             const utcDate = now.getUTCDate();
-            // Create date boundaries at midnight UTC
             const todayStart = new Date(Date.UTC(utcYear, utcMonth, utcDate, 0, 0, 0));
             const tomorrowStart = new Date(Date.UTC(utcYear, utcMonth, utcDate + 1, 0, 0, 0));
             const dayAfter = new Date(Date.UTC(utcYear, utcMonth, utcDate + 2, 0, 0, 0));
@@ -314,6 +340,7 @@ export default function MapPage() {
           onMapReady={(actions) => { mapActionsRef.current = actions; }}
         />
         </MapErrorBoundary>
+        )}
 
         {/* Loading spinner overlay */}
         {mapLoading && (
@@ -347,8 +374,8 @@ export default function MapPage() {
         )}
       </main>
 
-      {/* Map controls — always exactly 12px above bottom nav */}
-      <div
+      {/* Map controls — Mapbox only (hidden in Leaflet fallback) */}
+      {!useLeaflet && <div
         className="fixed right-4 flex flex-col gap-2 z-40"
         style={{ bottom: navHeight + 12 }}
       >
@@ -373,7 +400,7 @@ export default function MapPage() {
             <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
           </svg>
         </button>
-      </div>
+      </div>}
 
       {/* Marker info label — shown when a marker is placed */}
       {lastMarker && (
