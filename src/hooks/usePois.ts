@@ -69,10 +69,7 @@ export function usePois() {
       wind_orientations: input.wind_orientations || [],
       difficulty: input.difficulty || null,
       ffvl_approved: input.ffvl_approved || false,
-      station_url: input.station_url || null,
-      station_provider: input.station_provider || null,
-      webcam_url: input.webcam_url || null,
-      webcam_orientation: input.webcam_orientation || null,
+
     };
 
     // Set PostGIS point if coordinates provided
