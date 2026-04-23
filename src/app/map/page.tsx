@@ -104,13 +104,10 @@ export default function MapPage() {
     };
   }, [selectedDay, fetchStories, fetchReportsByDay]);
 
-  // Defer weather station API calls by 5s so map tiles + core data load first
-  useEffect(() => {
-    const t = setTimeout(() => {
-      setStationsEnabled(true);
-      setStationsReady(true);
-    }, 5000);
-    return () => clearTimeout(t);
+  // Weather stations are opt-in — user toggles them via button
+  const toggleStations = useCallback(() => {
+    setStationsEnabled(prev => !prev);
+    setStationsReady(prev => !prev);
   }, []);
 
   // Fetch shuttles once
