@@ -11,7 +11,7 @@ import type { PoiType, PoiDifficulty, CreatePoiInput } from '@/lib/types';
 
 const POI_TYPES: { value: PoiType; label: string; emoji: string }[] = [
   { value: 'official', label: 'Site officiel', emoji: 'O' },
-  { value: 'wild', label: 'Site sauvage', emoji: 'S' },
+  { value: 'wild', label: 'Site sauvage', emoji: 'W' },
 ];
 
 const WIND_DIRS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];

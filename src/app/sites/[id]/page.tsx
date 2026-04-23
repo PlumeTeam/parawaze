@@ -12,7 +12,7 @@ import type { Poi, PoiType, PoiEdit, PoiComment } from '@/lib/types';
 
 const POI_TYPE_CONFIG: Record<PoiType, { label: string; emoji: string; color: string; bgColor: string }> = {
   official: { label: 'Site officiel', emoji: 'O', color: 'text-blue-600', bgColor: 'bg-blue-100' },
-  wild: { label: 'Site sauvage', emoji: 'S', color: 'text-orange-600', bgColor: 'bg-orange-100' },
+  wild: { label: 'Site sauvage', emoji: 'W', color: 'text-orange-600', bgColor: 'bg-orange-100' },
 };
 
 const DIFFICULTY_LABELS: Record<string, { label: string; color: string }> = {
@@ -661,6 +661,14 @@ export default function PoiDetailPage() {
   }
 
   const config = POI_TYPE_CONFIG[poi.poi_type];
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+  const isFlightSite = true;
+=======
+  const isFlightSite = poi.poi_type === 'official' || poi.poi_type === 'wild';
+>>>>>>> 245ea70 (feat(sites): replace POI types takeoff/landing/weather_station/webcam with official/wild)
+>>>>>>> 26e5e71 (feat(sites): replace POI types takeoff/landing/weather_station/webcam with official/wild)
   const coords = poi.location?.coordinates;
 
   return (

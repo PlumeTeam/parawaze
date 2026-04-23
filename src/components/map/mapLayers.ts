@@ -239,7 +239,7 @@ export function addLayersToMap(map: mapboxgl.Map, markerConfig: Record<string, M
           filter: ['==', ['get', 'poi_type'], 'wild'],
           layout: iconImageId
             ? { 'icon-image': iconImageId, 'icon-size': ['coalesce', ['get', 'icon_size'], 1.0] as any, 'icon-allow-overlap': true, 'icon-ignore-placement': true }
-            : { 'text-field': result.fallbackChar || 'S', 'text-size': 13, 'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'], 'text-allow-overlap': true, 'text-ignore-placement': true },
+            : { 'text-field': result.fallbackChar || 'W', 'text-size': 13, 'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'], 'text-allow-overlap': true, 'text-ignore-placement': true },
           paint: iconImageId
             ? { 'icon-color': ['coalesce', ['get', 'icon_color'], '#FFFFFF'] as any, 'icon-opacity': ['case', ['boolean', ['get', 'show_icon'], true], ['coalesce', ['get', 'icon_opacity'], 1.0], 0] as any }
             : { 'text-color': '#ffffff', 'text-halo-color': 'rgba(0,0,0,0.3)', 'text-halo-width': 1 },

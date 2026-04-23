@@ -170,7 +170,7 @@ export function buildPoiFeatures(pois: Poi[], config: Record<string, MarkerConfi
         properties: {
           id: p.id,
           poi_type: p.poi_type,
-          label: p.poi_type === 'official' ? 'O' : 'S',
+          label: p.poi_type === 'official' ? 'O' : 'W',
           color: fallbackColor,
           show_circle: cfg?.show_circle !== false,
           // Stroke
