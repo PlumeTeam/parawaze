@@ -56,8 +56,6 @@ export default function MapPage() {
   const { meetups } = useMeetups();
   const [stationsEnabled, setStationsEnabled] = useState(false);
 
-  // LITE MODE: skip all data loading for diagnosis
-  const skipData = liteMode;
   const { stations: weatherStations } = useWeatherStations({ enabled: stationsEnabled });
   const { getConfigsAsMap } = useMarkerConfig();
   const pioupiouStations = weatherStations.pioupiou;
