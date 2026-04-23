@@ -29,6 +29,11 @@ export async function loadMakiIcon(
 ): Promise<{ useImage: boolean; fallbackChar?: string }> {
   if (!iconName) return { useImage: false };
 
+  // Skip SVG loading on mobile — use text fallback instead (prevents Firefox Android crash)
+  if (typeof window !== 'undefined' && 'ontouchstart' in window) {
+    return { useImage: false, fallbackChar: fallbackChar || undefined };
+  }
+
   const customImageId = iconName + '-custom';
   if (makiIconCache.has(customImageId)) {
     return { useImage: makiIconCache.get(customImageId) === true, fallbackChar: fallbackChar || undefined };
