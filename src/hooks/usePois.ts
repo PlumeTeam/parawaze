@@ -69,7 +69,6 @@ export function usePois() {
       wind_orientations: input.wind_orientations || [],
       difficulty: input.difficulty || null,
       ffvl_approved: input.ffvl_approved || false,
-
     };
 
     // Set PostGIS point if coordinates provided
