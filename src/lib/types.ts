@@ -1,5 +1,5 @@
 // POI types
-export type PoiType = 'landing' | 'takeoff' | 'weather_station' | 'webcam';
+export type PoiType = 'official' | 'wild';
 export type PoiDifficulty = 'easy' | 'moderate' | 'difficult' | 'expert';
 
 export interface Poi {
@@ -13,10 +13,6 @@ export interface Poi {
   wind_orientations: string[];
   difficulty: PoiDifficulty | null;
   ffvl_approved: boolean;
-  station_url: string | null;
-  station_provider: string | null;
-  webcam_url: string | null;
-  webcam_orientation: string | null;
   total_rating_sum: number;
   total_votes: number;
   is_active: boolean;
@@ -68,10 +64,6 @@ export interface CreatePoiInput {
   wind_orientations?: string[];
   difficulty?: PoiDifficulty;
   ffvl_approved?: boolean;
-  station_url?: string;
-  station_provider?: string;
-  webcam_url?: string;
-  webcam_orientation?: string;
 }
 
 export type WindDirection = 'N' | 'NE' | 'E' | 'SE' | 'S' | 'SW' | 'W' | 'NW' | 'variable';

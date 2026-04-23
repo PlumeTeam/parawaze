@@ -162,24 +162,18 @@ export function buildPoiFeatures(pois: Poi[], config: Record<string, MarkerConfi
     .filter((p) => p.location && p.location.coordinates && p.location.coordinates.length >= 2)
     .map((p) => {
       const typeKey =
-        p.poi_type === 'landing' ? 'site_landing' :
-        p.poi_type === 'takeoff' ? 'site_takeoff' :
-        p.poi_type === 'weather_station' ? 'weather_station' : null;
+        p.poi_type === 'official' ? 'site_official' :
+        p.poi_type === 'wild' ? 'site_wild' : null;
       const cfg = typeKey ? config[typeKey] : null;
       const fallbackColor =
-        p.poi_type === 'landing' ? '#22c55e' :
-        p.poi_type === 'takeoff' ? '#3b82f6' :
-        p.poi_type === 'weather_station' ? '#eab308' : '#a855f7';
+        p.poi_type === 'official' ? '#0ea5e9' : '#22c55e';
       return {
         type: 'Feature' as const,
         geometry: { type: 'Point' as const, coordinates: p.location!.coordinates },
         properties: {
           id: p.id,
           poi_type: p.poi_type,
-          label:
-            p.poi_type === 'landing' ? 'A' :
-            p.poi_type === 'takeoff' ? 'D' :
-            p.poi_type === 'weather_station' ? 'M' : 'W',
+          label: p.poi_type === 'official' ? 'O' : 'S',
           color: fallbackColor,
           show_circle: cfg?.show_circle !== false,
           // Stroke

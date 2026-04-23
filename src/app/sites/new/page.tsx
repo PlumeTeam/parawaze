@@ -10,10 +10,8 @@ import LoadingSpinner from '@/components/shared/LoadingSpinner';
 import type { PoiType, PoiDifficulty, CreatePoiInput } from '@/lib/types';
 
 const POI_TYPES: { value: PoiType; label: string; emoji: string }[] = [
-  { value: 'takeoff', label: 'Décollage', emoji: 'D' },
-  { value: 'landing', label: 'Atterrissage', emoji: 'A' },
-  { value: 'weather_station', label: 'Balise météo', emoji: 'M' },
-  { value: 'webcam', label: 'Webcam', emoji: 'W' },
+  { value: 'official', label: 'Site officiel', emoji: 'O' },
+  { value: 'wild', label: 'Site sauvage', emoji: 'S' },
 ];
 
 const WIND_DIRS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
@@ -40,17 +38,13 @@ function NewSiteForm() {
   const llng = searchParams.get('llng');
   const lalt = searchParams.get('lalt');
 
-  const [poiType, setPoiType] = useState<PoiType>(tlat ? 'takeoff' : 'landing');
+  const [poiType, setPoiType] = useState<PoiType>('official');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [altitude, setAltitude] = useState(tlat ? (talt || '') : (lalt || ''));
+  const [altitude, setAltitude] = useState(talt || lalt || '');
   const [windOrientations, setWindOrientations] = useState<string[]>([]);
   const [difficulty, setDifficulty] = useState<PoiDifficulty | ''>('');
   const [ffvlApproved, setFfvlApproved] = useState(false);
-  const [stationProvider, setStationProvider] = useState('');
-  const [stationUrl, setStationUrl] = useState('');
-  const [webcamUrl, setWebcamUrl] = useState('');
-  const [webcamOrientation, setWebcamOrientation] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -85,19 +79,9 @@ function NewSiteForm() {
         longitude: lng ? parseFloat(lng) : undefined,
       };
 
-      if (poiType === 'takeoff' || poiType === 'landing') {
-        input.wind_orientations = windOrientations;
-        input.difficulty = difficulty as PoiDifficulty || undefined;
-        input.ffvl_approved = ffvlApproved;
-      }
-      if (poiType === 'weather_station') {
-        input.station_provider = stationProvider.trim() || undefined;
-        input.station_url = stationUrl.trim() || undefined;
-      }
-      if (poiType === 'webcam') {
-        input.webcam_url = webcamUrl.trim() || undefined;
-        input.webcam_orientation = webcamOrientation.trim() || undefined;
-      }
+      input.wind_orientations = windOrientations;
+      input.difficulty = difficulty as PoiDifficulty || undefined;
+      input.ffvl_approved = ffvlApproved;
 
       await createPoi(input);
       router.push('/sites');
@@ -108,7 +92,7 @@ function NewSiteForm() {
     }
   };
 
-  const isFlightSite = poiType === 'takeoff' || poiType === 'landing';
+  const isFlightSite = true;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
@@ -250,58 +234,6 @@ function NewSiteForm() {
             </div>
             <span className="text-sm text-gray-700">Approuvé FFVL</span>
           </label>
-        </>
-      )}
-
-      {/* Weather station fields */}
-      {poiType === 'weather_station' && (
-        <>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Fournisseur</label>
-            <input
-              type="text"
-              value={stationProvider}
-              onChange={(e) => setStationProvider(e.target.value)}
-              placeholder="Ex: Holfuy, Pioupiou, FFVL..."
-              className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:border-sky-500 focus:ring-1 focus:ring-sky-500 outline-none text-sm"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">URL de la station</label>
-            <input
-              type="url"
-              value={stationUrl}
-              onChange={(e) => setStationUrl(e.target.value)}
-              placeholder="https://..."
-              className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:border-sky-500 focus:ring-1 focus:ring-sky-500 outline-none text-sm"
-            />
-          </div>
-        </>
-      )}
-
-      {/* Webcam fields */}
-      {poiType === 'webcam' && (
-        <>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">URL de la webcam</label>
-            <input
-              type="url"
-              value={webcamUrl}
-              onChange={(e) => setWebcamUrl(e.target.value)}
-              placeholder="https://..."
-              className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:border-sky-500 focus:ring-1 focus:ring-sky-500 outline-none text-sm"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Orientation de la webcam</label>
-            <input
-              type="text"
-              value={webcamOrientation}
-              onChange={(e) => setWebcamOrientation(e.target.value)}
-              placeholder="Ex: Nord, panoramique..."
-              className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:border-sky-500 focus:ring-1 focus:ring-sky-500 outline-none text-sm"
-            />
-          </div>
         </>
       )}
 

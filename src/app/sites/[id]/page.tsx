@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { ArrowLeft, Star, ExternalLink, MapPin, Mountain, Wind, Shield, User, Pencil, ChevronDown, ChevronUp, ThumbsUp, ThumbsDown, Send, MessageCircle, History, X } from 'lucide-react';
+import { ArrowLeft, Star, MapPin, Mountain, Wind, Shield, User, Pencil, ChevronDown, ChevronUp, ThumbsUp, ThumbsDown, Send, MessageCircle, History, X } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { usePois } from '@/hooks/usePois';
 import BottomNav from '@/components/shared/BottomNav';
@@ -11,10 +11,8 @@ import { MAPBOX_TOKEN, MAP_STYLES } from '@/lib/mapbox';
 import type { Poi, PoiType, PoiEdit, PoiComment } from '@/lib/types';
 
 const POI_TYPE_CONFIG: Record<PoiType, { label: string; emoji: string; color: string; bgColor: string }> = {
-  landing: { label: 'Atterrissage', emoji: 'A', color: 'text-green-600', bgColor: 'bg-green-100' },
-  takeoff: { label: 'D\u00e9collage', emoji: 'D', color: 'text-blue-600', bgColor: 'bg-blue-100' },
-  weather_station: { label: 'Balise m\u00e9t\u00e9o', emoji: 'M', color: 'text-yellow-600', bgColor: 'bg-yellow-100' },
-  webcam: { label: 'Webcam', emoji: 'W', color: 'text-purple-600', bgColor: 'bg-purple-100' },
+  official: { label: 'Site officiel', emoji: 'O', color: 'text-sky-600', bgColor: 'bg-sky-100' },
+  wild: { label: 'Site sauvage', emoji: 'S', color: 'text-green-600', bgColor: 'bg-green-100' },
 };
 
 const DIFFICULTY_LABELS: Record<string, { label: string; color: string }> = {
@@ -663,7 +661,7 @@ export default function PoiDetailPage() {
   }
 
   const config = POI_TYPE_CONFIG[poi.poi_type];
-  const isFlightSite = poi.poi_type === 'takeoff' || poi.poi_type === 'landing';
+  const isFlightSite = true;
   const coords = poi.location?.coordinates;
 
   return (
@@ -803,58 +801,6 @@ export default function PoiDetailPage() {
             <p className="text-sm text-gray-600">
               {poi.difficulty ? (DIFFICULTY_LABELS[poi.difficulty]?.label || poi.difficulty) : <span className="italic text-gray-400">Non d&eacute;finie</span>}
             </p>
-          </div>
-        )}
-
-        {/* Weather station info */}
-        {poi.poi_type === 'weather_station' && (poi.station_url || poi.station_provider) && (
-          <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-            <h3 className="text-sm font-semibold text-gray-700 mb-2">Station m&eacute;t&eacute;o</h3>
-            {poi.station_provider && (
-              <p className="text-sm text-gray-600 mb-2">Fournisseur : {poi.station_provider}</p>
-            )}
-            {poi.station_url && (
-              <a
-                href={poi.station_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-sm text-sky-500 font-medium hover:text-sky-600"
-              >
-                <ExternalLink className="h-4 w-4" />
-                Voir les donn&eacute;es
-              </a>
-            )}
-          </div>
-        )}
-
-        {/* Webcam */}
-        {poi.poi_type === 'webcam' && (
-          <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-            <h3 className="text-sm font-semibold text-gray-700 mb-2">Webcam</h3>
-            {poi.webcam_orientation && (
-              <p className="text-sm text-gray-600 mb-2">Orientation : {poi.webcam_orientation}</p>
-            )}
-            {poi.webcam_url && (
-              <>
-                <div className="rounded-lg overflow-hidden mb-3 bg-gray-100">
-                  <iframe
-                    src={poi.webcam_url}
-                    className="w-full h-48 border-0"
-                    title="Webcam"
-                    sandbox="allow-scripts allow-same-origin"
-                  />
-                </div>
-                <a
-                  href={poi.webcam_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-sm text-sky-500 font-medium hover:text-sky-600"
-                >
-                  <ExternalLink className="h-4 w-4" />
-                  Ouvrir en plein &eacute;cran
-                </a>
-              </>
-            )}
           </div>
         )}
 

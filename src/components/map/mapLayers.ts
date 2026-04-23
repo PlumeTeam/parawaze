@@ -202,21 +202,21 @@ export function addLayersToMap(map: mapboxgl.Map, markerConfig: Record<string, M
     });
   }
 
-  // POI takeoff Maki icons inside circles
-  const takeoffIconName = markerConfig['site_takeoff']?.icon_name;
-  const takeoffFallback = markerConfig['site_takeoff']?.icon_unicode || undefined;
-  if (takeoffIconName && !map.getLayer('parawaze-takeoff-icon')) {
-    loadMakiIcon(map, takeoffIconName, takeoffFallback).then((result) => {
-      if (!map.getLayer('parawaze-takeoff-icon')) {
-        const iconImageId = result.useImage ? takeoffIconName + '-custom' : undefined;
+  // POI official Maki icons inside circles
+  const officialIconName = markerConfig['site_official']?.icon_name;
+  const officialFallback = markerConfig['site_official']?.icon_unicode || undefined;
+  if (officialIconName && !map.getLayer('parawaze-official-icon')) {
+    loadMakiIcon(map, officialIconName, officialFallback).then((result) => {
+      if (!map.getLayer('parawaze-official-icon')) {
+        const iconImageId = result.useImage ? officialIconName + '-custom' : undefined;
         map.addLayer({
-          id: 'parawaze-takeoff-icon',
+          id: 'parawaze-official-icon',
           type: 'symbol',
           source: SRC_POIS,
-          filter: ['==', ['get', 'poi_type'], 'takeoff'],
+          filter: ['==', ['get', 'poi_type'], 'official'],
           layout: iconImageId
             ? { 'icon-image': iconImageId, 'icon-size': ['coalesce', ['get', 'icon_size'], 1.0] as any, 'icon-allow-overlap': true, 'icon-ignore-placement': true }
-            : { 'text-field': result.fallbackChar || 'T', 'text-size': 13, 'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'], 'text-allow-overlap': true, 'text-ignore-placement': true },
+            : { 'text-field': result.fallbackChar || 'O', 'text-size': 13, 'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'], 'text-allow-overlap': true, 'text-ignore-placement': true },
           paint: iconImageId
             ? { 'icon-color': ['coalesce', ['get', 'icon_color'], '#FFFFFF'] as any, 'icon-opacity': ['case', ['boolean', ['get', 'show_icon'], true], ['coalesce', ['get', 'icon_opacity'], 1.0], 0] as any }
             : { 'text-color': '#ffffff', 'text-halo-color': 'rgba(0,0,0,0.3)', 'text-halo-width': 1 },
@@ -225,21 +225,21 @@ export function addLayersToMap(map: mapboxgl.Map, markerConfig: Record<string, M
     });
   }
 
-  // POI landing Maki icons inside circles
-  const landingIconName = markerConfig['site_landing']?.icon_name;
-  const landingFallback = markerConfig['site_landing']?.icon_unicode;
-  if (landingIconName && !map.getLayer('parawaze-landing-icon')) {
-    loadMakiIcon(map, landingIconName, landingFallback).then((result) => {
-      if (!map.getLayer('parawaze-landing-icon')) {
-        const iconImageId = result.useImage ? landingIconName + '-custom' : undefined;
+  // POI wild Maki icons inside circles
+  const wildIconName = markerConfig['site_wild']?.icon_name;
+  const wildFallback = markerConfig['site_wild']?.icon_unicode;
+  if (wildIconName && !map.getLayer('parawaze-wild-icon')) {
+    loadMakiIcon(map, wildIconName, wildFallback).then((result) => {
+      if (!map.getLayer('parawaze-wild-icon')) {
+        const iconImageId = result.useImage ? wildIconName + '-custom' : undefined;
         map.addLayer({
-          id: 'parawaze-landing-icon',
+          id: 'parawaze-wild-icon',
           type: 'symbol',
           source: SRC_POIS,
-          filter: ['==', ['get', 'poi_type'], 'landing'],
+          filter: ['==', ['get', 'poi_type'], 'wild'],
           layout: iconImageId
             ? { 'icon-image': iconImageId, 'icon-size': ['coalesce', ['get', 'icon_size'], 1.0] as any, 'icon-allow-overlap': true, 'icon-ignore-placement': true }
-            : { 'text-field': result.fallbackChar || 'L', 'text-size': 13, 'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'], 'text-allow-overlap': true, 'text-ignore-placement': true },
+            : { 'text-field': result.fallbackChar || 'S', 'text-size': 13, 'text-font': ['DIN Pro Bold', 'Arial Unicode MS Bold'], 'text-allow-overlap': true, 'text-ignore-placement': true },
           paint: iconImageId
             ? { 'icon-color': ['coalesce', ['get', 'icon_color'], '#FFFFFF'] as any, 'icon-opacity': ['case', ['boolean', ['get', 'show_icon'], true], ['coalesce', ['get', 'icon_opacity'], 1.0], 0] as any }
             : { 'text-color': '#ffffff', 'text-halo-color': 'rgba(0,0,0,0.3)', 'text-halo-width': 1 },
