@@ -87,10 +87,15 @@ export default function MapPage() {
     }
   }, [user, authLoading, router]);
 
-  // Determine map engine: Leaflet if WebGL fails or ?leaflet=true
+  // Determine map engine: Leaflet for Android (WebGL crashes), or ?leaflet=true
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('leaflet') === 'true') {
+      setUseLeaflet(true);
+      return;
+    }
+    // Force Leaflet on Android — Mapbox WebGL crashes many Android devices
+    if (/Android/i.test(navigator.userAgent)) {
       setUseLeaflet(true);
       return;
     }
